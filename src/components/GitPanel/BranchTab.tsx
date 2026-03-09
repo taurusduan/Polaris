@@ -19,6 +19,7 @@ import {
   Plus,
   X,
   Trash2,
+  Edit2,
 } from 'lucide-react'
 import { useGitStore } from '@/stores/gitStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
@@ -48,6 +49,7 @@ export function BranchTab() {
   const checkoutBranch = useGitStore((s) => s.checkoutBranch)
   const createBranch = useGitStore((s) => s.createBranch)
   const deleteBranch = useGitStore((s) => s.deleteBranch)
+  const renameBranch = useGitStore((s) => s.renameBranch)
   const refreshStatus = useGitStore((s) => s.refreshStatus)
   const stashSave = useGitStore((s) => s.stashSave)
   const currentWorkspace = useWorkspaceStore((s) => s.getCurrentWorkspace())
@@ -225,6 +227,60 @@ export function BranchTab() {
     setShowDeleteDialog(true)
   }, [])
 
+  // 重命名分支状态
+  const [showRenameDialog, setShowRenameDialog] = useState(false)
+  const [branchToRename, setBranchToRename] = useState<string | null>(null)
+  const [renamedBranchName, setRenamedBranchName] = useState('')
+  const [isRenaming, setIsRenaming] = useState(false)
+
+  const handleRenameBranch = useCallback(async () => {
+    if (!currentWorkspace || !branchToRename || !renamedBranchName.trim()) return
+
+    // 验证分支名称
+    const branchName = renamedBranchName.trim()
+    const invalidChars = /[\s~^:?*\[\\]/
+    if (invalidChars.test(branchName)) {
+      toast.error(t('errors.renameBranchFailed'), t('branch.invalidName'))
+      return
+    }
+
+    // 检查新名称是否与旧名称相同
+    if (branchName === branchToRename) {
+      toast.error(t('errors.renameBranchFailed'), t('branch.sameName'))
+      return
+    }
+
+    // 检查新名称是否已存在
+    if (branches.some(b => b.name === branchName)) {
+      toast.error(t('errors.renameBranchFailed'), t('branch.alreadyExists'))
+      return
+    }
+
+    setIsRenaming(true)
+    setError(null)
+    try {
+      await renameBranch(currentWorkspace.path, branchToRename, branchName)
+      await loadBranches()
+      await refreshStatus(currentWorkspace.path)
+      setShowRenameDialog(false)
+      setBranchToRename(null)
+      setRenamedBranchName('')
+      toast.success(t('branch.renameSuccess', { oldBranch: branchToRename, newBranch: branchName }))
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      setError(errorMsg)
+      toast.error(t('errors.renameBranchFailed'), errorMsg)
+    } finally {
+      setIsRenaming(false)
+    }
+  }, [currentWorkspace, branchToRename, renamedBranchName, branches, renameBranch, loadBranches, refreshStatus, toast])
+
+  const openRenameDialog = useCallback((branchName: string) => {
+    setBranchToRename(branchName)
+    setRenamedBranchName(branchName)
+    setShowRenameDialog(true)
+  }, [])
+
   const localBranches = branches.filter((b) => !b.isRemote)
   const remoteBranches = branches.filter((b) => b.isRemote)
 
@@ -295,6 +351,19 @@ export function BranchTab() {
           </div>
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {!isRemote && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                openRenameDialog(branch.name)
+              }}
+              disabled={isSwitching || isRenaming}
+              className="p-1 text-text-tertiary hover:text-primary hover:bg-primary/10 rounded transition-colors disabled:opacity-50"
+              title={t('branch.rename')}
+            >
+              <Edit2 size={14} />
+            </button>
+          )}
           {!isRemote && !isCurrent && (
             <button
               onClick={(e) => {
@@ -579,6 +648,81 @@ export function BranchTab() {
               >
                 {isDeleting && <Loader2 size={14} className="animate-spin" />}
                 {forceDelete ? t('branch.forceDelete') : t('branch.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 重命名分支弹窗 */}
+      {showRenameDialog && branchToRename && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background-elevated rounded-xl p-6 w-full max-w-md border border-border shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-text-primary">
+                {t('branch.rename')}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowRenameDialog(false)
+                  setBranchToRename(null)
+                  setRenamedBranchName('')
+                }}
+                className="p-1 text-text-tertiary hover:text-text-primary hover:bg-background-hover rounded transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-text-secondary mb-1.5">
+                  {t('branch.currentName')}
+                </label>
+                <div className="px-3 py-2 text-sm bg-background-surface border border-border rounded-lg text-text-tertiary">
+                  {branchToRename}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-text-secondary mb-1.5">
+                  {t('branch.newNameLabel')}
+                </label>
+                <input
+                  type="text"
+                  value={renamedBranchName}
+                  onChange={(e) => setRenamedBranchName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleRenameBranch()
+                    }
+                  }}
+                  placeholder={t('branch.newNamePlaceholder')}
+                  className="w-full px-3 py-2 text-sm bg-background-surface border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowRenameDialog(false)
+                  setBranchToRename(null)
+                  setRenamedBranchName('')
+                }}
+                disabled={isRenaming}
+                className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-background-hover rounded-lg transition-colors disabled:opacity-50"
+              >
+                {t('cancel', { ns: 'common' })}
+              </button>
+              <button
+                onClick={handleRenameBranch}
+                disabled={isRenaming || !renamedBranchName.trim() || renamedBranchName === branchToRename}
+                className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isRenaming && <Loader2 size={14} className="animate-spin" />}
+                {t('branch.rename')}
               </button>
             </div>
           </div>

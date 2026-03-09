@@ -128,6 +128,17 @@ pub fn git_delete_branch(
     GitService::delete_branch(&path, &name, force).map_err(GitError::from)
 }
 
+/// 重命名分支
+#[tauri::command]
+pub fn git_rename_branch(
+    workspacePath: String,
+    oldName: String,
+    newName: String,
+) -> Result<(), GitError> {
+    let path = PathBuf::from(workspacePath);
+    GitService::rename_branch(&path, &oldName, &newName).map_err(GitError::from)
+}
+
 /// 提交变更
 #[tauri::command]
 pub async fn git_commit_changes(

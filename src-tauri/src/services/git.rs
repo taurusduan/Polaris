@@ -1214,6 +1214,51 @@ impl GitService {
         Ok(())
     }
 
+    /// 重命名分支
+    pub fn rename_branch(
+        path: &Path,
+        old_name: &str,
+        new_name: &str,
+    ) -> Result<(), GitServiceError> {
+        let repo = Self::open_repository(path)?;
+
+        // 验证新分支名称
+        let invalid_chars = /[\s~^:?*\[\\]/;
+        if invalid_chars.is_match(new_name) {
+            return Err(GitServiceError::CLIError(
+                format!("Invalid branch name '{}': contains illegal characters", new_name)
+            ));
+        }
+
+        // 检查新名称是否已存在
+        if repo.find_branch(new_name, BranchType::Local).is_ok() {
+            return Err(GitServiceError::CLIError(
+                format!("Branch '{}' already exists", new_name)
+            ));
+        }
+
+        // 查找要重命名的分支
+        let mut branch = repo.find_branch(old_name, BranchType::Local)?;
+
+        // 检查是否为当前分支
+        let current_branch = repo.head()
+            .ok()
+            .and_then(|h| h.shorthand().map(|s| s.to_string()))
+            .unwrap_or_default();
+
+        let is_current = old_name == current_branch;
+
+        // 执行重命名
+        branch.rename(new_name, true)?;
+
+        // 如果是当前分支，更新 HEAD 引用
+        if is_current {
+            repo.set_head(&format!("refs/heads/{}", new_name))?;
+        }
+
+        Ok(())
+    }
+
     // ========================================================================
     // 提交操作
     // ========================================================================

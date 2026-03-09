@@ -77,6 +77,7 @@ interface GitState {
   initRepository: (workspacePath: string, initialBranch?: string) => Promise<string>
   createBranch: (workspacePath: string, name: string, checkout?: boolean) => Promise<void>
   deleteBranch: (workspacePath: string, name: string, force?: boolean) => Promise<void>
+  renameBranch: (workspacePath: string, oldName: string, newName: string) => Promise<void>
   checkoutBranch: (workspacePath: string, name: string) => Promise<void>
   commitChanges: (workspacePath: string, message: string, stageAll?: boolean, selectedFiles?: string[]) => Promise<string>
   stageFile: (workspacePath: string, filePath: string) => Promise<void>
@@ -354,6 +355,28 @@ export const useGitStore = create<GitState>((set, get) => ({
       })
 
       // 刷新分支列表
+      await get().getBranches(workspacePath)
+
+      set({ isLoading: false })
+    } catch (err) {
+      set({ error: parseGitError(err), isLoading: false })
+      throw err
+    }
+  },
+
+  // 重命名分支
+  async renameBranch(workspacePath: string, oldName: string, newName: string) {
+    set({ isLoading: true, error: null })
+
+    try {
+      await invoke('git_rename_branch', {
+        workspacePath,
+        oldName,
+        newName,
+      })
+
+      // 刷新状态和分支列表
+      await get().refreshStatus(workspacePath)
       await get().getBranches(workspacePath)
 
       set({ isLoading: false })
