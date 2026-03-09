@@ -20,11 +20,13 @@ import {
   X,
   Trash2,
   Edit2,
+  GitMerge,
+  AlertCircle,
 } from 'lucide-react'
 import { useGitStore } from '@/stores/gitStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useToastStore } from '@/stores/toastStore'
-import type { GitBranch } from '@/types/git'
+import type { GitBranch, GitMergeResult } from '@/types/git'
 
 type SwitchState =
   | { type: 'idle' }
@@ -50,6 +52,7 @@ export function BranchTab() {
   const createBranch = useGitStore((s) => s.createBranch)
   const deleteBranch = useGitStore((s) => s.deleteBranch)
   const renameBranch = useGitStore((s) => s.renameBranch)
+  const mergeBranch = useGitStore((s) => s.mergeBranch)
   const refreshStatus = useGitStore((s) => s.refreshStatus)
   const stashSave = useGitStore((s) => s.stashSave)
   const currentWorkspace = useWorkspaceStore((s) => s.getCurrentWorkspace())
@@ -281,6 +284,54 @@ export function BranchTab() {
     setShowRenameDialog(true)
   }, [])
 
+  // 合并分支状态
+  const [showMergeDialog, setShowMergeDialog] = useState(false)
+  const [branchToMerge, setBranchToMerge] = useState<string | null>(null)
+  const [isMerging, setIsMerging] = useState(false)
+  const [noFF, setNoFF] = useState(false)
+  const [mergeResult, setMergeResult] = useState<GitMergeResult | null>(null)
+
+  const handleMergeBranch = useCallback(async () => {
+    if (!currentWorkspace || !branchToMerge) return
+
+    setIsMerging(true)
+    setError(null)
+    setMergeResult(null)
+    try {
+      const result = await mergeBranch(currentWorkspace.path, branchToMerge, noFF)
+      setMergeResult(result)
+
+      if (result.success) {
+        await loadBranches()
+        toast.success(
+          t('branch.mergeSuccess', { source: branchToMerge, target: status?.branch || 'current' }),
+          result.fastForward
+            ? t('branch.mergeFastForward')
+            : t('branch.mergeCommits', { count: result.mergedCommits })
+        )
+        // 成功后关闭弹窗
+        if (!result.hasConflicts) {
+          setShowMergeDialog(false)
+          setBranchToMerge(null)
+          setNoFF(false)
+        }
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      setError(errorMsg)
+      toast.error(t('errors.mergeBranchFailed'), errorMsg)
+    } finally {
+      setIsMerging(false)
+    }
+  }, [currentWorkspace, branchToMerge, noFF, mergeBranch, loadBranches, toast, status?.branch])
+
+  const openMergeDialog = useCallback((branchName: string) => {
+    setBranchToMerge(branchName)
+    setNoFF(false)
+    setMergeResult(null)
+    setShowMergeDialog(true)
+  }, [])
+
   const localBranches = branches.filter((b) => !b.isRemote)
   const remoteBranches = branches.filter((b) => b.isRemote)
 
@@ -362,6 +413,19 @@ export function BranchTab() {
               title={t('branch.rename')}
             >
               <Edit2 size={14} />
+            </button>
+          )}
+          {!isRemote && !isCurrent && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                openMergeDialog(branch.name)
+              }}
+              disabled={isSwitching || isMerging}
+              className="p-1 text-text-tertiary hover:text-success hover:bg-success/10 rounded transition-colors disabled:opacity-50"
+              title={t('branch.merge')}
+            >
+              <GitMerge size={14} />
             </button>
           )}
           {!isRemote && !isCurrent && (
@@ -723,6 +787,126 @@ export function BranchTab() {
               >
                 {isRenaming && <Loader2 size={14} className="animate-spin" />}
                 {t('branch.rename')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 合并分支弹窗 */}
+      {showMergeDialog && branchToMerge && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background-elevated rounded-xl p-6 w-full max-w-md border border-border shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-text-primary">
+                {t('branch.merge')}
+              </h2>
+              <button
+                onClick={() => {
+                  if (!isMerging) {
+                    setShowMergeDialog(false)
+                    setBranchToMerge(null)
+                    setNoFF(false)
+                    setMergeResult(null)
+                  }
+                }}
+                disabled={isMerging}
+                className="p-1 text-text-tertiary hover:text-text-primary hover:bg-background-hover rounded transition-colors disabled:opacity-50"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="px-4 py-3 bg-background-surface border border-border rounded-lg">
+                <div className="text-sm text-text-secondary mb-1">{t('branch.mergeSource')}</div>
+                <div className="flex items-center gap-2">
+                  <GitBranchIcon size={14} className="text-success" />
+                  <span className="text-sm font-medium text-text-primary">{branchToMerge}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center text-text-tertiary">
+                <span className="text-2xl">↓</span>
+              </div>
+
+              <div className="px-4 py-3 bg-primary/5 border border-primary/20 rounded-lg">
+                <div className="text-sm text-text-secondary mb-1">{t('branch.mergeTarget')}</div>
+                <div className="flex items-center gap-2">
+                  <Check size={14} className="text-primary" />
+                  <span className="text-sm font-medium text-text-primary">{status?.branch || 'current'}</span>
+                  <span className="text-xs px-1.5 py-0.5 bg-primary/20 text-primary rounded">
+                    {t('branch.current')}
+                  </span>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={noFF}
+                  onChange={(e) => setNoFF(e.target.checked)}
+                  disabled={isMerging}
+                  className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50"
+                />
+                <div>
+                  <span className="text-sm text-text-secondary">
+                    {t('branch.mergeNoFF')}
+                  </span>
+                  <span className="text-xs text-text-tertiary block">
+                    {t('branch.mergeNoFFDesc')}
+                  </span>
+                </div>
+              </label>
+
+              {/* 合并结果 - 冲突 */}
+              {mergeResult?.hasConflicts && (
+                <div className="px-3 py-2 bg-warning/10 border border-warning/30 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={16} className="text-warning shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-sm font-medium text-warning">
+                        {t('branch.mergeConflicts')}
+                      </div>
+                      <div className="text-xs text-warning/70 mt-1">
+                        {t('branch.mergeConflictsDesc', { count: mergeResult.conflicts.length })}
+                      </div>
+                      <div className="mt-2 max-h-24 overflow-y-auto">
+                        {mergeResult.conflicts.map((file, idx) => (
+                          <div key={idx} className="text-xs text-text-tertiary font-mono">
+                            {file}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => {
+                  if (!isMerging) {
+                    setShowMergeDialog(false)
+                    setBranchToMerge(null)
+                    setNoFF(false)
+                    setMergeResult(null)
+                  }
+                }}
+                disabled={isMerging}
+                className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-background-hover rounded-lg transition-colors disabled:opacity-50"
+              >
+                {t('cancel', { ns: 'common' })}
+              </button>
+              <button
+                onClick={handleMergeBranch}
+                disabled={isMerging}
+                className="px-4 py-2 text-sm bg-success text-white rounded-lg hover:bg-success/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isMerging && <Loader2 size={14} className="animate-spin" />}
+                <GitMerge size={14} />
+                {t('branch.merge')}
               </button>
             </div>
           </div>

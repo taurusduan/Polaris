@@ -4,7 +4,7 @@
  * 提供所有 Git 操作的核心功能实现
  */
 
-use crate::models::git::*;
+use crate::models::git::{self, *};
 use git2::{
     BranchType, Diff, DiffDelta, DiffOptions, Oid, Repository, StatusOptions, IndexAddOption,
 };
@@ -1257,6 +1257,156 @@ impl GitService {
         }
 
         Ok(())
+    }
+
+    /// 合并分支
+    pub fn merge_branch(
+        path: &Path,
+        source_branch: &str,
+        no_ff: bool,
+    ) -> Result<GitMergeResult, GitServiceError> {
+        info!("开始合并分支: {} -> 当前分支", source_branch);
+
+        let repo = Self::open_repository(path)?;
+
+        // 检查是否有正在进行的合并
+        if repo.index()?.has_conflicts() {
+            return Err(GitServiceError::MergeInProgress);
+        }
+
+        // 获取当前分支
+        let current_branch = repo.head()
+            .ok()
+            .and_then(|h| h.shorthand().map(|s| s.to_string()))
+            .unwrap_or_else(|| "HEAD".to_string());
+
+        // 不能合并到自身
+        if current_branch == source_branch {
+            return Err(GitServiceError::CLIError(
+                format!("Cannot merge branch '{}' into itself", source_branch)
+            ));
+        }
+
+        // 获取源分支的引用
+        let source_ref = repo.find_branch(source_branch, BranchType::Local)
+            .or_else(|_| repo.find_branch(source_branch, BranchType::Remote))?;
+
+        let source_commit_oid = source_ref.get().target()
+            .ok_or_else(|| GitServiceError::BranchNotFound(source_branch.to_string()))?;
+
+        // 创建 annotated commit
+        let annotated_commit = repo.find_annotated_commit(source_commit_oid)?;
+
+        // 获取当前 HEAD commit
+        let head = repo.head()?;
+        let head_commit = head.peel_to_commit()?;
+
+        // 检查是否可以快进合并
+        let can_fast_forward = !no_ff && {
+            // 如果源分支是当前分支的祖先，则可以快进
+            let merge_base = repo.merge_base(head_commit.id(), source_commit_oid)?;
+            merge_base == head_commit.id()
+        };
+
+        if can_fast_forward {
+            // 快进合并
+            info!("执行快进合并");
+            let source_commit = repo.find_commit(source_commit_oid)?;
+            repo.checkout_tree(&source_commit.tree()?.as_object(), None)?;
+            repo.set_head(&format!("refs/heads/{}", current_branch))?;
+
+            return Ok(GitMergeResult {
+                success: true,
+                fast_forward: true,
+                has_conflicts: false,
+                conflicts: vec![],
+                merged_commits: 1,
+                files_changed: 0,
+            });
+        }
+
+        // 普通合并
+        info!("执行普通合并");
+
+        // 执行合并 - 使用 merge 而不是 merge_commit
+        repo.merge(&[&annotated_commit], None, None)?;
+
+        // 检查是否有冲突
+        let mut index = repo.index()?;
+        let has_conflicts = index.has_conflicts();
+
+        // 获取冲突文件列表
+        let conflicts = if has_conflicts {
+            let mut conflict_list = Vec::new();
+            for conflict_result in index.conflicts()? {
+                if let Ok(conflict) = conflict_result {
+                    if let Some(our) = conflict.our {
+                        let path = String::from_utf8_lossy(&our.path).to_string();
+                        conflict_list.push(path);
+                    } else if let Some(their) = conflict.their {
+                        let path = String::from_utf8_lossy(&their.path).to_string();
+                        conflict_list.push(path);
+                    }
+                }
+            }
+            conflict_list
+        } else {
+            vec![]
+        };
+
+        // 如果没有冲突，自动提交
+        let (merged_commits, files_changed) = if !has_conflicts {
+            // 计算 merged_commits（从 merge_base 到 source_commit 的提交数）
+            let merge_base = repo.merge_base(head_commit.id(), source_commit_oid)?;
+            let mut revwalk = repo.revwalk()?;
+            revwalk.push_range(&format!("{}..{}", merge_base, source_commit_oid))?;
+            let merged_count = revwalk.count();
+
+            // 写入树并提交
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+
+            let sig = repo.signature()?;
+            let message = format!("Merge branch '{}' into {}", source_branch, current_branch);
+
+            let source_commit = repo.find_commit(source_commit_oid)?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                &message,
+                &tree,
+                &[&head_commit, &source_commit],
+            )?;
+
+            (merged_count, 0)
+        } else {
+            (0, 0)
+        };
+
+        Ok(GitMergeResult {
+            success: !has_conflicts,
+            fast_forward: false,
+            has_conflicts,
+            conflicts,
+            merged_commits,
+            files_changed,
+        })
+    }
+
+    /// 计算仓库中的跟踪文件数量
+    fn count_tracked_files(repo: &Repository) -> Result<usize, GitServiceError> {
+        let head = repo.head()?;
+        let head_commit = head.peel_to_commit()?;
+        let tree = head_commit.tree()?;
+
+        let mut count = 0;
+        tree.walk(git2::TreeWalkMode::PreOrder, |_root, _entry| {
+            count += 1;
+            git2::TreeWalkResult::Ok
+        })?;
+
+        Ok(count)
     }
 
     // ========================================================================

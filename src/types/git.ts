@@ -228,6 +228,18 @@ export interface GitPushResult {
 }
 
 /**
+ * Merge 操作结果
+ */
+export interface GitMergeResult {
+  success: boolean       // 是否成功
+  fastForward: boolean   // 是否为快进合并
+  hasConflicts: boolean  // 是否有冲突
+  conflicts: string[]    // 冲突文件列表
+  mergedCommits: number  // 合并的提交数
+  filesChanged: number   // 变更的文件数
+}
+
+/**
  * 批量暂存结果
  */
 export interface BatchStageResult {

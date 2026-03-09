@@ -139,6 +139,17 @@ pub fn git_rename_branch(
     GitService::rename_branch(&path, &oldName, &newName).map_err(GitError::from)
 }
 
+/// 合并分支
+#[tauri::command]
+pub fn git_merge_branch(
+    workspacePath: String,
+    sourceBranch: String,
+    noFF: bool,
+) -> Result<GitMergeResult, GitError> {
+    let path = PathBuf::from(workspacePath);
+    GitService::merge_branch(&path, &sourceBranch, noFF).map_err(GitError::from)
+}
+
 /// 提交变更
 #[tauri::command]
 pub async fn git_commit_changes(

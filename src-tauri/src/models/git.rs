@@ -402,6 +402,27 @@ pub struct GitPullResult {
 }
 
 // ============================================================================
+// Merge 结果
+// ============================================================================
+
+/// Merge 操作结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitMergeResult {
+    /// 是否成功
+    pub success: bool,
+    /// 是否为快进合并
+    pub fast_forward: bool,
+    /// 是否有冲突
+    pub has_conflicts: bool,
+    /// 冲突文件列表
+    pub conflicts: Vec<String>,
+    /// 合并的提交数
+    pub merged_commits: usize,
+    /// 变更的文件数
+    pub files_changed: usize,
+}
+
+// ============================================================================
 // 批量暂存结果
 // ============================================================================
 
