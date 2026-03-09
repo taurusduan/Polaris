@@ -240,6 +240,19 @@ export interface GitMergeResult {
 }
 
 /**
+ * Rebase 操作结果
+ */
+export interface GitRebaseResult {
+  success: boolean       // 是否成功
+  hasConflicts: boolean  // 是否有冲突
+  conflicts: string[]    // 冲突文件列表
+  rebasedCommits: number // 变基的提交数
+  currentStep: number    // 当前步骤（从 1 开始）
+  totalSteps: number     // 总步骤数
+  finished: boolean      // 是否已完成
+}
+
+/**
  * 批量暂存结果
  */
 export interface BatchStageResult {

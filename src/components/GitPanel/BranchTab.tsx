@@ -22,11 +22,14 @@ import {
   Edit2,
   GitMerge,
   AlertCircle,
+  GitCompare,
+  Square,
+  Play,
 } from 'lucide-react'
 import { useGitStore } from '@/stores/gitStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useToastStore } from '@/stores/toastStore'
-import type { GitBranch, GitMergeResult } from '@/types/git'
+import type { GitBranch, GitMergeResult, GitRebaseResult } from '@/types/git'
 
 type SwitchState =
   | { type: 'idle' }
@@ -53,6 +56,9 @@ export function BranchTab() {
   const deleteBranch = useGitStore((s) => s.deleteBranch)
   const renameBranch = useGitStore((s) => s.renameBranch)
   const mergeBranch = useGitStore((s) => s.mergeBranch)
+  const rebaseBranch = useGitStore((s) => s.rebaseBranch)
+  const rebaseAbort = useGitStore((s) => s.rebaseAbort)
+  const rebaseContinue = useGitStore((s) => s.rebaseContinue)
   const refreshStatus = useGitStore((s) => s.refreshStatus)
   const stashSave = useGitStore((s) => s.stashSave)
   const currentWorkspace = useWorkspaceStore((s) => s.getCurrentWorkspace())
@@ -332,6 +338,102 @@ export function BranchTab() {
     setShowMergeDialog(true)
   }, [])
 
+  // 变基分支状态
+  const [showRebaseDialog, setShowRebaseDialog] = useState(false)
+  const [branchToRebase, setBranchToRebase] = useState<string | null>(null)
+  const [isRebasing, setIsRebasing] = useState(false)
+  const [rebaseResult, setRebaseResult] = useState<GitRebaseResult | null>(null)
+
+  const handleRebaseBranch = useCallback(async () => {
+    if (!currentWorkspace || !branchToRebase) return
+
+    setIsRebasing(true)
+    setError(null)
+    setRebaseResult(null)
+    try {
+      const result = await rebaseBranch(currentWorkspace.path, branchToRebase)
+      setRebaseResult(result)
+
+      if (result.success) {
+        await loadBranches()
+        toast.success(
+          t('branch.rebaseSuccess', { source: branchToRebase }),
+          t('branch.rebaseCommits', { count: result.rebasedCommits })
+        )
+        // 成功后关闭弹窗
+        if (!result.hasConflicts) {
+          setShowRebaseDialog(false)
+          setBranchToRebase(null)
+        }
+      } else if (result.hasConflicts) {
+        // 冲突时保持弹窗打开
+        toast.warning(
+          t('branch.rebaseConflicts'),
+          t('branch.rebaseConflictsDesc', { count: result.conflicts.length })
+        )
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      setError(errorMsg)
+      toast.error(t('errors.rebaseBranchFailed'), errorMsg)
+    } finally {
+      setIsRebasing(false)
+    }
+  }, [currentWorkspace, branchToRebase, rebaseBranch, loadBranches, toast])
+
+  const handleRebaseAbort = useCallback(async () => {
+    if (!currentWorkspace) return
+
+    setIsRebasing(true)
+    try {
+      await rebaseAbort(currentWorkspace.path)
+      await loadBranches()
+      setShowRebaseDialog(false)
+      setBranchToRebase(null)
+      setRebaseResult(null)
+      toast.info(t('branch.rebaseAborted'))
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      toast.error(t('errors.rebaseAbortFailed'), errorMsg)
+    } finally {
+      setIsRebasing(false)
+    }
+  }, [currentWorkspace, rebaseAbort, loadBranches, toast])
+
+  const handleRebaseContinue = useCallback(async () => {
+    if (!currentWorkspace) return
+
+    setIsRebasing(true)
+    try {
+      const result = await rebaseContinue(currentWorkspace.path)
+      setRebaseResult(result)
+
+      if (result.success) {
+        await loadBranches()
+        toast.success(t('branch.rebaseSuccess', { source: branchToRebase || 'branch' }))
+        setShowRebaseDialog(false)
+        setBranchToRebase(null)
+        setRebaseResult(null)
+      } else if (result.hasConflicts) {
+        toast.warning(
+          t('branch.rebaseConflicts'),
+          t('branch.rebaseConflictsDesc', { count: result.conflicts.length })
+        )
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      toast.error(t('errors.rebaseContinueFailed'), errorMsg)
+    } finally {
+      setIsRebasing(false)
+    }
+  }, [currentWorkspace, rebaseContinue, loadBranches, toast, branchToRebase])
+
+  const openRebaseDialog = useCallback((branchName: string) => {
+    setBranchToRebase(branchName)
+    setRebaseResult(null)
+    setShowRebaseDialog(true)
+  }, [])
+
   const localBranches = branches.filter((b) => !b.isRemote)
   const remoteBranches = branches.filter((b) => b.isRemote)
 
@@ -426,6 +528,19 @@ export function BranchTab() {
               title={t('branch.merge')}
             >
               <GitMerge size={14} />
+            </button>
+          )}
+          {!isRemote && !isCurrent && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                openRebaseDialog(branch.name)
+              }}
+              disabled={isSwitching || isRebasing}
+              className="p-1 text-text-tertiary hover:text-info hover:bg-info/10 rounded transition-colors disabled:opacity-50"
+              title={t('branch.rebase')}
+            >
+              <GitCompare size={14} />
             </button>
           )}
           {!isRemote && !isCurrent && (
@@ -908,6 +1023,142 @@ export function BranchTab() {
                 <GitMerge size={14} />
                 {t('branch.merge')}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 变基分支弹窗 */}
+      {showRebaseDialog && branchToRebase && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background-elevated rounded-xl p-6 w-full max-w-md border border-border shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-text-primary">
+                {t('branch.rebase')}
+              </h2>
+              <button
+                onClick={() => {
+                  if (!isRebasing) {
+                    setShowRebaseDialog(false)
+                    setBranchToRebase(null)
+                    setRebaseResult(null)
+                  }
+                }}
+                disabled={isRebasing}
+                className="p-1 text-text-tertiary hover:text-text-primary hover:bg-background-hover rounded transition-colors disabled:opacity-50"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="px-4 py-3 bg-primary/5 border border-primary/20 rounded-lg">
+                <div className="text-sm text-text-secondary mb-1">{t('branch.rebaseCurrentBranch')}</div>
+                <div className="flex items-center gap-2">
+                  <Check size={14} className="text-primary" />
+                  <span className="text-sm font-medium text-text-primary">{status?.branch || 'current'}</span>
+                  <span className="text-xs px-1.5 py-0.5 bg-primary/20 text-primary rounded">
+                    {t('branch.current')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center text-text-tertiary">
+                <span className="text-2xl">↓</span>
+              </div>
+
+              <div className="px-4 py-3 bg-background-surface border border-border rounded-lg">
+                <div className="text-sm text-text-secondary mb-1">{t('branch.rebaseOnto')}</div>
+                <div className="flex items-center gap-2">
+                  <GitBranchIcon size={14} className="text-info" />
+                  <span className="text-sm font-medium text-text-primary">{branchToRebase}</span>
+                </div>
+              </div>
+
+              {/* 变基结果 - 冲突 */}
+              {rebaseResult?.hasConflicts && (
+                <div className="px-3 py-2 bg-warning/10 border border-warning/30 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={16} className="text-warning shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-sm font-medium text-warning">
+                        {t('branch.rebaseConflicts')}
+                      </div>
+                      <div className="text-xs text-warning/70 mt-1">
+                        {t('branch.rebaseConflictsDesc', { count: rebaseResult.conflicts.length })}
+                      </div>
+                      <div className="mt-2 max-h-24 overflow-y-auto">
+                        {rebaseResult.conflicts.map((file, idx) => (
+                          <div key={idx} className="text-xs text-text-tertiary font-mono">
+                            {file}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 变基进度 */}
+              {rebaseResult && !rebaseResult.finished && !rebaseResult.hasConflicts && (
+                <div className="px-3 py-2 bg-info/10 border border-info/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin text-info" />
+                    <span className="text-sm text-info">
+                      {t('branch.rebaseProgress', { current: rebaseResult.currentStep, total: rebaseResult.totalSteps })}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              {rebaseResult?.hasConflicts ? (
+                <>
+                  <button
+                    onClick={handleRebaseAbort}
+                    disabled={isRebasing}
+                    className="px-4 py-2 text-sm text-danger hover:bg-danger/10 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    <Square size={14} />
+                    {t('branch.rebaseAbort')}
+                  </button>
+                  <button
+                    onClick={handleRebaseContinue}
+                    disabled={isRebasing}
+                    className="px-4 py-2 text-sm bg-info text-white rounded-lg hover:bg-info/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isRebasing && <Loader2 size={14} className="animate-spin" />}
+                    <Play size={14} />
+                    {t('branch.rebaseContinue')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      if (!isRebasing) {
+                        setShowRebaseDialog(false)
+                        setBranchToRebase(null)
+                        setRebaseResult(null)
+                      }
+                    }}
+                    disabled={isRebasing}
+                    className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-background-hover rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {t('cancel', { ns: 'common' })}
+                  </button>
+                  <button
+                    onClick={handleRebaseBranch}
+                    disabled={isRebasing}
+                    className="px-4 py-2 text-sm bg-info text-white rounded-lg hover:bg-info/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isRebasing && <Loader2 size={14} className="animate-spin" />}
+                    <GitCompare size={14} />
+                    {t('branch.rebase')}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

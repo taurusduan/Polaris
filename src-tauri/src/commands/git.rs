@@ -150,6 +150,30 @@ pub fn git_merge_branch(
     GitService::merge_branch(&path, &sourceBranch, noFF).map_err(GitError::from)
 }
 
+/// 变基分支
+#[tauri::command]
+pub fn git_rebase_branch(
+    workspacePath: String,
+    sourceBranch: String,
+) -> Result<GitRebaseResult, GitError> {
+    let path = PathBuf::from(workspacePath);
+    GitService::rebase_branch(&path, &sourceBranch).map_err(GitError::from)
+}
+
+/// 中止变基
+#[tauri::command]
+pub fn git_rebase_abort(workspacePath: String) -> Result<(), GitError> {
+    let path = PathBuf::from(workspacePath);
+    GitService::rebase_abort(&path).map_err(GitError::from)
+}
+
+/// 继续变基
+#[tauri::command]
+pub fn git_rebase_continue(workspacePath: String) -> Result<GitRebaseResult, GitError> {
+    let path = PathBuf::from(workspacePath);
+    GitService::rebase_continue(&path).map_err(GitError::from)
+}
+
 /// 提交变更
 #[tauri::command]
 pub async fn git_commit_changes(

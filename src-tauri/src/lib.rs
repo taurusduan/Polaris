@@ -39,6 +39,7 @@ use commands::git::{
     git_get_remotes, git_add_remote, git_remove_remote, git_detect_host, git_push_branch, git_push_set_upstream, git_create_pr, git_get_pr_status,
     git_pull, git_get_log, git_batch_stage,
     git_stash_save, git_stash_list, git_stash_pop, git_stash_drop,
+    git_rebase_branch, git_rebase_abort, git_rebase_continue,
     test_param_serialization, write_file_absolute, read_file_absolute,
 };
 use commands::deepseek_tools::{
@@ -282,6 +283,9 @@ pub fn run() {
             git_delete_branch,
             git_rename_branch,
             git_merge_branch,
+            git_rebase_branch,
+            git_rebase_abort,
+            git_rebase_continue,
             git_commit_changes,
             git_stage_file,
             git_unstage_file,

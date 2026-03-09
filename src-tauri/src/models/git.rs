@@ -422,6 +422,25 @@ pub struct GitMergeResult {
     pub files_changed: usize,
 }
 
+/// Rebase 操作结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitRebaseResult {
+    /// 是否成功
+    pub success: bool,
+    /// 是否有冲突
+    pub has_conflicts: bool,
+    /// 冲突文件列表
+    pub conflicts: Vec<String>,
+    /// 变基的提交数
+    pub rebased_commits: usize,
+    /// 当前步骤（从 1 开始）
+    pub current_step: usize,
+    /// 总步骤数
+    pub total_steps: usize,
+    /// 是否已完成
+    pub finished: bool,
+}
+
 // ============================================================================
 // 批量暂存结果
 // ============================================================================
