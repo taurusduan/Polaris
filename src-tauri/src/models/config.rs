@@ -91,12 +91,32 @@ impl Default for DeepSeekConfig {
 pub struct CodexConfig {
     /// Codex CLI 命令路径（可选，默认为 "codex"）
     pub cli_path: Option<String>,
+    /// Codex sandbox 模式（workspace-write/read-only/danger-full-access）
+    #[serde(default = "default_codex_sandbox_mode")]
+    pub sandbox_mode: String,
+    /// Codex 审批策略（never/on-request/on-failure/untrusted）
+    #[serde(default = "default_codex_approval_policy")]
+    pub approval_policy: String,
+    /// 是否启用危险全开放（跳过审批和沙箱）
+    #[serde(default)]
+    pub dangerous_bypass: bool,
+}
+
+fn default_codex_sandbox_mode() -> String {
+    "workspace-write".to_string()
+}
+
+fn default_codex_approval_policy() -> String {
+    "never".to_string()
 }
 
 impl Default for CodexConfig {
     fn default() -> Self {
         Self {
             cli_path: None,
+            sandbox_mode: default_codex_sandbox_mode(),
+            approval_policy: default_codex_approval_policy(),
+            dangerous_bypass: false,
         }
     }
 }

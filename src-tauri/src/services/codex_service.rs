@@ -158,7 +158,7 @@ impl CodexService {
             });
 
         let codex_cmd = Self::get_codex_cmd(config)?;
-        let mut cmd = Self::build_codex_command(&codex_cmd, &work_dir, message);
+        let mut cmd = Self::build_codex_command(&codex_cmd, &work_dir, message, config);
 
         let program = cmd.get_program().to_string_lossy().to_string();
         let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
@@ -185,13 +185,25 @@ impl CodexService {
     }
 
     /// 构建 Codex 命令 (始终使用 exec 非交互模式)
-    fn build_codex_command(codex_cmd: &str, work_dir: &str, message: &str) -> Command {
+    fn build_codex_command(codex_cmd: &str, work_dir: &str, message: &str, config: &Config) -> Command {
         let mut cmd = Command::new(codex_cmd);
 
         // 始终使用 exec 子命令（非交互模式）
         cmd.arg("exec")
             .arg("--json")
             .arg("--skip-git-repo-check");
+
+        if config.codex.dangerous_bypass {
+            cmd.arg("--dangerously-bypass-approvals-and-sandbox");
+        } else {
+            cmd.arg("--sandbox")
+                .arg(&config.codex.sandbox_mode);
+
+            // `codex exec` does not support `--ask-for-approval`.
+            // Pass approval policy via config override for compatibility.
+            cmd.arg("-c")
+                .arg(format!("approval_policy=\"{}\"", config.codex.approval_policy));
+        }
 
         // 消息作为参数传递
         if !message.is_empty() {
@@ -388,7 +400,7 @@ impl CodexService {
         eprintln!("[CodexService::continue_chat] 完整消息长度: {} 字符", full_message.len());
 
         let codex_cmd = Self::get_codex_cmd(config)?;
-        let mut cmd = Self::build_codex_command(&codex_cmd, &work_dir, &full_message);
+        let mut cmd = Self::build_codex_command(&codex_cmd, &work_dir, &full_message, config);
 
         let program = cmd.get_program().to_string_lossy().to_string();
         let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();

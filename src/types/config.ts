@@ -96,6 +96,12 @@ export interface Config {
   codex: {
     /** Codex CLI 命令路径 */
     cliPath?: string;
+    /** Sandbox 模式 */
+    sandboxMode?: string;
+    /** 审批策略 */
+    approvalPolicy?: string;
+    /** 危险全开放（跳过审批和沙箱） */
+    dangerousBypass?: boolean;
   };
   /** 工作目录 */
   workDir?: string;
