@@ -150,7 +150,16 @@
     "pullSuccess": "拉取成功",
     "pullSuccessDetail": "拉取了 {{commits}} 个提交，{{files}} 个文件变更",
     "pullNoChanges": "已是最新，无需拉取",
-    "pullFastForward": "快进合并完成"
+    "pullFastForward": "快进合并完成",
+    "push": "推送",
+    "pushing": "正在推送...",
+    "pushTo": "推送到 {{remote}}",
+    "pushSuccess": "推送成功",
+    "pushSuccessDetail": "推送了 {{commits}} 个提交",
+    "pushNoChanges": "没有需要推送的提交",
+    "pushRejected": "推送被拒绝",
+    "pushNeedsUpstream": "分支没有上游分支",
+    "pushNeedsForce": "需要强制推送或先拉取"
   },
   "stash": {
     "title": "Stash",

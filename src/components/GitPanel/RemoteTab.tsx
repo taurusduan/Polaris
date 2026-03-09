@@ -18,6 +18,7 @@ import {
   Trash2,
   X,
   ArrowDown,
+  ArrowUp,
 } from 'lucide-react'
 import { useGitStore } from '@/stores/gitStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
@@ -44,13 +45,21 @@ export function RemoteTab() {
   const [isPulling, setIsPulling] = useState(false)
   const [pullingRemote, setPullingRemote] = useState<string | null>(null)
 
+  // 推送状态
+  const [isPushing, setIsPushing] = useState(false)
+  const [pushingRemote, setPushingRemote] = useState<string | null>(null)
+  const [showUpstreamConfirm, setShowUpstreamConfirm] = useState(false)
+  const [showForceConfirm, setShowForceConfirm] = useState(false)
+
   const getRemotes = useGitStore((s) => s.getRemotes)
   const addRemote = useGitStore((s) => s.addRemote)
   const removeRemote = useGitStore((s) => s.removeRemote)
   const pull = useGitStore((s) => s.pull)
+  const push = useGitStore((s) => s.push)
   const refreshStatus = useGitStore((s) => s.refreshStatus)
   const getBranches = useGitStore((s) => s.getBranches)
   const branches = useGitStore((s) => s.branches)
+  const status = useGitStore((s) => s.status)
   const currentWorkspace = useWorkspaceStore((s) => s.getCurrentWorkspace())
   const toast = useToastStore()
 
@@ -217,6 +226,62 @@ export function RemoteTab() {
     }
   }
 
+  // 推送到远程仓库
+  const handlePush = async (remoteName?: string, setUpstream = false, force = false) => {
+    if (!currentWorkspace || !status) return
+
+    const remote = remoteName || 'origin'
+    const branchName = status.branch
+
+    setIsPushing(true)
+    setPushingRemote(remote)
+
+    try {
+      const result = await push(currentWorkspace.path, branchName, remote, force, setUpstream)
+
+      if (result.success) {
+        // 刷新状态
+        await refreshStatus(currentWorkspace.path)
+
+        if (result.pushedCommits > 0) {
+          toast.success(
+            t('remote.pushSuccess'),
+            t('remote.pushSuccessDetail', { commits: result.pushedCommits })
+          )
+        } else {
+          toast.info(t('remote.pushNoChanges'))
+        }
+      } else if (result.needsUpstream) {
+        // 需要设置上游分支
+        setShowUpstreamConfirm(true)
+      } else if (result.rejected) {
+        // 推送被拒绝
+        setShowForceConfirm(true)
+      } else {
+        // 其他错误
+        toast.error(t('errors.pushFailed'), result.error || 'Unknown error')
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      toast.error(t('errors.pushFailed'), errorMsg)
+    } finally {
+      setIsPushing(false)
+      setPushingRemote(null)
+    }
+  }
+
+  // 设置上游分支并推送
+  const handleSetUpstreamAndPush = async (remoteName?: string) => {
+    setShowUpstreamConfirm(false)
+    await handlePush(remoteName, true, false)
+  }
+
+  // 强制推送
+  const handleForcePush = async (remoteName?: string) => {
+    setShowForceConfirm(false)
+    await handlePush(remoteName, false, true)
+  }
+
   const renderRemoteItem = (remote: GitRemote) => {
     const host = getHostFromUrl(remote.fetchUrl || remote.pushUrl)
     const branchCount = getRemoteBranchCount(remote.name)
@@ -250,6 +315,22 @@ export function RemoteTab() {
               </span>
               {remote.fetchUrl && (
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* 推送按钮 */}
+                  {status && status.ahead > 0 && (
+                    <button
+                      onClick={() => handlePush(remote.name)}
+                      disabled={isPushing}
+                      className="p-0.5 text-text-tertiary hover:text-success hover:bg-success/10 rounded transition-colors disabled:opacity-50"
+                      title={t('remote.pushTo', { remote: remote.name })}
+                    >
+                      {pushingRemote === remote.name ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <ArrowUp size={12} />
+                      )}
+                    </button>
+                  )}
+                  {/* 拉取按钮 */}
                   <button
                     onClick={() => handlePull(remote.name)}
                     disabled={isPulling}
@@ -317,6 +398,21 @@ export function RemoteTab() {
           )}
         </span>
         <div className="flex items-center gap-1">
+          {/* 推送按钮 */}
+          {remotes.length > 0 && status && status.ahead > 0 && (
+            <button
+              onClick={() => handlePush()}
+              disabled={isPushing || isLoading}
+              className="p-1 text-text-tertiary hover:text-success hover:bg-success/10 rounded transition-colors disabled:opacity-50"
+              title={t('remote.push')}
+            >
+              {isPushing ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <ArrowUp size={14} />
+              )}
+            </button>
+          )}
           {/* 拉取按钮 */}
           {remotes.length > 0 && (
             <button
@@ -451,6 +547,62 @@ export function RemoteTab() {
             >
               {isDeleting && <Loader2 size={12} className="animate-spin" />}
               {t('remote.delete')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 设置上游分支确认弹窗 */}
+      {showUpstreamConfirm && status && (
+        <div className="px-4 py-3 border-b border-warning/30 bg-warning/5">
+          <div className="text-sm text-text-primary mb-1">
+            {t('push.setUpstream')}
+          </div>
+          <div className="text-xs text-text-tertiary mb-2">
+            {t('push.setUpstreamDesc', { branch: status.branch })}
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setShowUpstreamConfirm(false)}
+              className="px-3 py-1 text-xs text-text-tertiary hover:text-text-primary transition-colors"
+            >
+              {t('cancel', { ns: 'common' })}
+            </button>
+            <button
+              onClick={() => handleSetUpstreamAndPush()}
+              disabled={isPushing}
+              className="px-3 py-1 text-xs bg-primary text-white rounded hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1"
+            >
+              {isPushing && <Loader2 size={12} className="animate-spin" />}
+              {t('push.setUpstreamAndPush')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 强制推送确认弹窗 */}
+      {showForceConfirm && (
+        <div className="px-4 py-3 border-b border-warning/30 bg-warning/5">
+          <div className="text-sm text-text-primary mb-1">
+            {t('push.rejected')}
+          </div>
+          <div className="text-xs text-text-tertiary mb-2">
+            {t('push.forceConfirm')}
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setShowForceConfirm(false)}
+              className="px-3 py-1 text-xs text-text-tertiary hover:text-text-primary transition-colors"
+            >
+              {t('cancel', { ns: 'common' })}
+            </button>
+            <button
+              onClick={() => handleForcePush()}
+              disabled={isPushing}
+              className="px-3 py-1 text-xs bg-warning text-white rounded hover:bg-warning/90 transition-colors disabled:opacity-50 flex items-center gap-1"
+            >
+              {isPushing && <Loader2 size={12} className="animate-spin" />}
+              {t('push.forcePush')}
             </button>
           </div>
         </div>

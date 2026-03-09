@@ -15,6 +15,7 @@ import type {
   PullRequest,
   CreatePROptions,
   GitPullResult,
+  GitPushResult,
   GitCommit,
   BatchStageResult,
   GitStashEntry,
@@ -89,7 +90,7 @@ interface GitState {
   // 远程操作
   addRemote: (workspacePath: string, name: string, url: string) => Promise<GitRemote>
   removeRemote: (workspacePath: string, name: string) => Promise<void>
-  pushBranch: (workspacePath: string, branchName: string, remoteName?: string, force?: boolean) => Promise<void>
+  push: (workspacePath: string, branchName: string, remoteName?: string, force?: boolean, setUpstream?: boolean) => Promise<GitPushResult>
   pull: (workspacePath: string, remoteName?: string, branchName?: string) => Promise<GitPullResult>
 
   // Stash 操作
@@ -559,26 +560,66 @@ export const useGitStore = create<GitState>((set, get) => ({
   },
 
   // 推送分支到远程
-  async pushBranch(
+  async push(
     workspacePath: string,
     branchName: string,
     remoteName = 'origin',
-    force = false
-  ) {
+    force = false,
+    setUpstream = false
+  ): Promise<GitPushResult> {
     set({ isLoading: true, error: null })
 
     try {
-      await invoke('git_push_branch', {
-        workspacePath,
-        branchName,
-        remoteName,
-        force,
-      })
+      // 获取当前 ahead 数量
+      const status = get().status
+      const pushedCommits = status?.ahead || 0
+
+      if (setUpstream) {
+        // 推送并设置上游分支
+        await invoke('git_push_set_upstream', {
+          workspacePath,
+          branchName,
+          remoteName,
+        })
+      } else {
+        // 普通推送
+        await invoke('git_push_branch', {
+          workspacePath,
+          branchName,
+          remoteName,
+          force,
+        })
+      }
+
+      // 刷新状态
+      await get().refreshStatus(workspacePath)
 
       set({ isLoading: false })
+      return {
+        success: true,
+        pushedCommits,
+        needsUpstream: false,
+        rejected: false,
+      }
     } catch (err) {
-      set({ error: parseGitError(err), isLoading: false })
-      throw err
+      const errorMsg = parseGitError(err)
+      set({ error: errorMsg, isLoading: false })
+
+      // 分析错误类型
+      const needsUpstream = errorMsg.includes('no upstream branch') ||
+        errorMsg.includes('no tracking information') ||
+        errorMsg.includes('--set-upstream')
+      const rejected = errorMsg.includes('rejected') ||
+        errorMsg.includes('non-fast-forward') ||
+        errorMsg.includes('fetch first')
+
+      return {
+        success: false,
+        pushedCommits: 0,
+        needsUpstream,
+        rejected,
+        error: errorMsg,
+      }
     }
   },
 

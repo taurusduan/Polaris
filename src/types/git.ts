@@ -217,6 +217,17 @@ export interface GitPullResult {
 }
 
 /**
+ * Push 操作结果
+ */
+export interface GitPushResult {
+  success: boolean
+  pushedCommits: number  // 推送的提交数
+  needsUpstream: boolean // 是否需要设置上游分支
+  rejected: boolean      // 是否被拒绝（需要强制推送或拉取）
+  error?: string         // 错误信息
+}
+
+/**
  * 批量暂存结果
  */
 export interface BatchStageResult {

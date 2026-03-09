@@ -16,9 +16,9 @@ interface QuickActionsProps {
   hasChanges: boolean
 }
 
-type PushState = 
+type PushState =
   | { type: 'idle' }
-  | { type: 'confirming_upstream'; branch: string }
+  | { type: 'confirming_upstream'; branch: string; error?: string }
   | { type: 'confirming_force'; branch: string; error: string }
   | { type: 'pushing' }
 
@@ -29,7 +29,7 @@ type PullState =
 
 export function QuickActions({ hasChanges: _hasChanges }: QuickActionsProps) {
   const { t } = useTranslation('git')
-  const { pushBranch, isLoading, refreshStatus, status, remotes, getRemotes } = useGitStore()
+  const { push, isLoading, refreshStatus, status, remotes, getRemotes } = useGitStore()
   const currentWorkspace = useWorkspaceStore((s) => s.getCurrentWorkspace())
 
   const [isPushing, setIsPushing] = useState(false)
@@ -66,34 +66,38 @@ export function QuickActions({ hasChanges: _hasChanges }: QuickActionsProps) {
     setError(null)
 
     try {
-      await pushBranch(currentWorkspace.path, branch, 'origin', force)
-      setPushState({ type: 'idle' })
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err)
-      
-      if (errorMsg.includes('rejected') || errorMsg.includes('non-fast-forward')) {
-        setPushState({ type: 'confirming_force', branch, error: errorMsg })
+      const result = await push(currentWorkspace.path, branch, 'origin', force, false)
+
+      if (result.success) {
+        setPushState({ type: 'idle' })
+      } else if (result.needsUpstream) {
+        setPushState({ type: 'confirming_upstream', branch, error: result.error || '' })
+      } else if (result.rejected) {
+        setPushState({ type: 'confirming_force', branch, error: result.error || '' })
       } else {
-        setError(`${t('errors.pushFailed')}: ${errorMsg}`)
+        setError(`${t('errors.pushFailed')}: ${result.error}`)
         setPushState({ type: 'idle' })
       }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      setError(`${t('errors.pushFailed')}: ${errorMsg}`)
+      setPushState({ type: 'idle' })
     } finally {
       setIsPushing(false)
     }
   }
 
   const handleSetUpstreamAndPush = async () => {
-    if (pushState.type !== 'confirming_upstream') return
-    
+    if (pushState.type !== 'confirming_upstream' || !currentWorkspace) return
+
     setIsPushing(true)
     try {
-      await invoke('git_push_set_upstream', {
-        workspacePath: currentWorkspace?.path,
-        branchName: pushState.branch,
-        remoteName: 'origin',
-      })
-      await refreshStatus(currentWorkspace?.path || '')
-      setPushState({ type: 'idle' })
+      const result = await push(currentWorkspace.path, pushState.branch, 'origin', false, true)
+      if (result.success) {
+        setPushState({ type: 'idle' })
+      } else {
+        setError(`${t('errors.pushFailed')}: ${result.error}`)
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
       setError(`${t('errors.pushFailed')}: ${errorMsg}`)

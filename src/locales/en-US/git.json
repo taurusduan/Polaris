@@ -150,7 +150,16 @@
     "pullSuccess": "Pull successful",
     "pullSuccessDetail": "Pulled {{commits}} commits, {{files}} files changed",
     "pullNoChanges": "Already up to date",
-    "pullFastForward": "Fast-forward merge completed"
+    "pullFastForward": "Fast-forward merge completed",
+    "push": "Push",
+    "pushing": "Pushing...",
+    "pushTo": "Push to {{remote}}",
+    "pushSuccess": "Push successful",
+    "pushSuccessDetail": "Pushed {{commits}} commits",
+    "pushNoChanges": "No commits to push",
+    "pushRejected": "Push rejected",
+    "pushNeedsUpstream": "Branch has no upstream",
+    "pushNeedsForce": "Force push or pull first required"
   },
   "stash": {
     "title": "Stash",
