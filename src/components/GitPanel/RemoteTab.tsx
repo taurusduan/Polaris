@@ -17,6 +17,7 @@ import {
   Plus,
   Trash2,
   X,
+  ArrowDown,
 } from 'lucide-react'
 import { useGitStore } from '@/stores/gitStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
@@ -39,9 +40,16 @@ export function RemoteTab() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // 拉取状态
+  const [isPulling, setIsPulling] = useState(false)
+  const [pullingRemote, setPullingRemote] = useState<string | null>(null)
+
   const getRemotes = useGitStore((s) => s.getRemotes)
   const addRemote = useGitStore((s) => s.addRemote)
   const removeRemote = useGitStore((s) => s.removeRemote)
+  const pull = useGitStore((s) => s.pull)
+  const refreshStatus = useGitStore((s) => s.refreshStatus)
+  const getBranches = useGitStore((s) => s.getBranches)
   const branches = useGitStore((s) => s.branches)
   const currentWorkspace = useWorkspaceStore((s) => s.getCurrentWorkspace())
   const toast = useToastStore()
@@ -168,6 +176,47 @@ export function RemoteTab() {
     }
   }
 
+  // 拉取远程更新
+  const handlePull = async (remoteName?: string) => {
+    if (!currentWorkspace) return
+
+    const remote = remoteName || 'origin'
+    setIsPulling(true)
+    setPullingRemote(remote)
+
+    try {
+      const result = await pull(currentWorkspace.path, remote)
+
+      // 刷新状态和分支列表
+      await refreshStatus(currentWorkspace.path)
+      await getBranches(currentWorkspace.path)
+
+      // 显示拉取结果
+      if (result.conflicts && result.conflicts.length > 0) {
+        toast.warning(
+          t('pull.conflict'),
+          t('pull.conflictDesc')
+        )
+      } else if (result.pulledCommits > 0) {
+        toast.success(
+          t('remote.pullSuccess'),
+          t('remote.pullSuccessDetail', {
+            commits: result.pulledCommits,
+            files: result.filesChanged,
+          })
+        )
+      } else {
+        toast.info(t('remote.pullNoChanges'))
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      toast.error(t('errors.pullFailed'), errorMsg)
+    } finally {
+      setIsPulling(false)
+      setPullingRemote(null)
+    }
+  }
+
   const renderRemoteItem = (remote: GitRemote) => {
     const host = getHostFromUrl(remote.fetchUrl || remote.pushUrl)
     const branchCount = getRemoteBranchCount(remote.name)
@@ -201,6 +250,18 @@ export function RemoteTab() {
               </span>
               {remote.fetchUrl && (
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => handlePull(remote.name)}
+                    disabled={isPulling}
+                    className="p-0.5 text-text-tertiary hover:text-success hover:bg-success/10 rounded transition-colors disabled:opacity-50"
+                    title={t('remote.pullFrom', { remote: remote.name })}
+                  >
+                    {pullingRemote === remote.name ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <ArrowDown size={12} />
+                    )}
+                  </button>
                   <button
                     onClick={() => copyToClipboard(remote.fetchUrl!)}
                     className="p-0.5 text-text-tertiary hover:text-text-primary hover:bg-background-surface rounded transition-colors"
@@ -256,6 +317,21 @@ export function RemoteTab() {
           )}
         </span>
         <div className="flex items-center gap-1">
+          {/* 拉取按钮 */}
+          {remotes.length > 0 && (
+            <button
+              onClick={() => handlePull()}
+              disabled={isPulling || isLoading}
+              className="p-1 text-text-tertiary hover:text-text-primary hover:bg-background-hover rounded transition-colors disabled:opacity-50"
+              title={t('remote.pull')}
+            >
+              {isPulling ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <ArrowDown size={14} />
+              )}
+            </button>
+          )}
           <button
             onClick={() => setShowAddRemote(true)}
             className="p-1 text-text-tertiary hover:text-text-primary hover:bg-background-hover rounded transition-colors"

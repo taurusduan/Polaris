@@ -143,7 +143,14 @@
     "deleteConfirm": "确定要删除远程仓库 \"{{name}}\" 吗？此操作无法撤销。",
     "delete": "删除",
     "deleteSuccess": "远程仓库 {{name}} 已删除",
-    "deleteFailed": "删除远程仓库失败"
+    "deleteFailed": "删除远程仓库失败",
+    "pull": "拉取",
+    "pulling": "正在拉取...",
+    "pullFrom": "从 {{remote}} 拉取",
+    "pullSuccess": "拉取成功",
+    "pullSuccessDetail": "拉取了 {{commits}} 个提交，{{files}} 个文件变更",
+    "pullNoChanges": "已是最新，无需拉取",
+    "pullFastForward": "快进合并完成"
   },
   "stash": {
     "title": "Stash",

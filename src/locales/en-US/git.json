@@ -143,7 +143,14 @@
     "deleteConfirm": "Are you sure you want to delete remote \"{{name}}\"? This action cannot be undone.",
     "delete": "Delete",
     "deleteSuccess": "Remote {{name}} deleted",
-    "deleteFailed": "Failed to delete remote"
+    "deleteFailed": "Failed to delete remote",
+    "pull": "Pull",
+    "pulling": "Pulling...",
+    "pullFrom": "Pull from {{remote}}",
+    "pullSuccess": "Pull successful",
+    "pullSuccessDetail": "Pulled {{commits}} commits, {{files}} files changed",
+    "pullNoChanges": "Already up to date",
+    "pullFastForward": "Fast-forward merge completed"
   },
   "stash": {
     "title": "Stash",
