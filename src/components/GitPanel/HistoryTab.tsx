@@ -4,9 +4,9 @@
  * 显示 Git 提交历史列表，使用虚拟滚动优化性能
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { GitCommit, User, Clock, RefreshCw, ChevronRight, Loader2 } from 'lucide-react'
+import { GitCommit, User, Clock, RefreshCw, ChevronRight, Loader2, Search, X } from 'lucide-react'
 import { Virtuoso } from 'react-virtuoso'
 import { useGitStore } from '@/stores/gitStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
@@ -22,10 +22,22 @@ export function HistoryTab() {
   const [error, setError] = useState<string | null>(null)
   const [selectedCommit, setSelectedCommit] = useState<GitCommitType | null>(null)
   const [hasMore, setHasMore] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
   const loadingRef = useRef(false)
 
   const getLog = useGitStore((s) => s.getLog)
   const currentWorkspace = useWorkspaceStore((s) => s.getCurrentWorkspace())
+
+  // 过滤提交（按消息和作者搜索）
+  const filteredCommits = useMemo(() => {
+    if (!searchQuery.trim()) return commits
+    const query = searchQuery.toLowerCase()
+    return commits.filter((commit) =>
+      commit.message.toLowerCase().includes(query) ||
+      commit.author.toLowerCase().includes(query) ||
+      commit.shortSha.toLowerCase().includes(query)
+    )
+  }, [commits, searchQuery])
 
   const loadCommits = useCallback(async (append = false) => {
     if (!currentWorkspace || loadingRef.current) return
@@ -134,6 +146,7 @@ export function HistoryTab() {
 
   // 渲染底部加载更多指示器
   const Footer = useCallback(() => {
+    if (searchQuery.trim()) return null // 搜索模式下不显示加载更多
     if (isLoadingMore) {
       return (
         <div className="flex items-center justify-center py-4">
@@ -150,21 +163,41 @@ export function HistoryTab() {
       )
     }
     return null
-  }, [isLoadingMore, hasMore, commits.length, t])
+  }, [isLoadingMore, hasMore, commits.length, searchQuery, t])
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-border-subtle flex items-center justify-between">
-        <span className="text-sm font-medium text-text-primary">
+      <div className="px-4 py-2 border-b border-border-subtle flex items-center justify-between gap-2">
+        <span className="text-sm font-medium text-text-primary shrink-0">
           {t('history.title')}
           {commits.length > 0 && (
             <span className="ml-2 text-xs text-text-tertiary">({commits.length})</span>
           )}
         </span>
+        <div className="flex-1 max-w-[200px]">
+          <div className="relative">
+            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-text-tertiary" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('history.searchPlaceholder')}
+              className="w-full pl-7 pr-6 py-1 text-xs bg-background-surface border border-border-subtle rounded focus:outline-none focus:border-primary text-text-primary placeholder:text-text-tertiary"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-text-tertiary hover:text-text-primary rounded"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
         <button
           onClick={handleRefresh}
           disabled={isLoading}
-          className="p-1 text-text-tertiary hover:text-text-primary hover:bg-background-hover rounded transition-colors disabled:opacity-50"
+          className="p-1 text-text-tertiary hover:text-text-primary hover:bg-background-hover rounded transition-colors disabled:opacity-50 shrink-0"
           title={t('refresh', { ns: 'common' })}
         >
           <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
@@ -187,9 +220,14 @@ export function HistoryTab() {
             <GitCommit size={24} className="mb-2 opacity-50" />
             <span className="text-sm">{t('history.noCommits')}</span>
           </div>
+        ) : filteredCommits.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-text-tertiary">
+            <Search size={24} className="mb-2 opacity-50" />
+            <span className="text-sm">{t('history.noSearchResults')}</span>
+          </div>
         ) : (
           <Virtuoso
-            data={commits}
+            data={filteredCommits}
             endReached={loadMore}
             itemContent={(_, commit) => <CommitItem commit={commit} />}
             components={{

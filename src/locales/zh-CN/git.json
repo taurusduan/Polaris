@@ -115,7 +115,9 @@
     "minutesAgo": "{{count}} 分钟前",
     "hoursAgo": "{{count}} 小时前",
     "daysAgo": "{{count}} 天前",
-    "head": "HEAD"
+    "head": "HEAD",
+    "searchPlaceholder": "搜索提交...",
+    "noSearchResults": "未找到匹配的提交"
   },
   "sync": {
     "upToDate": "已是最新",

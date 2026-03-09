@@ -115,7 +115,9 @@
     "minutesAgo": "{{count}} minutes ago",
     "hoursAgo": "{{count}} hours ago",
     "daysAgo": "{{count}} days ago",
-    "head": "HEAD"
+    "head": "HEAD",
+    "searchPlaceholder": "Search commits...",
+    "noSearchResults": "No matching commits found"
   },
   "sync": {
     "upToDate": "Up to date",
