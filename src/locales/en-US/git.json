@@ -23,6 +23,7 @@
     "changes": "Changes",
     "history": "History",
     "branch": "Branches",
+    "remote": "Remotes",
     "stash": "Stash"
   },
 
@@ -119,6 +120,18 @@
     "forceSwitch": "Force Switch",
     "forceSwitchDesc": "Switch directly, may lose uncommitted changes"
   },
+  "remote": {
+    "title": "Remote Repositories",
+    "remote": "remote",
+    "empty": "No remote repositories",
+    "emptyHint": "Use git remote add to add a remote",
+    "noUrl": "No URL",
+    "branchCount": "{{count}} branches",
+    "pushUrl": "Push URL",
+    "copyUrl": "Copy URL",
+    "openInBrowser": "Open in browser",
+    "copied": "Copied to clipboard"
+  },
   "stash": {
     "title": "Stash",
     "save": "Save to Stash",
@@ -161,10 +174,12 @@
     "batchDiscardFailed": "Batch discard failed",
     "initFailed": "Failed to initialize repository",
     "getBranchesFailed": "Failed to get branch list",
+    "getRemotesFailed": "Failed to get remote repositories",
     "switchBranchFailed": "Failed to switch branch",
     "createBranchFailed": "Failed to create branch",
     "deleteBranchFailed": "Failed to delete branch",
-    "renameBranchFailed": "Failed to rename branch"
+    "renameBranchFailed": "Failed to rename branch",
+    "copyFailed": "Failed to copy"
   },
   "batchStageSuccess": "Batch stage successful",
   "batchUnstageSuccess": "Batch unstage successful",

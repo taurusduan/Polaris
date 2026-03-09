@@ -23,6 +23,7 @@
     "changes": "变更",
     "history": "历史",
     "branch": "分支",
+    "remote": "远程",
     "stash": "Stash"
   },
 
@@ -119,6 +120,18 @@
     "forceSwitch": "强制切换",
     "forceSwitchDesc": "直接切换，可能丢失未提交的变更"
   },
+  "remote": {
+    "title": "远程仓库",
+    "remote": "远程",
+    "empty": "没有远程仓库",
+    "emptyHint": "使用 git remote add 添加远程仓库",
+    "noUrl": "无 URL",
+    "branchCount": "{{count}} 个分支",
+    "pushUrl": "推送 URL",
+    "copyUrl": "复制 URL",
+    "openInBrowser": "在浏览器中打开",
+    "copied": "已复制到剪贴板"
+  },
   "stash": {
     "title": "Stash",
     "save": "保存到 Stash",
@@ -161,10 +174,12 @@
     "batchDiscardFailed": "批量丢弃失败",
     "initFailed": "初始化仓库失败",
     "getBranchesFailed": "获取分支列表失败",
+    "getRemotesFailed": "获取远程仓库失败",
     "switchBranchFailed": "切换分支失败",
     "createBranchFailed": "创建分支失败",
     "deleteBranchFailed": "删除分支失败",
-    "renameBranchFailed": "重命名分支失败"
+    "renameBranchFailed": "重命名分支失败",
+    "copyFailed": "复制失败"
   },
   "batchStageSuccess": "批量暂存成功",
   "batchUnstageSuccess": "批量取消暂存成功",
