@@ -125,7 +125,7 @@ export function HistoryTab({ targetCommitSha, onCommitSelected }: HistoryTabProp
       )}
 
       {/* 提交列表 */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 size={20} className="animate-spin text-text-tertiary" />
@@ -136,8 +136,7 @@ export function HistoryTab({ targetCommitSha, onCommitSelected }: HistoryTabProp
             <span className="text-sm">{t('history.noCommits')}</span>
           </div>
         ) : (
-          <div>
-            {commits.map((commit) => (
+          <>
               <div
                 key={commit.sha}
                 onClick={() => setSelectedCommit(commit)}
@@ -173,7 +172,7 @@ export function HistoryTab({ targetCommitSha, onCommitSelected }: HistoryTabProp
                 </div>
               </div>
             ))}
-          </div>
+          </>
         )}
       </div>
 
