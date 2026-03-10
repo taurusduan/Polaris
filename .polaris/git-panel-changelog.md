@@ -202,3 +202,51 @@
 **修改内容**:
 1. 添加 `import { logger } from '@/utils/logger'`
 2. 将 `console.error('[GitignoreTab] Failed to load templates:', err)` 替换为 `logger.error`
+
+---
+
+## 2026-03-10 深度检查
+
+### 检查范围
+
+对所有 GitPanel 组件进行了全面的 UI/UX 检查：
+
+1. **已检查组件**: 
+   - BlameView.tsx ✅
+   - BranchSelector.tsx ✅
+   - BranchTab.tsx ✅
+   - CommitInput.tsx ✅
+   - FileChangesList.tsx ✅
+   - GitignoreTab.tsx ✅
+   - GitStatusHeader.tsx ✅
+   - HistoryTab.tsx ✅
+   - index.tsx ✅
+   - QuickActions.tsx ✅
+   - RemoteTab.tsx ✅
+   - StashTab.tsx ✅
+   - TagsTab.tsx ✅
+
+### 检查结果
+
+本次检查未发现新问题：
+
+- **国际化**: 所有文本均使用 `t()` 函数，无硬编码文本
+- **调试语句**: 所有 `console.log/error` 已清理或替换为 `logger`
+- **类型检查**: TypeScript 编译通过 (`npx tsc --noEmit`)
+
+### 验证结果
+
+- TypeScript 类型检查: ✅ 通过
+- console 调试语句搜索: ✅ 无遗漏
+- 硬编码文本搜索: ✅ 无遗漏
+
+---
+
+## 总结
+
+GitPanel UI/UX 优化任务已完成，共修复 12 个问题：
+
+1. 国际化问题修复 (3 处)
+2. 组件导入优化 (1 处)
+3. UI 一致性修复 (1 处)
+4. 调试语句清理 (7 处)
