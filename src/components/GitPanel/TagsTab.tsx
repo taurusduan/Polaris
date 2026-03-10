@@ -4,12 +4,13 @@
  * 显示 Git 标签列表，支持创建和删除标签
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tag, RefreshCw, Loader2, Inbox, Copy, GitCommit, Plus, Trash2, X, MessageSquare } from 'lucide-react'
 import { useGitStore } from '@/stores/gitStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useToastStore } from '@/stores/toastStore'
+import { formatGitTimestamp } from '@/utils/gitFormat'
 import type { GitTag } from '@/types/git'
 
 export function TagsTab() {
@@ -61,6 +62,9 @@ export function TagsTab() {
     loadTags()
   }, [loadTags])
 
+  // 优化：使用 Set 缓存标签名，实现 O(1) 查找
+  const tagNamesSet = useMemo(() => new Set(tags.map(t => t.name)), [tags])
+
   // 打开创建标签弹窗
   const handleOpenCreateModal = () => {
     setNewTagName('')
@@ -92,8 +96,8 @@ export function TagsTab() {
       return
     }
 
-    // 检查标签是否已存在
-    if (tags.some(t => t.name === newTagName)) {
+    // 检查标签是否已存在（使用 Set 进行 O(1) 查找）
+    if (tagNamesSet.has(newTagName)) {
       setCreateError(t('tags.alreadyExists'))
       return
     }
@@ -154,10 +158,10 @@ export function TagsTab() {
     }
   }
 
+  // 使用共享的时间格式化函数
   const formatTime = (timestamp?: number) => {
-    if (!timestamp) return null
-    const date = new Date(timestamp * 1000)
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    if (!timestamp) return ''
+    return formatGitTimestamp(timestamp, t)
   }
 
   return (

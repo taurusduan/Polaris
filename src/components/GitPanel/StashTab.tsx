@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { Archive, Check, RefreshCw, Loader2, Inbox } from 'lucide-react'
 import { useGitStore } from '@/stores/gitStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { formatGitTimestamp } from '@/utils/gitFormat'
 import type { GitStashEntry } from '@/types/git'
 
 export function StashTab() {
@@ -63,11 +64,8 @@ export function StashTab() {
     }
   }
 
-
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp * 1000)
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
+  // 使用共享的时间格式化函数
+  const formatTime = (timestamp: number) => formatGitTimestamp(timestamp, t)
 
   return (
     <div className="flex flex-col h-full min-h-0">

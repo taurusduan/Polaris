@@ -4,7 +4,7 @@
  * 显示远程仓库信息，支持添加、删除远程仓库
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Globe,
@@ -89,10 +89,17 @@ export function RemoteTab() {
     loadRemotes()
   }, [loadRemotes])
 
-  // 计算每个远程仓库的分支数
-  const getRemoteBranchCount = (remoteName: string) => {
-    return branches.filter((b) => b.isRemote && b.name.startsWith(`${remoteName}/`)).length
-  }
+  // 优化：使用 useMemo 预计算所有远程仓库的分支数
+  const remoteBranchCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    branches.forEach(branch => {
+      if (branch.isRemote) {
+        const remoteName = branch.name.split('/')[0]
+        counts.set(remoteName, (counts.get(remoteName) || 0) + 1)
+      }
+    })
+    return counts
+  }, [branches])
 
   // 提取域名用于显示图标
   const getHostFromUrl = (url?: string) => {
@@ -199,9 +206,11 @@ export function RemoteTab() {
     try {
       const result = await pull(currentWorkspace.path, remote)
 
-      // 刷新状态和分支列表
-      await refreshStatus(currentWorkspace.path)
-      await getBranches(currentWorkspace.path)
+      // 并发执行：刷新状态和分支列表（独立操作可以并行）
+      await Promise.all([
+        refreshStatus(currentWorkspace.path),
+        getBranches(currentWorkspace.path)
+      ])
 
       // 显示拉取结果
       if (result.conflicts && result.conflicts.length > 0) {
@@ -287,7 +296,7 @@ export function RemoteTab() {
 
   const renderRemoteItem = (remote: GitRemote) => {
     const host = getHostFromUrl(remote.fetchUrl || remote.pushUrl)
-    const branchCount = getRemoteBranchCount(remote.name)
+    const branchCount = remoteBranchCounts.get(remote.name) || 0
     const displayUrl = remote.fetchUrl || remote.pushUrl || t('remote.noUrl')
 
     return (
