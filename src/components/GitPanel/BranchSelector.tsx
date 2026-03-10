@@ -167,7 +167,7 @@ export function BranchSelector() {
         >
           <GitBranchIcon size={14} className="text-text-tertiary" />
           <span className="font-medium max-w-[120px] truncate">
-            {status?.branch || 'HEAD'}
+            {status?.branch || t('history.head')}
           </span>
           <ChevronDown size={12} className="text-text-tertiary" />
         </button>
