@@ -296,6 +296,14 @@
     "abortFailed": "Failed to abort revert: {{error}}",
     "continueFailed": "Failed to continue revert: {{error}}"
   },
+  "blame": {
+    "title": "Blame",
+    "button": "View Blame",
+    "lines": "lines",
+    "empty": "No content",
+    "loadFailed": "Failed to load blame information",
+    "hint": "Each line shows the most recent commit that modified it"
+  },
   "batchStageSuccess": "Batch stage successful",
   "batchUnstageSuccess": "Batch unstage successful",
   "batchDiscardSuccess": "Batch discard successful",

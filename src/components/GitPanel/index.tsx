@@ -4,7 +4,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, GitPullRequest, X, Check, RotateCcw, MoreHorizontal, GitBranch, FolderGit2, FileText, History, Archive, Globe, Tag } from 'lucide-react'
+import { ChevronRight, GitPullRequest, X, Check, RotateCcw, MoreHorizontal, GitBranch, FolderGit2, FileText, History, Archive, Globe, Tag, GitCommit } from 'lucide-react'
 import { useGitStore } from '@/stores/gitStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useToastStore } from '@/stores/toastStore'
@@ -17,6 +17,7 @@ import { BranchTab } from './BranchTab'
 import { StashTab } from './StashTab'
 import { RemoteTab } from './RemoteTab'
 import { TagsTab } from './TagsTab'
+import { BlameView } from './BlameView'
 import { DiffViewer } from '@/components/Diff/DiffViewer'
 import { Button } from '@/components/Common/Button'
 import { DropdownMenu } from '@/components/Common/DropdownMenu'
@@ -40,6 +41,8 @@ export function GitPanel({ width, className = '', onOpenDiffInTab }: GitPanelPro
   const [activeTab, setActiveTab] = useState<TabType>('changes')
   const [selectedDiff, setSelectedDiff] = useState<GitDiffEntry | null>(null)
   const [isDiffLoading, setIsDiffLoading] = useState(false)
+  const [showBlame, setShowBlame] = useState(false)
+  const [blameFilePath, setBlameFilePath] = useState<string | null>(null)
 
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
   const [isBatchOperating, setIsBatchOperating] = useState(false)
@@ -382,8 +385,18 @@ export function GitPanel({ width, className = '', onOpenDiffInTab }: GitPanelPro
             </div>
           ) : (
             <div className="h-full">
-              <div className="px-4 py-2 text-xs font-medium text-text-secondary bg-background-surface border-b border-border-subtle">
-                {selectedDiff.file_path}
+              <div className="px-4 py-2 text-xs font-medium text-text-secondary bg-background-surface border-b border-border-subtle flex items-center justify-between">
+                <span className="truncate">{selectedDiff.file_path}</span>
+                <button
+                  onClick={() => {
+                    setBlameFilePath(selectedDiff.file_path)
+                    setShowBlame(true)
+                  }}
+                  className="p-1 text-text-tertiary hover:text-text-primary hover:bg-background-hover rounded transition-colors"
+                  title={t('blame.button')}
+                >
+                  <GitCommit size={14} />
+                </button>
               </div>
               <div className="h-[calc(100%-32px)]">
                 <DiffViewer
@@ -517,6 +530,17 @@ export function GitPanel({ width, className = '', onOpenDiffInTab }: GitPanelPro
           {activeTab === 'stash' && <StashTab />}
           </div>
         </div>
+      )}
+
+      {/* Blame 视图 */}
+      {showBlame && blameFilePath && (
+        <BlameView
+          filePath={blameFilePath}
+          onClose={() => {
+            setShowBlame(false)
+            setBlameFilePath(null)
+          }}
+        />
       )}
     </aside>
   )

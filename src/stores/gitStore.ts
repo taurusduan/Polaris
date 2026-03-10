@@ -22,6 +22,7 @@ import type {
   GitRevertResult,
   GitCommit,
   GitTag,
+  GitBlameResult,
   BatchStageResult,
   GitStashEntry,
   GitError,
@@ -83,6 +84,7 @@ interface GitState {
   getTags: (workspacePath: string) => Promise<GitTag[]>
   createTag: (workspacePath: string, name: string, commitish?: string, message?: string) => Promise<GitTag>
   deleteTag: (workspacePath: string, name: string) => Promise<void>
+  blameFile: (workspacePath: string, filePath: string) => Promise<GitBlameResult>
   getLog: (workspacePath: string, limit?: number, skip?: number, branch?: string) => Promise<GitCommit[]>
   getStashList: (workspacePath: string) => Promise<GitStashEntry[]>
 
@@ -378,6 +380,24 @@ export const useGitStore = create<GitState>((set, get) => ({
       await get().getTags(workspacePath)
 
       set({ isLoading: false })
+    } catch (err) {
+      set({ error: parseGitError(err), isLoading: false })
+      throw err
+    }
+  },
+
+  // 获取文件 Blame 信息
+  async blameFile(workspacePath: string, filePath: string) {
+    set({ isLoading: true, error: null })
+
+    try {
+      const result = await invoke<GitBlameResult>('git_blame_file', {
+        workspacePath,
+        filePath,
+      })
+
+      set({ isLoading: false })
+      return result
     } catch (err) {
       set({ error: parseGitError(err), isLoading: false })
       throw err

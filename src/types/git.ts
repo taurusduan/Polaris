@@ -116,6 +116,42 @@ export interface GitTag {
 }
 
 /**
+ * Git Blame 单行信息
+ */
+export interface GitBlameLine {
+  /** 行号（从 1 开始） */
+  lineNumber: number
+  /** 该行在原提交中的行号 */
+  originalLineNumber: number
+  /** 提交 SHA */
+  commitSha: string
+  /** 短 SHA */
+  shortSha: string
+  /** 作者名称 */
+  author: string
+  /** 作者邮箱 */
+  authorEmail: string
+  /** 提交时间（Unix 时间戳） */
+  timestamp: number
+  /** 提交消息（第一行） */
+  summary?: string
+  /** 文件内容 */
+  content: string
+}
+
+/**
+ * Git Blame 结果
+ */
+export interface GitBlameResult {
+  /** 文件路径 */
+  filePath: string
+  /** Blame 行信息列表 */
+  lines: GitBlameLine[]
+  /** 总行数 */
+  totalLines: number
+}
+
+/**
  * Git 远程仓库
  */
 export interface GitRemote {

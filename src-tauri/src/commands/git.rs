@@ -123,6 +123,16 @@ pub fn git_delete_tag(workspacePath: String, name: String) -> Result<(), GitErro
     GitService::delete_tag(&path, &name).map_err(GitError::from)
 }
 
+/// 获取文件 Blame 信息
+#[tauri::command]
+pub fn git_blame_file(
+    workspacePath: String,
+    filePath: String,
+) -> Result<GitBlameResult, GitError> {
+    let path = PathBuf::from(workspacePath);
+    GitService::blame_file(&path, &filePath).map_err(GitError::from)
+}
+
 /// 创建分支
 #[tauri::command]
 pub fn git_create_branch(

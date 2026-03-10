@@ -296,6 +296,14 @@
     "abortFailed": "中止 Revert 失败: {{error}}",
     "continueFailed": "继续 Revert 失败: {{error}}"
   },
+  "blame": {
+    "title": "Blame",
+    "button": "查看 Blame",
+    "lines": "行",
+    "empty": "没有内容",
+    "loadFailed": "加载 Blame 信息失败",
+    "hint": "每行代码显示最近的修改提交"
+  },
   "batchStageSuccess": "批量暂存成功",
   "batchUnstageSuccess": "批量取消暂存成功",
   "batchDiscardSuccess": "批量丢弃成功",

@@ -224,6 +224,47 @@ pub struct GitTag {
 }
 
 // ============================================================================
+// Git Blame
+// ============================================================================
+
+/// Git Blame 单行信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitBlameLine {
+    /// 行号（从 1 开始）
+    pub line_number: usize,
+    /// 该行在原提交中的行号
+    pub original_line_number: usize,
+    /// 提交 SHA
+    pub commit_sha: String,
+    /// 短 SHA
+    pub short_sha: String,
+    /// 作者名称
+    pub author: String,
+    /// 作者邮箱
+    pub author_email: String,
+    /// 提交时间（Unix 时间戳）
+    pub timestamp: i64,
+    /// 提交消息（第一行）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    /// 文件内容
+    pub content: String,
+}
+
+/// Git Blame 结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitBlameResult {
+    /// 文件路径
+    pub file_path: String,
+    /// Blame 行信息列表
+    pub lines: Vec<GitBlameLine>,
+    /// 总行数
+    pub total_lines: usize,
+}
+
+// ============================================================================
 // Git 远程仓库
 // ============================================================================
 

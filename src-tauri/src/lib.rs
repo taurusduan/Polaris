@@ -42,7 +42,7 @@ use commands::git::{
     git_rebase_branch, git_rebase_abort, git_rebase_continue,
     git_cherry_pick, git_cherry_pick_abort, git_cherry_pick_continue,
     git_revert, git_revert_abort, git_revert_continue,
-    git_get_tags, git_create_tag, git_delete_tag,
+    git_get_tags, git_create_tag, git_delete_tag, git_blame_file,
     test_param_serialization, write_file_absolute, read_file_absolute,
 };
 use commands::deepseek_tools::{
@@ -298,6 +298,7 @@ pub fn run() {
             git_get_tags,
             git_create_tag,
             git_delete_tag,
+            git_blame_file,
             git_commit_changes,
             git_stage_file,
             git_unstage_file,
