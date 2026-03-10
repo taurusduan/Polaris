@@ -126,7 +126,7 @@ export function GitignoreTab() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <div className="px-4 py-2 border-b border-border-subtle flex items-center justify-between shrink-0">
         <span className="text-sm font-medium text-text-primary">{t('gitignore.title')}</span>
         <div className="flex items-center gap-2">
@@ -240,7 +240,7 @@ export function GitignoreTab() {
                 <X size={16} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto min-h-0 p-4">
               <div className="space-y-3">
                 {templates.map((template) => (
                   <div

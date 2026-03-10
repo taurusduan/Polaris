@@ -476,3 +476,76 @@ GitPanel UI/UX 优化任务已完成，共修复 13 个问题：
 ### Git 状态
 
 工作区干净，无需提交。
+
+---
+
+## 2026-03-10 第七轮检查与修复
+
+### 检查范围
+
+对所有 GitPanel 组件进行了第七轮全面 UI/UX 检查。
+
+### 检查结果
+
+发现 1 个布局问题：
+
+#### 14. Flex 布局滚动区域问题
+
+**问题描述**: 多个组件中的 flex 子元素未设置 `min-h-0`，导致在某些情况下滚动区域无法正常工作。CSS flexbox 中，子元素的 `min-height` 默认为 `auto`，这会阻止元素收缩到内容大小以下。
+
+**修改原因**: 
+- 确保 flex 布局的滚动区域在所有情况下都能正常工作
+- `min-h-0` 允许 flex 子元素收缩到任意大小，从而启用滚动
+
+**修改文件**: 
+- `src/components/GitPanel/index.tsx`
+- `src/components/GitPanel/BranchTab.tsx`
+- `src/components/GitPanel/HistoryTab.tsx`
+- `src/components/GitPanel/RemoteTab.tsx`
+- `src/components/GitPanel/FileChangesList.tsx`
+- `src/components/GitPanel/GitignoreTab.tsx`
+- `src/components/GitPanel/StashTab.tsx`
+- `src/components/GitPanel/TagsTab.tsx`
+
+**修改内容**:
+1. **index.tsx**:
+   - Diff 区域容器添加 `min-h-0`
+   - Tab 内容容器添加 `min-h-0`
+   - Tab 按钮容器添加 `overflow-x-auto` 支持横向滚动
+   - Tab 按钮优化：移除文本标签，只显示图标，添加 `title` 属性
+
+2. **BranchTab.tsx**:
+   - 根容器添加 `min-h-0`
+   - 标题栏添加 `shrink-0`
+   - 滚动区域添加 `min-h-0`
+
+3. **HistoryTab.tsx**:
+   - 根容器添加 `min-h-0`
+   - 内容区域添加 `min-h-0 overflow-hidden`
+
+4. **RemoteTab.tsx**:
+   - 根容器添加 `min-h-0`
+   - 滚动区域添加 `min-h-0`
+
+5. **FileChangesList.tsx**:
+   - 滚动区域添加 `min-h-0`
+
+6. **GitignoreTab.tsx**:
+   - 根容器添加 `min-h-0`
+   - 模板列表滚动区域添加 `min-h-0`
+
+7. **StashTab.tsx**:
+   - 根容器添加 `min-h-0`
+   - 滚动区域添加 `min-h-0`
+
+8. **TagsTab.tsx**:
+   - 根容器添加 `min-h-0`
+   - 滚动区域添加 `min-h-0`
+
+### 验证结果
+
+- TypeScript 类型检查: ✅ 通过 (`npx tsc --noEmit`)
+
+### 提交记录
+
+待提交: `refactor(GitPanel): 优化 flex 布局滚动区域`

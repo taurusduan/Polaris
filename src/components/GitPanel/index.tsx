@@ -381,7 +381,7 @@ export function GitPanel({ width, className = '', onOpenDiffInTab }: GitPanelPro
       </div>
 
       {useInternalDiff && selectedDiff && (
-        <div className="flex-1 overflow-hidden flex flex-col border-b border-border-subtle">
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0 border-b border-border-subtle">
           {isDiffLoading ? (
             <div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">
               {t('loading')}
@@ -416,22 +416,22 @@ export function GitPanel({ width, className = '', onOpenDiffInTab }: GitPanelPro
       )}
 
       {!(useInternalDiff && selectedDiff) && (
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex items-center border-b border-border-subtle shrink-0">
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+          <div className="flex items-center border-b border-border-subtle shrink-0 overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-medium transition-colors ${
+                title={tab.label}
+                className={`flex-1 min-w-0 flex items-center justify-center gap-1 px-1.5 py-2 text-xs font-medium transition-colors ${
                   activeTab === tab.id
                     ? 'text-primary border-b-2 border-primary bg-primary/5'
                     : 'text-text-tertiary hover:text-text-primary hover:bg-background-hover'
                 }`}
               >
-                <tab.icon size={12} />
-                <span>{tab.label}</span>
+                <tab.icon size={14} />
                 {tab.count > 0 && (
-                  <span className="flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] bg-primary/20 text-primary rounded-full">
+                  <span className="flex items-center justify-center min-w-[14px] h-4 px-1 text-[10px] bg-primary/20 text-primary rounded-full">
                     {tab.count}
                   </span>
                 )}
@@ -439,7 +439,7 @@ export function GitPanel({ width, className = '', onOpenDiffInTab }: GitPanelPro
             ))}
           </div>
 
-          <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           {activeTab === 'changes' && (
             <>
               <GitStatusHeader

@@ -387,7 +387,7 @@ export function RemoteTab() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <div className="px-4 py-2 border-b border-border-subtle flex items-center justify-between">
         <span className="text-sm font-medium text-text-primary">
           {t('remote.title')}
@@ -608,7 +608,7 @@ export function RemoteTab() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {isLoading && remotes.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 size={20} className="animate-spin text-text-tertiary" />

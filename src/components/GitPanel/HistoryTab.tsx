@@ -433,7 +433,7 @@ export function HistoryTab({ targetCommitSha, onCommitSelected }: HistoryTabProp
   }, [isLoadingMore, hasMore, searchQuery, t])
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <div className="px-4 py-2 border-b border-border-subtle flex items-center justify-between gap-2">
         <span className="text-sm font-medium text-text-primary shrink-0">
           {t('history.title')}
@@ -477,7 +477,7 @@ export function HistoryTab({ targetCommitSha, onCommitSelected }: HistoryTabProp
         </div>
       )}
 
-      <div className="flex-1">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {isLoading && commits.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 size={20} className="animate-spin text-text-tertiary" />

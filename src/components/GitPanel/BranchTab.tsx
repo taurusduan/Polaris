@@ -571,8 +571,8 @@ export function BranchTab() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-border-subtle flex items-center justify-between">
+    <div className="flex flex-col h-full min-h-0">
+      <div className="px-4 py-2 border-b border-border-subtle flex items-center justify-between shrink-0">
         <span className="text-sm font-medium text-text-primary">
           {t('branch.title')}
           {localBranches.length > 0 && (
@@ -607,7 +607,7 @@ export function BranchTab() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {isLoading && branches.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 size={20} className="animate-spin text-text-tertiary" />
