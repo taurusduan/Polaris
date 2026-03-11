@@ -368,20 +368,28 @@ impl OpenAIProxyService {
                 .process_stream(response, &window, &session_id, &context_id)
                 .await?;
 
+            // 添加助手消息（无论是否有工具调用，确保对话上下文完整）
+            messages.push(ChatMessage {
+                role: "assistant".to_string(),
+                content: if content.is_empty() {
+                    None
+                } else {
+                    Some(serde_json::Value::String(content.clone()))
+                },
+                tool_calls: if tool_calls.is_empty() {
+                    None
+                } else {
+                    Some(tool_calls.clone())
+                },
+                tool_call_id: None,
+            });
+
             // 如果没有工具调用，结束循环
             if tool_calls.is_empty() {
                 // 发送会话结束事件
                 self.emit_event(&window, &session_id, &context_id, StreamEvent::SessionEnd);
                 break;
             }
-
-            // 添加助手消息
-            messages.push(ChatMessage {
-                role: "assistant".to_string(),
-                content: Some(serde_json::Value::String(content.clone())),
-                tool_calls: Some(tool_calls.clone()),
-                tool_call_id: None,
-            });
 
             // 执行工具调用
             for tool_call in &tool_calls {
