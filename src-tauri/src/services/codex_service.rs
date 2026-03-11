@@ -375,31 +375,9 @@ impl CodexService {
                     .unwrap_or_else(|| ".".to_string())
             });
 
-        // 尝试加载历史记录并构建上下文消息
-        let full_message = match Self::find_session_file(session_id) {
-            Ok(file_path) => {
-                eprintln!("[CodexService::continue_chat] 找到会话文件: {:?}", file_path);
-                match Self::parse_history_jsonl(&file_path) {
-                    Ok(history) => {
-                        eprintln!("[CodexService::continue_chat] 解析到 {} 条历史消息", history.len());
-                        Self::build_context_message(&history, message)
-                    }
-                    Err(e) => {
-                        eprintln!("[CodexService::continue_chat] 解析历史失败: {}, 使用原始消息", e);
-                        message.to_string()
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("[CodexService::continue_chat] 未找到会话文件: {}, 使用原始消息", e);
-                message.to_string()
-            }
-        };
-
-        eprintln!("[CodexService::continue_chat] 完整消息长度: {} 字符", full_message.len());
 
         let codex_cmd = Self::get_codex_cmd(config)?;
-        let mut cmd = Self::build_codex_command(&codex_cmd, &work_dir, &full_message, config);
+        let mut cmd = Self::build_codex_resume_command(&codex_cmd, &work_dir, &message, config);
 
         let program = cmd.get_program().to_string_lossy().to_string();
         let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
@@ -416,6 +394,45 @@ impl CodexService {
                 eprintln!("[CodexService] {}", error_msg);
                 AppError::ProcessError(error_msg)
             })
+    }
+
+
+    /// 构建 Codex resume 命令
+    /// 
+    /// 注意：`codex resume` 是独立子命令，支持 -s/--sandbox 和 -a/--ask-for-approval
+    /// 用法: codex resume --last -s workspace-write -a never [PROMPT]
+    fn build_codex_resume_command(codex_cmd: &str, work_dir: &str, message: &str, config: &Config) -> Command {
+        let mut cmd = Command::new(codex_cmd);
+
+        // resume 是独立子命令，不是 exec 的子命令
+        cmd.arg("resume")
+            .arg("--last");
+
+        if config.codex.dangerous_bypass {
+            cmd.arg("--dangerously-bypass-approvals-and-sandbox");
+        } else {
+            // resume 支持 -s/--sandbox 参数
+            cmd.arg("-s")
+                .arg(&config.codex.sandbox_mode);
+
+            // resume 支持 -a/--ask-for-approval 参数
+            cmd.arg("-a")
+                .arg(&config.codex.approval_policy);
+        }
+
+        // 消息作为参数传递
+        if !message.is_empty() {
+            cmd.arg(message);
+        }
+
+        cmd.current_dir(work_dir);
+        cmd.stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        cmd
     }
 
     /// 监控进程输出并发送事件
