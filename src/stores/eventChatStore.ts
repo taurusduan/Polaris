@@ -1551,13 +1551,30 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
   },
 
   interruptChat: async () => {
-    const { conversationId, tokenBuffer } = get()
-    if (!conversationId) return
+    const { conversationId, tokenBuffer, providerSessionCache } = get()
 
     // 修复：使用 destroy() 而不是 end()，确保释放 TokenBuffer 资源
     if (tokenBuffer) {
       tokenBuffer.destroy()
     }
+
+    const config = useConfigStore.getState().config
+    const currentEngine = config?.defaultEngine || 'claude-code'
+
+    if (currentEngine.startsWith('provider-')) {
+      if (providerSessionCache?.session) {
+        try {
+          providerSessionCache.session.dispose()
+        } catch (e) {
+          console.warn('[EventChatStore] Dispose provider session failed:', e)
+        }
+      }
+      set({ isStreaming: false, tokenBuffer: null })
+      get().finishMessage()
+      return
+    }
+
+    if (!conversationId) return
 
     try {
       const { invoke } = await import('@tauri-apps/api/core')
