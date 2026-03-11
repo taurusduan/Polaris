@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio, Child};
 use std::sync::Arc;
 use tauri::{Emitter, Window, State};
+use tauri_plugin_notification::NotificationExt;
 use uuid::Uuid;
 
 #[cfg(windows)]
@@ -468,6 +469,10 @@ async fn start_claude_chat(
             };
             eprintln!("[start_claude_chat] 发送事件: {}", event_json);
             let _ = window_clone.emit("chat-event", event_json);
+
+            if matches!(event, StreamEvent::SessionEnd) {
+                notify_ai_reply_complete(&window_clone);
+            }
         });
         eprintln!("[start_claude_chat] 后台线程结束");
     });
@@ -585,6 +590,7 @@ async fn start_iflow_chat_internal(
                                         let _ = window_clone2.emit("chat-event", event_json);
 
                                         if matches!(event, StreamEvent::SessionEnd) {
+                                            notify_ai_reply_complete(&window_clone2);
                                             if let Ok(mut sessions) = sessions_arc_clone.lock() {
                                                 sessions.remove(&id_clone);
                                             }
@@ -780,6 +786,10 @@ async fn continue_claude_chat(
             };
             eprintln!("[continue_claude_chat] 发送事件: {}", event_json);
             let _ = window_clone.emit("chat-event", event_json);
+
+            if matches!(event, StreamEvent::SessionEnd) {
+                notify_ai_reply_complete(&window_clone);
+            }
         });
         eprintln!("[continue_claude_chat] 后台线程结束");
     });
@@ -856,6 +866,7 @@ async fn continue_iflow_chat_internal(
                     let _ = window_clone.emit("chat-event", event_json);
 
                     if matches!(event, StreamEvent::SessionEnd) {
+                        notify_ai_reply_complete(&window_clone);
                         if let Ok(mut sessions) = sessions_arc.lock() {
                             sessions.remove(&session_id_clone);
                         }
@@ -940,6 +951,10 @@ async fn start_codex_chat_internal(
         if let Err(e) = window_clone.emit("chat-event", &event_payload) {
             eprintln!("[start_codex_chat] 发送事件失败: {:?}", e);
         }
+
+        if matches!(event, StreamEvent::SessionEnd) {
+            notify_ai_reply_complete(&window_clone);
+        }
     });
 
     Ok(return_session_id)
@@ -1000,6 +1015,7 @@ async fn continue_codex_chat_internal(
         let _ = window_clone.emit("chat-event", event_json);
 
         if matches!(event, StreamEvent::SessionEnd) {
+            notify_ai_reply_complete(&window_clone);
             if let Ok(mut sessions) = sessions_arc.lock() {
                 sessions.remove(&session_id_owned);
             }
@@ -1061,6 +1077,15 @@ fn terminate_process(pid: u32) {
             }
         }
     }
+}
+
+fn notify_ai_reply_complete(window: &Window) {
+    let _ = window
+        .notification()
+        .builder()
+        .title("AI 回复完成")
+        .body("已完成本轮回复")
+        .show();
 }
 
 /// 中断聊天会话

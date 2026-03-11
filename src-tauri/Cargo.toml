@@ -41,3 +41,4 @@ walkdir = "2"
 reqwest = { version = "0.11", features = ["json", "stream"] }
 futures-util = "0.3"
 md5 = "0.7"
+tauri-plugin-notification = "2.3.3"

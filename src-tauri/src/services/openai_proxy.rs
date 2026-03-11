@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 use tauri::{Emitter, Window};
+use tauri_plugin_notification::NotificationExt;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -405,6 +406,9 @@ impl OpenAIProxyService {
             if tool_calls.is_empty() {
                 // 发送会话结束事件
                 self.emit_event(&window, &session_id, &context_id, StreamEvent::SessionEnd);
+                if !cancel_token.is_cancelled() {
+                    notify_ai_reply_complete(&window);
+                }
                 break;
             }
 
@@ -737,6 +741,15 @@ impl OpenAIProxyService {
             tracing::error!("[OpenAIProxy] 发送事件失败: {}", e);
         }
     }
+}
+
+fn notify_ai_reply_complete(window: &Window) {
+    let _ = window
+        .notification()
+        .builder()
+        .title("AI 回复完成")
+        .body("已完成本轮回复")
+        .show();
 }
 
 fn truncate_for_log(value: &str, max_chars: usize) -> String {
