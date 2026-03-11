@@ -192,10 +192,24 @@ export class OpenAIProviderSession extends BaseSession {
     }
 
     try {
-      this.unlistenChatEvent = await listen<TauriChatEvent>(
+      this.unlistenChatEvent = await listen<string>(
         'chat-event',
         (event) => {
-          this.handleChatEvent(event.payload)
+          // 解析字符串 payload
+          const rawPayload = event.payload
+          let parsed: TauriChatEvent
+
+          if (typeof rawPayload === 'string') {
+            parsed = JSON.parse(rawPayload)
+          } else {
+            parsed = rawPayload as unknown as TauriChatEvent
+          }
+
+          // 只处理当前会话的事件
+          console.log(`[OpenAIProviderSession] 收到事件, contextId=${parsed.contextId}, this.id=${this.id}, 匹配=${parsed.contextId === this.id}`)
+          if (parsed.contextId === this.id) {
+            this.handleChatEvent(parsed)
+          }
         }
       )
     } catch (error) {
