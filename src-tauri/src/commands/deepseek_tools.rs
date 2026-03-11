@@ -48,7 +48,9 @@ pub async fn execute_bash(
     };
 
     if cfg!(target_os = "windows") {
-        cmd.args(["/C", command]);
+        // Force UTF-8 output from cmd to avoid mojibake.
+        let wrapped = format!("chcp 65001 >nul & {}", command);
+        cmd.args(["/C", &wrapped]);
     } else {
         cmd.arg("-c").arg(command);
     }

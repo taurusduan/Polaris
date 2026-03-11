@@ -679,16 +679,29 @@ impl OpenAIProxyService {
             }
             "execute_bash" => {
                 if let Some(command) = args.get("command").and_then(|c| c.as_str()) {
+                    let work_dir = args.get("work_dir").and_then(|d| d.as_str());
+
                     #[cfg(windows)]
-                    let output = StdCommand::new("cmd")
-                        .args(["/C", command])
-                        .creation_flags(CREATE_NO_WINDOW)
-                        .output();
+                    let output = {
+                        // Force UTF-8 output from cmd to avoid mojibake.
+                        let wrapped = format!("chcp 65001 >nul & {}", command);
+                        let mut cmd = StdCommand::new("cmd");
+                        cmd.args(["/C", &wrapped]).creation_flags(CREATE_NO_WINDOW);
+                        if let Some(dir) = work_dir {
+                            cmd.current_dir(dir);
+                        }
+                        cmd.output()
+                    };
 
                     #[cfg(not(windows))]
-                    let output = StdCommand::new("sh")
-                        .args(["-c", command])
-                        .output();
+                    let output = {
+                        let mut cmd = StdCommand::new("sh");
+                        cmd.args(["-c", command]);
+                        if let Some(dir) = work_dir {
+                            cmd.current_dir(dir);
+                        }
+                        cmd.output()
+                    };
 
                     match output {
                         Ok(output) => {
