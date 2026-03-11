@@ -68,7 +68,15 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
   const handleEngineChange = (engineId: EngineId) => {
     if (!localConfig) return;
-    setLocalConfig({ ...localConfig, defaultEngine: engineId });
+    
+    // 如果选择的是 OpenAI Provider，同时设置 activeProviderId
+    const isProvider = engineId.startsWith('provider-');
+    setLocalConfig({ 
+      ...localConfig, 
+      defaultEngine: engineId,
+      // 同步 activeProviderId
+      activeProviderId: isProvider ? engineId : localConfig.activeProviderId,
+    });
   };
 
   const handleLanguageChange = (language: Language) => {
@@ -183,7 +191,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     }
 
     // 如果删除的是当前引擎，切换到默认引擎
-    if (localConfig.defaultEngine === `provider-${providerId}`) {
+    if (localConfig.defaultEngine === providerId) {
       handleEngineChange('claude-code');
     }
   };
