@@ -137,12 +137,13 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     const newProvider: import('../../types/config').OpenAIProvider = {
       id: `provider-${Date.now()}`,
       name: 'New Provider',
-      api_key: '',
-      api_base: 'https://api.openai.com/v1',
+      apiKey: '',
+      apiBase: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 0.7,
-      max_tokens: 8192,
+      maxTokens: 8192,
       enabled: true,
+      supportsTools: false,
     };
     setLocalConfig({
       ...localConfig,
@@ -348,7 +349,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         )}
                       </div>
                       <div className="text-sm text-text-secondary">
-                        {provider.model} • {provider.api_base}
+                        {provider.model} • {provider.apiBase}
                       </div>
                     </div>
                   </button>
@@ -394,8 +395,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         <label className="block text-xs text-text-secondary mb-1">API Key</label>
                         <input
                           type="password"
-                          value={provider.api_key}
-                          onChange={(e) => handleUpdateProvider(provider.id, { api_key: e.target.value })}
+                          value={provider.apiKey}
+                          onChange={(e) => handleUpdateProvider(provider.id, { apiKey: e.target.value })}
                           className="w-full px-3 py-2 rounded border border-border bg-background"
                         />
                       </div>
@@ -403,8 +404,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         <label className="block text-xs text-text-secondary mb-1">API Base URL</label>
                         <input
                           type="text"
-                          value={provider.api_base}
-                          onChange={(e) => handleUpdateProvider(provider.id, { api_base: e.target.value })}
+                          value={provider.apiBase}
+                          onChange={(e) => handleUpdateProvider(provider.id, { apiBase: e.target.value })}
                           className="w-full px-3 py-2 rounded border border-border bg-background"
                         />
                       </div>

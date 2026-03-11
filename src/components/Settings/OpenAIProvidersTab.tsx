@@ -53,12 +53,13 @@ export function OpenAIProvidersTab({ onClose }: OpenAIProvidersTabProps) {
     const newProvider: OpenAIProvider = {
       id: `provider-${Date.now()}`,
       name: 'New Provider',
-      api_key: '',
-      api_base: 'https://api.openai.com/v1',
+      apiKey: '',
+      apiBase: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 0.7,
-      max_tokens: 8192,
+      maxTokens: 8192,
       enabled: true,
+      supportsTools: false,
     }
     setProviders([...providers, newProvider])
   }
@@ -91,10 +92,10 @@ export function OpenAIProvidersTab({ onClose }: OpenAIProvidersTabProps) {
     setTestingProviderId(provider.id)
 
     try {
-      const response = await fetch(`${provider.api_base.replace(/\/$/, '')}/models`, {
+      const response = await fetch(`${provider.apiBase.replace(/\/$/, '')}/models`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${provider.api_key}`,
+          'Authorization': `Bearer ${provider.apiKey}`,
         },
         signal: AbortSignal.timeout(10000), // 10 秒超时
       })
@@ -281,8 +282,8 @@ function ProviderCard({
             <label className="block text-sm font-medium mb-1">API Key</label>
             <input
               type="password"
-              value={provider.api_key}
-              onChange={(e) => onUpdate({ api_key: e.target.value })}
+              value={provider.apiKey}
+              onChange={(e) => onUpdate({ apiKey: e.target.value })}
               placeholder="sk-..."
               className="w-full px-3 py-2 rounded border border-border-subtle bg-background"
             />
@@ -293,8 +294,8 @@ function ProviderCard({
             <label className="block text-sm font-medium mb-1">API Base URL</label>
             <input
               type="text"
-              value={provider.api_base}
-              onChange={(e) => onUpdate({ api_base: e.target.value })}
+              value={provider.apiBase}
+              onChange={(e) => onUpdate({ apiBase: e.target.value })}
               placeholder="https://api.openai.com/v1"
               className="w-full px-3 py-2 rounded border border-border-subtle bg-background"
             />
@@ -334,8 +335,8 @@ function ProviderCard({
               <input
                 type="number"
                 min="1"
-                value={provider.max_tokens}
-                onChange={(e) => onUpdate({ max_tokens: parseInt(e.target.value) })}
+                value={provider.maxTokens}
+                onChange={(e) => onUpdate({ maxTokens: parseInt(e.target.value) })}
                 className="w-full px-3 py-2 rounded border border-border-subtle bg-background"
               />
             </div>
@@ -346,7 +347,7 @@ function ProviderCard({
             <div className="flex gap-2">
               <button
                 onClick={onTest}
-                disabled={isTesting || !provider.api_key}
+                disabled={isTesting || !provider.apiKey}
                 className={clsx(
                   "px-4 py-2 text-sm rounded border",
                   isTesting

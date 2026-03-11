@@ -15,19 +15,19 @@ export interface OpenAIProvider {
   /** 显示名称 */
   name: string;
   /** API Key */
-  api_key: string;
+  apiKey: string;
   /** API Base URL */
-  api_base: string;
+  apiBase: string;
   /** 模型名称（任意值） */
   model: string;
   /** 温度参数 */
   temperature: number;
   /** 最大 Token 数 */
-  max_tokens: number;
+  maxTokens: number;
   /** 是否启用 */
   enabled: boolean;
   /** 是否支持工具调用（Function Calling） */
-  supports_tools: boolean;
+  supportsTools: boolean;
 }
 
 /** AI 引擎配置 */

@@ -46,11 +46,12 @@ export async function bootstrapOpenAIProviders(
       const engineConfig: OpenAIProviderEngineConfig = {
         providerId: provider.id,
         providerName: provider.name,
-        apiKey: provider.api_key,
-        apiBase: provider.api_base,
+        apiKey: provider.apiKey,
+        apiBase: provider.apiBase,
         model: provider.model,
         temperature: provider.temperature,
-        maxTokens: provider.max_tokens,
+        maxTokens: provider.maxTokens,
+        supportsTools: provider.supportsTools,
       }
 
       const engine = getOpenAIProviderEngine(engineConfig)

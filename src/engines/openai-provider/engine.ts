@@ -131,6 +131,7 @@ export class OpenAIProviderEngine implements AIEngine {
       maxTokens: config.maxTokens ?? DEFAULT_CONFIG.maxTokens,
       workspaceDir: config.workspaceDir || '',
       timeout: config.timeout ?? DEFAULT_CONFIG.timeout,
+      supportsTools: config.supportsTools ?? DEFAULT_CONFIG.supportsTools,
     }
 
     // 初始化能力描述
