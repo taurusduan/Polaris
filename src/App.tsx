@@ -97,10 +97,7 @@ function App() {
 
         // 按需初始化传统 AI Engine
         const codexConfig = {
-          cliPath: config?.codex.cliPath || 'codex',
-          sandboxMode: config?.codex.sandboxMode || 'workspace-write',
-          approvalPolicy: config?.codex.approvalPolicy || 'never',
-          dangerousBypass: config?.codex.dangerousBypass || false,
+          executablePath: config?.codex.cliPath || 'codex',
         };
 
         await bootstrapEngines(defaultEngine as any, undefined, codexConfig);

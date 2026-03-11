@@ -576,7 +576,7 @@ interface EventChatState {
   tokenBuffer: TokenBuffer | null
 
   /** DeepSeek Session 缓存 */
-  deepseekSessionCache: {
+  providerSessionCache: {
     session: any | null
     conversationId: string | null
     conversationSeed: string | null
@@ -672,7 +672,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
   currentMessage: null,
   toolBlockMap: new Map(),
   tokenBuffer: null,
-  deepseekSessionCache: null,
+  providerSessionCache: null,
   streamingUpdateCounter: 0, // 🔧 新增：流式更新计数器
 
   addMessage: (message) => {
@@ -721,15 +721,15 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
 
   clearMessages: () => {
     // 清理 TokenBuffer
-    const { tokenBuffer, deepseekSessionCache } = get()
+    const { tokenBuffer, providerSessionCache } = get()
     if (tokenBuffer) {
       tokenBuffer.destroy()
     }
 
     // 清理 DeepSeek Session
-    if (deepseekSessionCache?.session) {
+    if (providerSessionCache?.session) {
       try {
-        deepseekSessionCache.session.dispose()
+        providerSessionCache.session.dispose()
       } catch (e) {
         console.warn('[EventChatStore] 清理 Session 失败:', e)
       }
@@ -745,19 +745,19 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
       currentMessage: null,
       toolBlockMap: new Map(),
       tokenBuffer: null,
-      deepseekSessionCache: null, // 清理 session 缓存
+      providerSessionCache: null, // 清理 session 缓存
     })
     useToolPanelStore.getState().clearTools()
   },
 
   setConversationId: (id) => {
-    const { deepseekSessionCache, conversationId: currentId } = get()
+    const { providerSessionCache, conversationId: currentId } = get()
 
     // 如果切换到不同的对话，清理 DeepSeek Session
-    if (deepseekSessionCache && currentId !== id) {
+    if (providerSessionCache && currentId !== id) {
       console.log('[EventChatStore] 切换对话，清理 DeepSeek session')
       try {
-        deepseekSessionCache.session.dispose()
+        providerSessionCache.session.dispose()
       } catch (e) {
         console.warn('[EventChatStore] 清理 Session 失败:', e)
       }
@@ -765,7 +765,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
       set({
         conversationId: id,
         currentConversationSeed: null, // 重置对话种子
-        deepseekSessionCache: null
+        providerSessionCache: null
       })
     } else {
       set({ conversationId: id })
@@ -1362,7 +1362,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
   },
 
   /**
-   * 使用前端引擎（DeepSeek）发送消息
+   * 使用前端引擎（OpenAI Provider）发送消息
    *
    * 直接迭代 session.run() 返回的事件流，与 AgentRunner 模式一致。
    *
@@ -1373,19 +1373,31 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
   sendMessageToFrontendEngine: async (content: string, workspaceDir?: string, systemPrompt?: string) => {
     const config = useConfigStore.getState().config
 
-    if (!config?.deepseek || !config.deepseek.apiKey) {
-      set({ error: 'DeepSeek API Key 未配置', isStreaming: false })
+    // 检查是否有配置的 OpenAI Providers
+    if (!config?.openaiProviders || config.openaiProviders.length === 0) {
+      set({ error: '未配置 OpenAI Provider，请在设置中添加', isStreaming: false })
+      return
+    }
+
+    // 查找启用的 Provider
+    const activeProvider = config.activeProviderId
+      ? config.openaiProviders.find(p => p.id === config.activeProviderId && p.enabled)
+      : config.openaiProviders.find(p => p.enabled)
+
+    if (!activeProvider) {
+      set({ error: '没有启用的 OpenAI Provider，请在设置中启用', isStreaming: false })
       return
     }
 
     try {
-      const engine = getEngine('deepseek' as any)
+      const engineId = `provider-${activeProvider.id}` as const
+      const engine = getEngine(engineId)
 
       if (!engine) {
         throw new Error('DeepSeek 引擎未注册，请重启应用')
       }
 
-      const { conversationId, deepseekSessionCache, currentConversationSeed } = get()
+      const { conversationId, providerSessionCache, currentConversationSeed } = get()
 
       // 如果没有会话种子，生成新的（表示这是一个新对话）
       let actualSeed = currentConversationSeed
@@ -1399,21 +1411,21 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
       // 使用 conversationSeed 而不是 conversationId，因为 DeepSeek 不使用后端会话 ID
       const SESSION_TIMEOUT = 30 * 60 * 1000 // 30 分钟超时
       const canReuseSession =
-        deepseekSessionCache?.session &&
-        deepseekSessionCache.conversationSeed === actualSeed &&
-        (Date.now() - deepseekSessionCache.lastUsed < SESSION_TIMEOUT)
+        providerSessionCache?.session &&
+        providerSessionCache.conversationSeed === actualSeed &&
+        (Date.now() - providerSessionCache.lastUsed < SESSION_TIMEOUT)
 
       let session: any
 
       if (canReuseSession) {
         // 复用现有 session，保留消息历史
         console.log('[eventChatStore] 复用现有 DeepSeek session')
-        session = deepseekSessionCache.session
+        session = providerSessionCache.session
 
         // 更新最后使用时间
         set({
-          deepseekSessionCache: {
-            ...deepseekSessionCache,
+          providerSessionCache: {
+            ...providerSessionCache,
             lastUsed: Date.now()
           }
         })
@@ -1436,7 +1448,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
 
         // 缓存新 session
         set({
-          deepseekSessionCache: {
+          providerSessionCache: {
             session,
             conversationId,
             conversationSeed: actualSeed,

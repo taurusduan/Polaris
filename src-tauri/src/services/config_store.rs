@@ -29,8 +29,8 @@ impl ConfigStore {
 
         let mut config = Self::load_from_file(&config_path)?;
 
-        // 执行配置迁移
-        config.migrate();
+        // 验证配置
+        config.validate();
 
         eprintln!("当前引擎: {}", config.default_engine);
         eprintln!("当前 claude_code.cli_path: {}", config.claude_code.cli_path);
@@ -129,8 +129,8 @@ impl ConfigStore {
             let content = std::fs::read_to_string(path)?;
             // 先尝试按新格式解析
             if let Ok(mut config) = serde_json::from_str::<Config>(&content) {
-                // 执行迁移
-                config.migrate();
+                // 验证配置
+                config.validate();
                 return Ok(config);
             }
             // 如果失败，尝试按旧格式解析然后迁移
@@ -350,23 +350,23 @@ impl ConfigStore {
         let iflow_version = self.detect_iflow();
         let iflow_available = iflow_version.is_some();
 
-        // 检查 DeepSeek 配置
-        let deepseek_configured = !self.config.deepseek.api_key.is_empty();
-        let deepseek_available = deepseek_configured; // 简单检查，实际可能需要验证 API Key
-
         // 检查 Codex 配置
         let codex_available = self.config.codex.cli_path.is_some();
         let codex_version = None; // TODO: 实际检查 Codex 版本
+
+        // 检查 OpenAI Providers
+        let openai_providers_count = self.config.openai_providers.len();
+        let openai_providers_configured = openai_providers_count > 0;
 
         HealthStatus {
             claude_available,
             claude_version,
             iflow_available: Some(iflow_available),
             iflow_version,
-            deepseek_available: Some(deepseek_available),
-            deepseek_configured: Some(deepseek_configured),
             codex_available: Some(codex_available),
             codex_version,
+            openai_providers_count: Some(openai_providers_count),
+            openai_providers_configured: Some(openai_providers_configured),
             work_dir: self.config.work_dir.as_ref()
                 .and_then(|p| p.to_str().map(|s| s.to_string())),
             config_valid: true,
@@ -680,8 +680,9 @@ impl OldConfig {
                 cli_path: self.claude_cmd,
             },
             iflow: Default::default(),
-            deepseek: Default::default(),
             codex: Default::default(),
+            openai_providers: Vec::new(),
+            active_provider_id: None,
             dingtalk: Default::default(),
             work_dir: self.work_dir,
             session_dir: self.session_dir,

@@ -12,7 +12,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core'
-import type { deepseekAnyConfig } from './session'
+import type { OpenAIProviderSessionConfig } from "./session"
 
 /**
  * 工具执行结果
@@ -36,7 +36,7 @@ export class ToolCallManager {
   private readonly sessionId: string
 
   /** 会话配置 */
-  private readonly config: Pick<DeepSeekSessionConfig, 'workspaceDir'>
+  private readonly config: Pick<{ workspaceDir?: string }, 'workspaceDir'>
 
   /** .gitignore 规则缓存 */
   private gitignorePatterns: string[] = []
@@ -47,7 +47,7 @@ export class ToolCallManager {
    * @param sessionId - 会话 ID
    * @param config - 会话配置
    */
-  constructor(sessionId: string, config: Pick<DeepSeekSessionConfig, 'workspaceDir'>) {
+  constructor(sessionId: string, config: Pick<{ workspaceDir?: string }, 'workspaceDir'>) {
     this.sessionId = sessionId
     this.config = config
     this.loadGitignorePatterns()

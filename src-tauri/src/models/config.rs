@@ -460,17 +460,17 @@ pub struct HealthStatus {
     /// IFlow 版本
     pub iflow_version: Option<String>,
 
-    /// DeepSeek API 是否可用
-    pub deepseek_available: Option<bool>,
-
-    /// DeepSeek API Key 是否配置
-    pub deepseek_configured: Option<bool>,
-
     /// Codex CLI 是否可用
     pub codex_available: Option<bool>,
 
     /// Codex 版本
     pub codex_version: Option<String>,
+
+    /// OpenAI Providers 配置数量
+    pub openai_providers_count: Option<usize>,
+
+    /// 是否配置了 OpenAI Providers
+    pub openai_providers_configured: Option<bool>,
 
     /// 工作目录
     pub work_dir: Option<String>,
