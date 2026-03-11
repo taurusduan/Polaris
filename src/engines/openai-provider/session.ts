@@ -245,22 +245,30 @@ export class OpenAIProviderSession extends BaseSession {
         break
 
       case 'tool_start':
+        {
+          const toolUseId = (payload as any).tool_use_id ?? (payload as any).toolUseId ?? ''
+          const toolName = (payload as any).tool_name ?? (payload as any).toolName ?? ''
         this.emit({
           type: 'tool_call_start',
-          callId: (payload as any).tool_use_id || '',
-          tool: (payload as any).tool_name || '',
+          callId: toolUseId,
+          tool: toolName,
           args: (payload as any).input || {},
         })
+        }
         break
 
       case 'tool_end':
+        {
+          const toolUseId = (payload as any).tool_use_id ?? (payload as any).toolUseId ?? ''
+          const toolName = (payload as any).tool_name ?? (payload as any).toolName ?? ''
         this.emit({
           type: 'tool_call_end',
-          callId: (payload as any).tool_use_id || '',
-          tool: (payload as any).tool_name || '',
+          callId: toolUseId,
+          tool: toolName,
           result: (payload as any).output || '',
           success: true,
         })
+        }
         break
 
       case 'session_end':
