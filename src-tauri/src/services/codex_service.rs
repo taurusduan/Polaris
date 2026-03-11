@@ -377,7 +377,7 @@ impl CodexService {
 
 
         let codex_cmd = Self::get_codex_cmd(config)?;
-        let mut cmd = Self::build_codex_resume_command(&codex_cmd, &work_dir, &message, config);
+        let mut cmd = Self::build_codex_resume_command(&codex_cmd, &work_dir, &session_id, &message, config);
 
         let program = cmd.get_program().to_string_lossy().to_string();
         let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
@@ -401,13 +401,13 @@ impl CodexService {
     /// 
     /// 正确用法: codex exec resume --last --full-auto --json [PROMPT]
     /// 注意: exec resume 不支持 -s/-a 参数，只能用 --full-auto 或 --dangerously-bypass
-    fn build_codex_resume_command(codex_cmd: &str, work_dir: &str, message: &str, config: &Config) -> Command {
+    fn build_codex_resume_command(codex_cmd: &str, work_dir: &str, sessionId: &str, message: &str, config: &Config) -> Command {
         let mut cmd = Command::new(codex_cmd);
 
         // exec resume 是非交互模式下的恢复命令
         cmd.arg("exec")
             .arg("resume")
-            .arg("--last")
+            .arg(sessionId)
             .arg("--json")  // 输出 JSONL 格式
             .arg("--skip-git-repo-check");
 

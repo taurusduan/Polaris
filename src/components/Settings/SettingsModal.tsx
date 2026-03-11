@@ -541,6 +541,47 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             <p className="mt-2 text-xs text-text-tertiary">
               {t('codex.hint', 'OpenAI Codex CLI 路径，留空使用系统 PATH 中的 codex 命令')}
             </p>
+            
+            {/* Sandbox 模式配置 */}
+            <div className="mt-4">
+              <label className="block text-xs text-text-secondary mb-2">
+                {t('codex.sandboxMode', 'Sandbox 模式')}
+              </label>
+              <select
+                value={localConfig.codex?.sandboxMode || 'workspace-write'}
+                onChange={(e) => setLocalConfig(prev => prev ? {
+                  ...prev,
+                  codex: { ...prev.codex, sandboxMode: e.target.value }
+                } : prev)}
+                className="w-full px-3 py-2 rounded border border-border bg-background text-sm"
+              >
+                <option value="workspace-write">workspace-write (创建/修改，可能不支持删除)</option>
+                <option value="danger-full-access">danger-full-access (完整权限，包括删除)</option>
+              </select>
+              <p className="mt-1 text-xs text-text-tertiary">
+                workspace-write: 较安全，但删除文件可能失败<br/>
+                danger-full-access: 完整权限，但有安全风险
+              </p>
+            </div>
+
+            {/* 危险模式开关 */}
+            <div className="mt-3">
+              <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={localConfig.codex?.dangerousBypass || false}
+                  onChange={(e) => setLocalConfig(prev => prev ? {
+                    ...prev,
+                    codex: { ...prev.codex, dangerousBypass: e.target.checked }
+                  } : prev)}
+                  className="w-4 h-4"
+                />
+                <span className="text-red-500">dangerously-bypass-approvals-and-sandbox</span>
+              </label>
+              <p className="mt-1 text-xs text-text-tertiary ml-6">
+                ⚠️ 跳过所有审批和沙箱限制，极危险，仅限安全环境使用
+              </p>
+            </div>
           </div>
         )}
 

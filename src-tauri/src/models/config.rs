@@ -51,6 +51,8 @@ pub struct CodexConfig {
 }
 
 fn default_codex_sandbox_mode() -> String {
+    // workspace-write: 允许创建/修改，但可能不支持删除
+    // danger-full-access: 完整权限，包括删除（有安全风险）
     "workspace-write".to_string()
 }
 
