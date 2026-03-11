@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 use tauri::{Emitter, Window};
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 #[cfg(windows)]
@@ -273,19 +274,33 @@ impl OpenAIProxyService {
         messages: Vec<ChatMessage>,
         window: Window,
         context_id: Option<String>,
+        openai_tasks: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, CancellationToken>>>,
     ) -> Result<String> {
         let session_id = Uuid::new_v4().to_string();
         let service = Self::new();
         let ctx_id = context_id.clone();
         let session_id_clone = session_id.clone();
+        let cancel_token = CancellationToken::new();
+
+        {
+            let mut tasks = openai_tasks
+                .lock()
+                .map_err(|e| AppError::Unknown(e.to_string()))?;
+            tasks.insert(session_id.clone(), cancel_token.clone());
+        }
 
         // 在后台任务中执行
+        let openai_tasks_clone = openai_tasks.clone();
         tokio::spawn(async move {
             if let Err(e) = service
-                .run_chat_loop(config, messages, window, session_id_clone, ctx_id)
+                .run_chat_loop(config, messages, window, session_id_clone, ctx_id, cancel_token)
                 .await
             {
                 tracing::error!("[OpenAIProxy] Chat loop error: {}", e);
+            }
+
+            if let Ok(mut tasks) = openai_tasks_clone.lock() {
+                tasks.remove(&session_id);
             }
         });
 
@@ -300,6 +315,7 @@ impl OpenAIProxyService {
         window: Window,
         session_id: String,
         context_id: Option<String>,
+        cancel_token: CancellationToken,
     ) -> Result<()> {
         tracing::info!(
             "[OpenAIProxy] 开始聊天循环, session={}, model={}, messages={:?}",
@@ -365,7 +381,7 @@ impl OpenAIProxyService {
 
             // 处理流式响应
             let (content, tool_calls) = self
-                .process_stream(response, &window, &session_id, &context_id)
+                .process_stream(response, &window, &session_id, &context_id, &cancel_token)
                 .await?;
 
             // 添加助手消息（无论是否有工具调用，确保对话上下文完整）
@@ -446,6 +462,7 @@ impl OpenAIProxyService {
         window: &Window,
         session_id: &str,
         context_id: &Option<String>,
+        cancel_token: &CancellationToken,
     ) -> Result<(String, Vec<ToolCall>)> {
         use futures_util::StreamExt;
 
@@ -458,7 +475,19 @@ impl OpenAIProxyService {
         let mut buffer = String::new();
         let mut chunk_count = 0;
 
-        while let Some(chunk) = stream.next().await {
+        loop {
+            let chunk_opt = tokio::select! {
+                _ = cancel_token.cancelled() => {
+                    tracing::info!("[OpenAIProxy] SSE 流被取消: session={}", session_id);
+                    self.emit_event(window, session_id, context_id, StreamEvent::SessionEnd);
+                    break;
+                }
+                chunk = stream.next() => chunk,
+            };
+
+            let Some(chunk) = chunk_opt else {
+                break;
+            };
             let chunk = chunk.map_err(|e| {
                 tracing::error!("[OpenAIProxy] 流读取错误: {}", e);
                 AppError::NetworkError(e.to_string())

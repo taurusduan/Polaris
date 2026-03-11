@@ -5,6 +5,7 @@
 use crate::error::Result;
 use crate::services::openai_proxy::{ChatMessage, OpenAIProviderConfig, OpenAIProxyService};
 use tauri::{Window, State};
+use crate::AppState;
 use serde::Deserialize;
 
 /// OpenAI Chat 启动参数
@@ -23,6 +24,7 @@ pub struct OpenAIChatParams {
 pub async fn start_openai_chat(
     params: OpenAIChatParams,
     window: Window,
+    state: State<'_, AppState>,
 ) -> Result<String> {
     tracing::info!(
         "[start_openai_chat] 启动 OpenAI 会话，provider: {}, model: {}",
@@ -35,5 +37,6 @@ pub async fn start_openai_chat(
         params.messages,
         window,
         params.context_id,
+        state.openai_tasks.clone(),
     ).await
 }

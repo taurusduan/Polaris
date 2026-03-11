@@ -1083,8 +1083,21 @@ pub async fn interrupt_chat(
         terminate_process(pid);
         eprintln!("[interrupt_chat] 中断命令已发送");
     } else {
-        eprintln!("[interrupt_chat] 未找到会话: {}", session_id);
-        return Err(AppError::ProcessError(format!("未找到会话: {}", session_id)));
+        // 尝试取消 OpenAIProxy 任务
+        let token_opt = {
+            let mut tasks = state.openai_tasks.lock()
+                .map_err(|e| crate::error::AppError::Unknown(e.to_string()))?;
+            tasks.remove(&session_id)
+        };
+
+        if let Some(token) = token_opt {
+            eprintln!("[interrupt_chat] 找到 OpenAIProxy 任务，正在取消");
+            token.cancel();
+            eprintln!("[interrupt_chat] OpenAIProxy 取消命令已发送");
+        } else {
+            eprintln!("[interrupt_chat] 未找到会话: {}", session_id);
+            return Err(AppError::ProcessError(format!("未找到会话: {}", session_id)));
+        }
     }
 
     Ok(())
