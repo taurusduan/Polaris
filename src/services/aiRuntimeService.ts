@@ -3,131 +3,15 @@
  *
  * 这是新架构的核心服务层：
  * 1. 使用 EventBus 进行事件分发
- * 2. 使用 CLIParser 解析 CLI 输出
- * 3. 完全基于 AIEvent 进行通信
+ * 2. 完全基于 AIEvent 进行通信（后端已转换）
  */
 
 import type { AISession, AIEvent } from '../ai-runtime'
-import type { StreamEvent } from '../types'
 import { getEventBus, type EventBus, DEFAULT_ENGINE_ID } from '../ai-runtime'
 import { createParser, type CLIParser } from '../ai-runtime'
 import { getEngineRegistry } from '../ai-runtime'
 import { invoke } from '@tauri-apps/api/core'
 import { getEventRouter } from './eventRouter'
-
-/**
- * 将 Tauri 的 StreamEvent 转换为通用的 AIEvent
- *
- * 这是适配层，将 Claude 特定的事件格式转换为通用格式。
- */
-function streamEventToAIEvent(streamEvent: StreamEvent, sessionId: string): AIEvent[] {
-  const events: AIEvent[] = []
-
-  switch (streamEvent.type) {
-    case 'system':
-      // 尝试从多个位置提取 session_id
-      const extractedSessionId: string | undefined =
-        streamEvent.session_id as string | undefined ||
-        (streamEvent.extra && typeof streamEvent.extra === 'object' && 'session_id' in streamEvent.extra
-          ? String(streamEvent.extra.session_id)
-          : undefined)
-
-      if (extractedSessionId) {
-        events.push({ type: 'session_start', sessionId: extractedSessionId })
-      }
-
-      if (streamEvent.subtype || streamEvent.extra) {
-        const extraMessage =
-          streamEvent.extra && typeof streamEvent.extra === 'object' && 'message' in streamEvent.extra
-            ? String(streamEvent.extra.message)
-            : undefined
-        events.push({ type: 'progress', message: extraMessage || streamEvent.subtype })
-      }
-      break
-
-    case 'session_start':
-      events.push({ type: 'session_start', sessionId: streamEvent.sessionId })
-      break
-
-    case 'session_end':
-    case 'result':
-      events.push({ type: 'session_end', sessionId, reason: 'completed' })
-      break
-
-    case 'assistant': {
-      const content = streamEvent.message.content
-      const textParts = content.filter((item) => item.type === 'text')
-      const text = textParts.map((item) => item.text || '').join('')
-
-      const toolUseParts = content.filter((item) => item.type === 'tool_use')
-      const toolCalls = toolUseParts.map((tool) => ({
-        id: tool.id || crypto.randomUUID(),
-        name: tool.name || 'unknown',
-        args: tool.input || {},
-        status: 'pending' as const,
-      }))
-
-      if (text) {
-        events.push({
-          type: 'assistant_message',
-          content: text,
-          isDelta: false,
-          toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-        })
-      }
-
-      for (const tool of toolCalls) {
-        events.push({ type: 'tool_call_start', tool: tool.name, args: tool.args })
-      }
-      break
-    }
-
-    case 'user': {
-      const toolResults = streamEvent.message.content.filter((item) => item.type === 'tool_result')
-      for (const result of toolResults) {
-        if (result.tool_use_id) {
-          events.push({
-            type: 'tool_call_end',
-            tool: result.tool_use_id,
-            result: result.content || '',
-            success: !result.is_error,
-          })
-        }
-      }
-      break
-    }
-
-    case 'text_delta':
-      events.push({ type: 'token', value: streamEvent.text })
-      break
-
-    case 'tool_start':
-      events.push({ type: 'tool_call_start', callId: streamEvent.toolUseId, tool: streamEvent.toolName, args: streamEvent.input })
-      events.push({ type: 'progress', message: `调用工具: ${streamEvent.toolName}` })
-      break
-
-    case 'tool_end':
-      events.push({
-        type: 'tool_call_end',
-        callId: streamEvent.toolUseId,
-        tool: streamEvent.toolName || 'unknown',
-        result: streamEvent.output,
-        success: streamEvent.output !== undefined,
-      })
-      events.push({ type: 'progress', message: `工具完成: ${streamEvent.toolName || 'unknown'}` })
-      break
-
-    case 'error':
-      events.push({ type: 'error', error: streamEvent.error })
-      break
-
-    case 'permission_request':
-      events.push({ type: 'progress', message: '等待权限确认...' })
-      break
-  }
-
-  return events
-}
 
 /**
  * AI Runtime 配置
@@ -148,8 +32,8 @@ export interface AIRuntimeConfig {
  *
  * 核心特性：
  * 1. 使用 EventBus 进行全局事件分发
- * 2. 使用 CLIParser 解析 CLI 输出
- * 3. 完全基于 AIEvent 进行通信
+ * 2. 完全基于 AIEvent 进行通信
+ * 3. 后端已完成事件转换，前端无需再解析
  */
 export class AIRuntimeService {
   private eventBus: EventBus
@@ -186,17 +70,14 @@ export class AIRuntimeService {
     const router = getEventRouter()
     await router.initialize()
 
+    // 后端已发送标准 AIEvent，直接使用
     this.unregister = router.register('*', (routedEvent: unknown) => {
       try {
-        const event = routedEvent as { contextId: string; payload: StreamEvent }
-        const streamEvent = event.payload
-        const sessionId = this.currentSession?.id || this.parser.getSessionId() || 'unknown'
+        const event = routedEvent as { contextId: string; payload: AIEvent }
+        const aiEvent = event.payload
 
-        const aiEvents = streamEventToAIEvent(streamEvent, sessionId)
-
-        for (const aiEvent of aiEvents) {
-          this.eventBus.emit(aiEvent)
-        }
+        // 直接发送到 EventBus
+        this.eventBus.emit(aiEvent)
       } catch (e) {
         console.error('[AIRuntimeService] Failed to process event:', e)
       }

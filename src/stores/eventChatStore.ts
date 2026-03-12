@@ -5,15 +5,14 @@
  * 支持新的分层对话流消息类型（ToolMessage、ToolGroupMessage）。
  *
  * 架构说明：
- * 1. Tauri 'chat-event' → convertStreamEventToAIEvents() → EventBus.emit()
- * 2. EventBus → DeveloperPanel（调试面板）
- * 3. 本地处理逻辑 → UI 更新
+ * 1. Tauri 'chat-event' → EventRouter → AIEvent（后端已转换）
+ * 2. EventBus.emit() → DeveloperPanel（调试面板）
+ * 3. handleAIEvent() → 本地状态更新
  */
 
 import { create } from 'zustand'
 import { invoke } from '@tauri-apps/api/core'
 import type { ChatMessage, AssistantChatMessage, UserChatMessage, SystemChatMessage, ContentBlock, ToolCallBlock, ToolStatus } from '../types'
-import type { StreamEvent } from '../types/chat'
 import type { AIEvent } from '../ai-runtime'
 import { useToolPanelStore } from './toolPanelStore'
 import { useWorkspaceStore } from './workspaceStore'
@@ -81,98 +80,6 @@ export interface UnifiedHistoryItem {
   outputTokens?: number
 }
 
-// ============================================================================
-// 辅助函数：解析 IFlow/Claude Code 的消息内容格式
-// ============================================================================
-
-/**
- * 从消息内容中提取纯文本
- *
- * IFlow 格式：content 是数组，包含 text 和 tool_use 块
- * Claude Code 格式：content 可能是字符串或数组
- */
-function extractTextFromContent(content: unknown): string {
-  if (typeof content === 'string') {
-    return content
-  }
-
-  if (Array.isArray(content)) {
-    const texts: string[] = []
-    for (const item of content) {
-      if (item && typeof item === 'object') {
-        if ('type' in item && item.type === 'text' && 'text' in item) {
-          texts.push(String(item.text))
-        }
-      }
-    }
-    return texts.join('')
-  }
-
-  return ''
-}
-
-/**
- * 从消息内容中提取工具调用
- *
- * IFlow 格式：content 数组中的 tool_use 块
- */
-interface ToolUse {
-  id: string
-  name: string
-  input: unknown
-}
-
-function extractToolUsesFromContent(content: unknown): ToolUse[] {
-  const toolUses: ToolUse[] = []
-
-  if (Array.isArray(content)) {
-    for (const item of content) {
-      if (item && typeof item === 'object') {
-        if ('type' in item && item.type === 'tool_use') {
-          toolUses.push({
-            id: String(item.id || crypto.randomUUID()),
-            name: String(item.name || 'unknown'),
-            input: item.input,
-          })
-        }
-      }
-    }
-  }
-
-  return toolUses
-}
-
-/**
- * 从 user 消息中提取工具结果
- *
- * Claude Code 格式：user 消息中包含 tool_result 块
- */
-interface ToolResult {
-  tool_use_id: string
-  content: string
-  is_error?: boolean
-}
-
-function extractToolResultsFromContent(content: unknown): ToolResult[] {
-  const results: ToolResult[] = []
-
-  if (Array.isArray(content)) {
-    for (const item of content) {
-      if (item && typeof item === 'object') {
-        if ('type' in item && item.type === 'tool_result' && 'tool_use_id' in item) {
-          results.push({
-            tool_use_id: String(item.tool_use_id),
-            content: String(item.content || ''),
-            is_error: item.is_error === true,
-          })
-        }
-      }
-    }
-  }
-
-  return results
-}
-
 /**
  * 当前正在构建的 Assistant 消息
  */
@@ -180,160 +87,6 @@ interface CurrentAssistantMessage {
   id: string
   blocks: ContentBlock[]
   isStreaming: true
-}
-
-// ============================================================================
-// 统一事件转换层：StreamEvent → AIEvent
-// ============================================================================
-
-/**
- * 将 Tauri 的 StreamEvent 转换为标准的 AIEvent 数组
- *
- * 这是事件转换的统一入口，所有 StreamEvent 都通过这里转换为 AIEvent。
- * 转换后的事件会：
- * 1. 通过 EventBus 分发给所有订阅者（如 DeveloperPanel）
- * 2. 同时在本地进行状态更新
- */
-function convertStreamEventToAIEvents(streamEvent: StreamEvent, sessionId: string | null): AIEvent[] {
-  const events: AIEvent[] = []
-
-  switch (streamEvent.type) {
-    case 'system': {
-      // Claude Code 的 system 事件可能包含 session_id
-      const systemEvent = streamEvent as { type: 'system'; subtype?: string; session_id?: string; extra?: { message?: string } }
-      if (systemEvent.session_id) {
-        events.push({ type: 'session_start', sessionId: systemEvent.session_id })
-      }
-
-      // 处理进度消息
-      if (systemEvent.subtype === 'progress' || systemEvent.extra?.message) {
-        events.push({
-          type: 'progress',
-          message: systemEvent.extra?.message || systemEvent.subtype,
-        })
-      }
-      break
-    }
-
-    case 'session_start': {
-      if (streamEvent.sessionId) {
-        events.push({ type: 'session_start', sessionId: streamEvent.sessionId })
-      }
-      break
-    }
-
-    case 'session_end':
-    case 'result': {
-      events.push({
-        type: 'session_end',
-        sessionId: sessionId || 'unknown',
-        reason: 'completed',
-      })
-      break
-    }
-
-    case 'text_delta': {
-      events.push({ type: 'token', value: streamEvent.text || '' })
-      break
-    }
-
-    case 'assistant': {
-      if (streamEvent.message?.content) {
-        // 提取文本内容
-        const content = extractTextFromContent(streamEvent.message.content)
-        if (content) {
-          events.push({
-            type: 'assistant_message',
-            content,
-            isDelta: false,
-          })
-        }
-
-        // 提取工具调用
-        const toolUses = extractToolUsesFromContent(streamEvent.message.content)
-        for (const toolUse of toolUses) {
-          // 工具调用开始事件
-          events.push({
-            type: 'tool_call_start',
-            callId: toolUse.id,
-            tool: toolUse.name,
-            args: toolUse.input as Record<string, unknown>,
-          })
-        }
-      }
-      break
-    }
-
-    case 'user': {
-      if (streamEvent.message?.content) {
-        // 处理工具结果
-        const toolResults = extractToolResultsFromContent(streamEvent.message.content)
-        for (const result of toolResults) {
-          events.push({
-            type: 'tool_call_end',
-            callId: result.tool_use_id,
-            tool: result.tool_use_id, // 使用 tool_use_id 作为工具名
-            result: result.content,
-            success: !result.is_error,
-          })
-        }
-      }
-      break
-    }
-
-    case 'tool_start': {
-      events.push({
-        type: 'tool_call_start',
-        callId: streamEvent.toolUseId,
-        tool: streamEvent.toolName || 'unknown',
-        args: streamEvent.input as Record<string, unknown>,
-      })
-      events.push({
-        type: 'progress',
-        message: `调用工具: ${streamEvent.toolName}`,
-      })
-      break
-    }
-
-    case 'tool_end': {
-      events.push({
-        type: 'tool_call_end',
-        callId: streamEvent.toolUseId,
-        tool: streamEvent.toolName || 'unknown',
-        result: streamEvent.output,
-        success: streamEvent.output !== undefined,
-      })
-      events.push({
-        type: 'progress',
-        message: `工具完成: ${streamEvent.toolName}`,
-      })
-      break
-    }
-
-    case 'error': {
-      events.push({
-        type: 'error',
-        error: streamEvent.error || '未知错误',
-      })
-      break
-    }
-
-    case 'permission_request': {
-      events.push({
-        type: 'progress',
-        message: '等待权限确认...',
-      })
-      break
-    }
-
-    default: {
-      const unknownEvent = streamEvent as { type: string }
-      console.log('[EventChatStore] 未转换的事件类型:', unknownEvent.type)
-      break
-    }
-  }
-
-  return events
 }
 
 // ============================================================================
@@ -1191,15 +944,14 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
    * 这是事件驱动架构的核心方法
    *
    * 架构说明（优化后）：
-   * 1. 监听 Tauri 'chat-event'（StreamEvent 原始格式）
-   * 2. convertStreamEventToAIEvents() 转换为 AIEvent
-   * 3. eventBus.emit() 发送到 EventBus（DeveloperPanel 订阅）
-   * 4. handleAIEvent() 更新本地状态
+   * 1. 监听 Tauri 'chat-event'（后端已转换为 AIEvent）
+   * 2. eventBus.emit() 发送到 EventBus（DeveloperPanel 订阅）
+   * 3. handleAIEvent() 更新本地状态
    *
    * 优化效果：
-   * - 消除了重复的 switch (streamEvent.type) 逻辑
+   * - 后端统一转换，前端无需再做解析
    * - 统一使用 AIEvent 进行状态更新
-   * - 代码减少约 100 行
+   * - 代码简洁，职责分离
    */
   initializeEventListeners: async (): Promise<() => void> => {
     // 防止重复初始化
@@ -1216,27 +968,24 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
 
     // 同步等待初始化完成，确保 register 在监听开始前完成
     await router.initialize()
-    
+
     const unregister = router.register('main', (payload: unknown) => {
       try {
-        const streamEvent = payload as StreamEvent
+        // 后端已发送标准 AIEvent，直接使用
+        const aiEvent = payload as AIEvent
         const state = get()
 
-        console.log('[EventChatStore] 收到 chat-event:', streamEvent.type)
-
-        const aiEvents = convertStreamEventToAIEvents(streamEvent, state.conversationId)
+        console.log('[EventChatStore] 收到 AIEvent:', aiEvent.type)
 
         const workspacePath = useWorkspaceStore.getState().getCurrentWorkspace()?.path
 
-        for (const aiEvent of aiEvents) {
-          try {
-            eventBus.emit(aiEvent)
-          } catch (e) {
-            console.error('[EventChatStore] EventBus 发送失败:', e)
-          }
-
-          handleAIEvent(aiEvent, set, get, workspacePath)
+        try {
+          eventBus.emit(aiEvent)
+        } catch (e) {
+          console.error('[EventChatStore] EventBus 发送失败:', e)
         }
+
+        handleAIEvent(aiEvent, set, get, workspacePath)
       } catch (e) {
         console.error('[EventChatStore] 处理事件失败:', e)
       }

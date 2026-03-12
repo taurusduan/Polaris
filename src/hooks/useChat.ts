@@ -3,27 +3,40 @@
  */
 
 import { useEffect } from 'react';
-import { listen } from '@tauri-apps/api/event';
-import type { StreamEvent } from '../types';
+import type { AIEvent } from '../ai-runtime';
+import { getEventRouter } from '../services/eventRouter';
 
-/** 监听聊天流式事件 */
+/** 监听聊天流式事件（后端已转换为 AIEvent） */
 export function useChatEvent(
-  onEvent: (event: StreamEvent) => void,
+  onEvent: (event: AIEvent) => void,
   onError?: (error: string) => void
 ) {
   useEffect(() => {
-    const unlistenPromise = listen<string>('chat-event', (event) => {
-      try {
-        const data = JSON.parse(event.payload) as StreamEvent;
-        onEvent(data);
-      } catch (e) {
-        console.error('Failed to parse chat event:', e);
-        onError?.(e instanceof Error ? e.message : '解析事件失败');
-      }
+    const router = getEventRouter();
+
+    const setupListener = async () => {
+      await router.initialize();
+
+      const unregister = router.register('main', (payload: unknown) => {
+        try {
+          const aiEvent = payload as AIEvent;
+          onEvent(aiEvent);
+        } catch (e) {
+          console.error('Failed to process AIEvent:', e);
+          onError?.(e instanceof Error ? e.message : '处理事件失败');
+        }
+      });
+
+      return unregister;
+    };
+
+    let cleanup: (() => void) | null = null;
+    setupListener().then((unregister) => {
+      cleanup = unregister;
     });
 
     return () => {
-      unlistenPromise.then((unlisten) => unlisten());
+      cleanup?.();
     };
   }, [onEvent, onError]);
 }
