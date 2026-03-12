@@ -8,13 +8,15 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
+use crate::ai::event_parser::EventParser;
 use crate::ai::session::SessionManager;
 use crate::ai::traits::{AIEngine, EngineId, SessionOptions};
 use crate::error::{AppError, Result};
 use crate::models::config::Config;
 use crate::models::events::StreamEvent;
+use crate::models::AIEvent;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -214,6 +216,7 @@ impl ClaudeEngine {
         let event_callback = options.event_callback.clone();
         let on_complete = options.on_complete.clone();
         let on_error = options.on_error.clone();
+        let current_session_id = temp_id.clone();
 
         std::thread::spawn(move || {
             let stdout = match child.stdout {
@@ -244,6 +247,9 @@ impl ClaudeEngine {
                 }
             });
 
+            // 创建事件解析器
+            let mut parser = EventParser::new(&current_session_id);
+
             // 读取 stdout
             let reader = BufReader::new(stdout);
             let mut received_session_end = false;
@@ -259,10 +265,11 @@ impl ClaudeEngine {
                     continue;
                 }
 
-                if let Some(event) = StreamEvent::parse_line(trimmed) {
+                if let Some(raw_event) = StreamEvent::parse_line(trimmed) {
                     // 更新 session_id 映射
-                    if let StreamEvent::System { extra, .. } = &event {
+                    if let StreamEvent::System { extra, .. } = &raw_event {
                         if let Some(serde_json::Value::String(real_id)) = extra.get("session_id") {
+                            parser.set_session_id(real_id);
                             SessionManager::update_session_id_shared(
                                 &sessions, &temp_id, real_id, pid, "claude"
                             );
@@ -271,18 +278,20 @@ impl ClaudeEngine {
                     }
 
                     // 检查会话结束
-                    if matches!(event, StreamEvent::SessionEnd) {
+                    if matches!(raw_event, StreamEvent::SessionEnd) {
                         received_session_end = true;
                     }
 
-                    // 调用回调
-                    event_callback(event);
+                    // 使用 EventParser 转换为 AIEvent 并调用回调
+                    for ai_event in parser.parse(raw_event) {
+                        event_callback(ai_event);
+                    }
                 }
             }
 
             // 如果没有收到 session_end，发送一个
             if !received_session_end {
-                event_callback(StreamEvent::SessionEnd);
+                event_callback(AIEvent::session_end(&current_session_id));
             }
 
             // 完成回调

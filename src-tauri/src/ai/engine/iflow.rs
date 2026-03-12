@@ -13,12 +13,14 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::ai::event_parser::EventParser;
 use crate::ai::session::SessionManager;
 use crate::ai::traits::{AIEngine, EngineId, SessionOptions};
 use crate::error::{AppError, Result};
 use crate::models::config::Config;
 use crate::models::events::StreamEvent;
 use crate::models::iflow_events::IFlowJsonlEvent;
+use crate::models::AIEvent;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -206,11 +208,14 @@ impl IFlowEngine {
         path: PathBuf,
         session_id: String,
         start_line: usize,
-        event_callback: Arc<dyn Fn(StreamEvent) + Send + Sync>,
+        event_callback: Arc<dyn Fn(AIEvent) + Send + Sync>,
         on_complete: Option<Arc<dyn Fn(i32) + Send + Sync>>,
     ) {
         std::thread::spawn(move || {
             tracing::info!("[IFlowEngine] 开始监控文件: {:?}, 从第 {} 行开始", path, start_line);
+
+            // 创建事件解析器
+            let mut parser = EventParser::new(&session_id);
 
             // 等待文件创建
             let mut wait_count = 0;
@@ -221,9 +226,7 @@ impl IFlowEngine {
 
             if !path.exists() {
                 tracing::error!("[IFlowEngine] 文件未创建: {:?}", path);
-                event_callback(StreamEvent::Error {
-                    error: "会话文件未创建".to_string(),
-                });
+                event_callback(AIEvent::error("会话文件未创建"));
                 return;
             }
 
@@ -272,7 +275,11 @@ impl IFlowEngine {
                         let stream_events = iflow_event.to_stream_events();
                         for stream_event in stream_events {
                             let is_session_end = matches!(stream_event, StreamEvent::SessionEnd);
-                            event_callback(stream_event);
+
+                            // 使用 EventParser 转换为 AIEvent
+                            for ai_event in parser.parse(stream_event) {
+                                event_callback(ai_event);
+                            }
 
                             if is_session_end {
                                 tracing::info!("[IFlowEngine] 检测到会话结束");
@@ -445,9 +452,7 @@ impl AIEngine for IFlowEngine {
 
                 wait_count += 1;
                 if wait_count > 50 {
-                    event_callback(StreamEvent::Error {
-                        error: "未找到会话文件".to_string(),
-                    });
+                    event_callback(AIEvent::error("未找到会话文件"));
                     return;
                 }
                 std::thread::sleep(Duration::from_millis(100));

@@ -15,7 +15,7 @@ use tokio_util::sync::CancellationToken;
 use crate::ai::session::SessionManager;
 use crate::ai::traits::{AIEngine, EngineId, SessionOptions};
 use crate::error::{AppError, Result};
-use crate::models::events::StreamEvent;
+use crate::models::AIEvent;
 
 /// OpenAI Provider 配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -230,14 +230,12 @@ impl OpenAIEngine {
                 if let Some(response) = self.parse_sse_line(&line) {
                     for choice in response.choices {
                         if let Some(content) = &choice.delta.content {
-                            event_callback(StreamEvent::TextDelta {
-                                text: content.clone(),
-                            });
+                            event_callback(AIEvent::assistant_message(content, true));
                         }
 
                         // 检查完成
                         if choice.finish_reason.is_some() {
-                            event_callback(StreamEvent::SessionEnd);
+                            event_callback(AIEvent::session_end(&session_id));
                         }
                     }
                 }

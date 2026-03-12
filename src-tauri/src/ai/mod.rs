@@ -16,6 +16,7 @@ mod engine;
 mod history;
 mod history_claude;
 mod history_iflow;
+mod event_parser;
 
 pub use traits::{AIEngine, EngineId, SessionOptions};
 pub use types::{EngineStatus, EngineDescriptor};
@@ -28,3 +29,4 @@ pub use history::{
 };
 pub use history_claude::ClaudeHistoryProvider;
 pub use history_iflow::IFlowHistoryProvider;
+pub use event_parser::{EventParser, ToolCallManager};

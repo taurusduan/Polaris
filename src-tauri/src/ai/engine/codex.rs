@@ -10,11 +10,13 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 
+use crate::ai::event_parser::EventParser;
 use crate::ai::session::SessionManager;
 use crate::ai::traits::{AIEngine, EngineId, SessionOptions};
 use crate::error::{AppError, Result};
 use crate::models::config::Config;
 use crate::models::events::StreamEvent;
+use crate::models::AIEvent;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -323,6 +325,7 @@ impl CodexEngine {
         let event_callback = options.event_callback.clone();
         let on_complete = options.on_complete.clone();
         let on_error = options.on_error.clone();
+        let current_session_id = temp_id.clone();
 
         std::thread::spawn(move || {
             let stdout = match child.stdout.take() {
@@ -353,6 +356,9 @@ impl CodexEngine {
                 }
             });
 
+            // 创建事件解析器
+            let mut parser = EventParser::new(&current_session_id);
+
             // 读取 stdout
             let reader = BufReader::new(stdout);
             let mut received_session_end = false;
@@ -372,6 +378,7 @@ impl CodexEngine {
                     // 更新 session_id 映射
                     if let StreamEvent::System { extra, .. } = &stream_event {
                         if let Some(serde_json::Value::String(real_id)) = extra.get("session_id") {
+                            parser.set_session_id(real_id);
                             SessionManager::update_session_id_shared(
                                 &sessions, &temp_id, real_id, pid, "codex"
                             );
@@ -383,12 +390,15 @@ impl CodexEngine {
                         received_session_end = true;
                     }
 
-                    event_callback(stream_event);
+                    // 使用 EventParser 转换为 AIEvent
+                    for ai_event in parser.parse(stream_event) {
+                        event_callback(ai_event);
+                    }
                 }
             }
 
             if !received_session_end {
-                event_callback(StreamEvent::SessionEnd);
+                event_callback(AIEvent::session_end(&current_session_id));
             }
 
             if let Some(cb) = on_complete {

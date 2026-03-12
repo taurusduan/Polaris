@@ -5,7 +5,7 @@
  */
 
 use crate::error::Result;
-use crate::models::events::StreamEvent;
+use crate::models::AIEvent;
 use std::sync::Arc;
 
 /// 引擎 ID
@@ -52,8 +52,8 @@ pub struct SessionOptions {
     pub work_dir: Option<String>,
     /// 系统提示词
     pub system_prompt: Option<String>,
-    /// 事件回调
-    pub event_callback: Arc<dyn Fn(StreamEvent) + Send + Sync>,
+    /// 事件回调（接收标准化的 AIEvent）
+    pub event_callback: Arc<dyn Fn(AIEvent) + Send + Sync>,
     /// 完成回调
     pub on_complete: Option<Arc<dyn Fn(i32) + Send + Sync>>,
     /// 错误回调
@@ -64,7 +64,7 @@ impl SessionOptions {
     /// 创建默认选项
     pub fn new<F>(event_callback: F) -> Self
     where
-        F: Fn(StreamEvent) + Send + Sync + 'static,
+        F: Fn(AIEvent) + Send + Sync + 'static,
     {
         Self {
             work_dir: None,

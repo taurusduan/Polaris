@@ -7,7 +7,7 @@
 use crate::ai::{EngineId, Pagination, PagedResult, SessionOptions};
 use crate::ai::{SessionMeta, HistoryMessage, ClaudeHistoryProvider, IFlowHistoryProvider, SessionHistoryProvider};
 use crate::error::{AppError, Result};
-use crate::models::events::StreamEvent;
+use crate::models::AIEvent;
 use tauri::{Emitter, State, Window};
 use tauri_plugin_notification::NotificationExt;
 
@@ -44,7 +44,7 @@ pub async fn start_chat(
 
     let window_clone = window.clone();
     let ctx_id = context_id.clone();
-    let event_callback = move |event: StreamEvent| {
+    let event_callback = move |event: AIEvent| {
         let event_json = if let Some(ref cid) = ctx_id {
             serde_json::json!({ "contextId": cid, "payload": event })
         } else {
@@ -54,7 +54,7 @@ pub async fn start_chat(
         tracing::debug!("[start_chat] 发送事件: {}", event_json.to_string().chars().take(200).collect::<String>());
         let _ = window_clone.emit("chat-event", &event_json);
 
-        if matches!(event, StreamEvent::SessionEnd) {
+        if matches!(event, AIEvent::SessionEnd(_)) {
             notify_ai_reply_complete(&window_clone);
         }
     };
@@ -96,7 +96,7 @@ pub async fn continue_chat(
 
     let window_clone = window.clone();
     let ctx_id = context_id.clone();
-    let event_callback = move |event: StreamEvent| {
+    let event_callback = move |event: AIEvent| {
         let event_json = if let Some(ref cid) = ctx_id {
             serde_json::json!({ "contextId": cid, "payload": event })
         } else {
@@ -106,7 +106,7 @@ pub async fn continue_chat(
         tracing::debug!("[continue_chat] 发送事件: {}", event_json.to_string().chars().take(200).collect::<String>());
         let _ = window_clone.emit("chat-event", &event_json);
 
-        if matches!(event, StreamEvent::SessionEnd) {
+        if matches!(event, AIEvent::SessionEnd(_)) {
             notify_ai_reply_complete(&window_clone);
         }
     };
