@@ -17,7 +17,7 @@ const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').t
 const DeveloperPanel = lazy(() => import('./components/Developer/DeveloperPanel').then(m => ({ default: m.DeveloperPanel })));
 const CreateWorkspaceModal = lazy(() => import('./components/Workspace/CreateWorkspaceModal').then(m => ({ default: m.CreateWorkspaceModal })));
 const SessionHistoryPanel = lazy(() => import('./components/Chat/SessionHistoryPanel').then(m => ({ default: m.SessionHistoryPanel })));
-import { useConfigStore, useEventChatStore, useViewStore, useWorkspaceStore, useFloatingWindowStore, useTabStore } from './stores';
+import { useConfigStore, useEventChatStore, useViewStore, useWorkspaceStore, useFloatingWindowStore, useTabStore, useIntegrationStore } from './stores';
 import * as tauri from './services/tauri';
 import { bootstrapEngines, bootstrapOpenAIProviders } from './core/engine-bootstrap';
 import { bootstrapAgents } from './core/agent-bootstrap';
@@ -185,6 +185,24 @@ function App() {
         const restored = restoreFromStorage();
         if (restored) {
           console.log('[App] 已从崩溃中恢复聊天状态');
+        }
+
+        // 初始化集成管理器并自动连接 QQ Bot（如果配置了）
+        const qqbotConfig = config?.qqbot;
+        if (qqbotConfig?.enabled && qqbotConfig?.appId && qqbotConfig?.clientSecret) {
+          console.log('[App] QQ Bot 已启用，开始初始化...');
+          try {
+            const { initialize, startPlatform } = useIntegrationStore.getState();
+            await initialize(qqbotConfig);
+
+            // 如果配置了自动连接，则启动连接
+            if (qqbotConfig.autoConnect !== false) {
+              console.log('[App] 自动连接 QQ Bot...');
+              await startPlatform('qqbot');
+            }
+          } catch (error) {
+            console.error('[App] QQ Bot 初始化失败:', error);
+          }
         }
       } catch (error) {
         console.error('[App] 初始化失败:', error);

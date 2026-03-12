@@ -66,6 +66,7 @@ use commands::integration::{
 
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use tokio::sync::Mutex as AsyncMutex;
 use tokio_util::sync::CancellationToken;
 use services::dingtalk_service::DingTalkService;
 use integrations::IntegrationManager;
@@ -82,8 +83,8 @@ pub struct AppState {
     pub context_store: Arc<Mutex<ContextMemoryStore>>,
     /// 钉钉服务
     pub dingtalk_service: Mutex<DingTalkService>,
-    /// 集成管理器
-    pub integration_manager: Mutex<IntegrationManager>,
+    /// 集成管理器 (使用 tokio::sync::Mutex 支持异步操作)
+    pub integration_manager: AsyncMutex<IntegrationManager>,
 }
 
 // ============================================================================
@@ -225,7 +226,7 @@ pub fn run() {
             openai_tasks: Arc::new(Mutex::new(HashMap::new())),
             context_store: Arc::new(Mutex::new(ContextMemoryStore::new())),
             dingtalk_service: Mutex::new(DingTalkService::new()),
-            integration_manager: Mutex::new(IntegrationManager::new()),
+            integration_manager: AsyncMutex::new(IntegrationManager::new()),
         })
         .invoke_handler(tauri::generate_handler![
             // 配置相关

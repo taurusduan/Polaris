@@ -610,7 +610,7 @@ impl OpenAIProxyService {
         );
 
         let mut tool_call_count = 0;
-        const MAX_TOOL_CALLS: u32 = 50; // 防止无限循环
+        const MAX_TOOL_CALLS: u32 = 500; // 防止无限循环
 
         loop {
             // 构建请求
@@ -1304,15 +1304,16 @@ impl OpenAIProxyService {
                         .and_then(|d| d.as_str())
                         .or_else(|| args.get("workDir").and_then(|d| d.as_str()));
 
-                    // If work_dir is provided and command starts with `cd ... &&`,
-                    // drop the prefix to avoid shell-specific `cd` issues.
+                    // Remove any leading `cd` command to avoid shell-specific issues
+                    // This ensures commands execute directly in the specified directory
                     let mut effective_command = command.to_string();
-                    if work_dir.is_some() {
-                        let trimmed = effective_command.trim_start();
-                        if trimmed.to_lowercase().starts_with("cd ") {
-                            if let Some((_, rest)) = trimmed.split_once("&&") {
-                                effective_command = rest.trim_start().to_string();
-                            }
+                    let trimmed = effective_command.trim_start();
+                    if trimmed.to_lowercase().starts_with("cd ") {
+                        if let Some((_, rest)) = trimmed.split_once("&&") {
+                            effective_command = rest.trim_start().to_string();
+                        } else {
+                            // If it's just a cd command without &&, use pwd or echo to show directory change
+                            effective_command = "pwd".to_string();
                         }
                     }
 

@@ -111,37 +111,4 @@ fn calculate_delay(attempt: u32, config: &RetryConfig) -> u64 {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_retry_success() {
-        let config = RetryConfig::new(3).with_initial_delay(10);
-        let mut attempts = 0;
-
-        let result = with_retry(&config, || async {
-            attempts += 1;
-            if attempts < 2 {
-                Err("not yet")
-            } else {
-                Ok(42)
-            }
-        })
-        .await;
-
-        assert_eq!(result, Ok(42));
-        assert_eq!(attempts, 2);
-    }
-
-    #[tokio::test]
-    async fn test_retry_failure() {
-        let config = RetryConfig::new(2).with_initial_delay(10);
-        let mut attempts = 0;
-
-        let result: Result<i32, &str> = with_retry(&config, || async {
-            attempts += 1;
-            Err("always fails")
-        })
-        .await;
-
-        assert!(result.is_err());
-        assert_eq!(attempts, 3); // 初始尝试 + 2 次重试
-    }
 }

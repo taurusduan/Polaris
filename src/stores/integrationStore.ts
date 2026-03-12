@@ -33,10 +33,12 @@ interface IntegrationState {
   initialized: boolean;
   loading: boolean;
   error: string | null;
+  // 保存配置以便重新初始化
+  _qqbotConfig: QQBotConfig | null;
 
   // Actions
   initialize: (qqbotConfig: QQBotConfig | null) => Promise<void>;
-  startPlatform: (platform: Platform) => Promise<void>;
+  startPlatform: (platform: Platform, qqbotConfig?: QQBotConfig) => Promise<void>;
   stopPlatform: (platform: Platform) => Promise<void>;
   sendMessage: (platform: Platform, target: SendTarget, content: MessageContent) => Promise<void>;
   refreshStatus: (platform: Platform) => Promise<void>;
@@ -55,10 +57,18 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   initialized: false,
   loading: false,
   error: null,
+  _qqbotConfig: null,
 
   // 初始化
   initialize: async (qqbotConfig) => {
-    if (get().initialized) return;
+    // 保存配置
+    set({ _qqbotConfig: qqbotConfig });
+
+    // 如果已初始化，不需要重复初始化
+    if (get().initialized) {
+      console.log('[IntegrationStore] Already initialized, skipping');
+      return;
+    }
 
     set({ loading: true, error: null });
 
@@ -87,7 +97,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       // 存储 unlisten 函数以便清理
       (window as unknown as { __integrationUnlisten?: () => void }).__integrationUnlisten = unlisten;
 
-      console.log('[IntegrationStore] Initialized');
+      console.log('[IntegrationStore] Initialized with config:', qqbotConfig ? 'provided' : 'null');
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : '初始化失败',
@@ -98,10 +108,32 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   },
 
   // 启动平台
-  startPlatform: async (platform) => {
+  startPlatform: async (platform, qqbotConfig) => {
     set({ loading: true, error: null });
 
     try {
+      // 如果提供了新配置，更新并重新初始化
+      if (qqbotConfig) {
+        set({ _qqbotConfig: qqbotConfig });
+      }
+
+      // 如果未初始化，先初始化
+      if (!get().initialized) {
+        console.log('[IntegrationStore] Not initialized, initializing first...');
+        const config = qqbotConfig || get()._qqbotConfig;
+        if (!config && platform === 'qqbot') {
+          throw new Error('QQ Bot 配置未提供');
+        }
+        await initIntegration(config);
+        set({ initialized: true });
+
+        // 监听消息事件
+        const unlisten = await onIntegrationMessage((message) => {
+          get()._addMessage(message);
+        });
+        (window as unknown as { __integrationUnlisten?: () => void }).__integrationUnlisten = unlisten;
+      }
+
       await startIntegration(platform);
       await get().refreshStatus(platform);
       set({ loading: false });
@@ -112,6 +144,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         loading: false,
       });
       console.error(`[IntegrationStore] Start ${platform} error:`, error);
+      throw error; // 重新抛出错误以便调用方处理
     }
   },
 

@@ -21,8 +21,12 @@ const INTENTS_DEFAULT: u32 =
     (1 << 0) |   // GUILDS
     (1 << 1) |   // GUILD_MEMBERS
     (1 << 9) |   // GUILD_MESSAGES
+    (1 << 10) |  // GUILD_MESSAGE_REACTIONS
     (1 << 12) |  // DIRECT_MESSAGE
     (1 << 25) |  // AT_MESSAGES
+    (1 << 26) |  // INTERACTION
+    (1 << 27) |  // MESSAGE_AUDIT
+    (1 << 29) |  // AUDIO_ACTION
     (1 << 30);   // PUBLIC_GUILD_MESSAGES
 
 /// QQ Bot 适配器
@@ -213,41 +217,77 @@ impl QQBotAdapter {
     ) -> Option<IntegrationMessage> {
         // 获取消息 ID
         let msg_id = event_data.get("id").and_then(|v| v.as_str())?;
-        let msg_type = if event_type == "C2C_MESSAGE_CREATE" {
-            "c2c"
-        } else {
-            "channel"
+
+        // 根据事件类型确定消息类型
+        let msg_type = match event_type {
+            "C2C_MESSAGE_CREATE" => "c2c",
+            "GROUP_AT_MESSAGE_CREATE" => "group_at",
+            "AT_MESSAGE_CREATE" => "at",
+            "DIRECT_MESSAGE_CREATE" => "direct",
+            "MESSAGE_CREATE" => "channel",
+            _ => "unknown",
         };
         let message_id = format!("{}_{}", msg_type, msg_id);
 
         // 去重检查
         if dedup.is_processed(&message_id) {
-            tracing::trace!("[QQBot] Duplicate message ignored: {}", message_id);
+            tracing::debug!("[QQBot] ⚠️ 重复消息被忽略: {}", message_id);
             return None;
         }
 
-        // 获取会话 ID
-        let conversation_id = if event_type == "C2C_MESSAGE_CREATE" {
-            format!(
-                "c2c_{}",
+        // 获取会话 ID（根据不同事件类型）
+        let conversation_id = match event_type {
+            "C2C_MESSAGE_CREATE" => {
+                // C2C 私信
+                format!(
+                    "c2c_{}",
+                    event_data
+                        .get("author")
+                        .and_then(|a| a.get("user_openid"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                )
+            }
+            "GROUP_AT_MESSAGE_CREATE" => {
+                // 群聊@消息
+                let group_id = event_data
+                    .get("group_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                format!("group_{}", group_id)
+            }
+            "AT_MESSAGE_CREATE" | "MESSAGE_CREATE" => {
+                // 频道消息
                 event_data
-                    .get("author")
-                    .and_then(|a| a.get("user_openid"))
+                    .get("channel_id")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
-            )
-        } else {
-            event_data
-                .get("channel_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string()
+                    .to_string()
+            }
+            "DIRECT_MESSAGE_CREATE" => {
+                // 私信
+                event_data
+                    .get("guild_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string()
+            }
+            _ => {
+                // 默认使用 channel_id
+                event_data
+                    .get("channel_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string()
+            }
         };
 
         // 获取发送者信息
         let author = event_data.get("author").cloned().unwrap_or_default();
         let sender_id = author
             .get("id")
+            .or_else(|| author.get("member_openid"))  // 群聊使用 member_openid
+            .or_else(|| author.get("user_openid"))    // C2C 使用 user_openid
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
@@ -256,6 +296,20 @@ impl QQBotAdapter {
             .and_then(|v| v.as_str())
             .unwrap_or("Unknown")
             .to_string();
+
+        // 获取消息内容
+        let content = event_data
+            .get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        tracing::info!(
+            "[QQBot] 📝 消息详情: type={}, sender={}, conversation={}, content={}",
+            msg_type,
+            sender_name,
+            conversation_id,
+            if content.len() > 50 { &content[..50] } else { content }
+        );
 
         // 构造消息
         Some(
@@ -278,14 +332,19 @@ impl PlatformIntegration for QQBotAdapter {
     }
 
     async fn connect(&mut self, message_tx: Sender<IntegrationMessage>) -> Result<()> {
+        tracing::info!("[QQBot] 🔌 开始连接...");
+
         // 1. 确保 Token 有效
+        tracing::info!("[QQBot] 🔐 获取 Access Token...");
         self.ensure_valid_token().await?;
+        tracing::info!("[QQBot] ✅ Access Token 有效");
 
         // 2. 获取 Gateway URL
+        tracing::info!("[QQBot] 🌐 获取 WebSocket Gateway...");
         let gateway_url = self.get_gateway_url().await?;
         tracing::info!(
-            "[QQBot] Connecting to gateway: {}...",
-            &gateway_url[..std::cmp::min(50, gateway_url.len())]
+            "[QQBot] ✅ Gateway URL: {}",
+            &gateway_url[..std::cmp::min(60, gateway_url.len())]
         );
 
         // 3. 创建关闭通道
@@ -297,14 +356,17 @@ impl PlatformIntegration for QQBotAdapter {
         let tx = message_tx.clone();
 
         // 5. 启动 WebSocket 任务
+        tracing::info!("[QQBot] 🚀 启动 WebSocket 连接...");
         let task = tokio::spawn(async move {
+            tracing::info!("[QQBot] 🔌 正在建立 WebSocket 连接...");
             match connect_async(&gateway_url).await {
                 Ok((ws_stream, _)) => {
-                    tracing::info!("[QQBot] WebSocket connected");
+                    tracing::info!("[QQBot] ✅ WebSocket 连接成功");
 
                     let (mut write, mut read) = ws_stream.split();
 
                     // 发送鉴权消息
+                    tracing::info!("[QQBot] 📤 发送鉴权消息 (op=2)...");
                     let auth_payload = serde_json::json!({
                         "op": 2,
                         "d": {
@@ -318,6 +380,8 @@ impl PlatformIntegration for QQBotAdapter {
                             }
                         }
                     });
+
+                    tracing::info!("[QQBot] 📋 鉴权载荷: intents={}", INTENTS_DEFAULT);
 
                     if let Err(e) = write
                         .send(WsMessage::Text(auth_payload.to_string()))
@@ -365,23 +429,34 @@ impl PlatformIntegration for QQBotAdapter {
 
                                                     let event_data = payload.get("d").cloned().unwrap_or_default();
 
+                                                    // 输出所有接收到的事件类型（调试用）
+                                                    tracing::info!("[QQBot] 📩 收到事件: {}", event_type);
+
                                                     // 处理 READY 事件
                                                     if event_type == "READY" {
-                                                        tracing::info!("[QQBot] Ready! Session: {:?}",
+                                                        tracing::info!("[QQBot] ✅ Ready! Session: {:?}",
                                                             event_data.get("session_id"));
                                                         continue;
                                                     }
 
-                                                    // 处理消息事件
+                                                    // 处理消息事件（包括各种类型的 MESSAGE_CREATE）
+                                                    // 支持: MESSAGE_CREATE, AT_MESSAGE_CREATE, C2C_MESSAGE_CREATE,
+                                                    //       DIRECT_MESSAGE_CREATE, GROUP_AT_MESSAGE_CREATE
                                                     if event_type.ends_with("MESSAGE_CREATE") {
+                                                        tracing::info!("[QQBot] 📨 收到消息事件: {}", event_type);
+
                                                         if let Some(msg) = Self::handle_message_event(
                                                             event_type,
                                                             &event_data,
                                                             &mut dedup,
                                                         ) {
+                                                            tracing::info!("[QQBot] ✅ 消息处理成功: id={}, conversation={}",
+                                                                msg.id, msg.conversation_id);
                                                             if let Err(e) = tx.send(msg).await {
-                                                                tracing::error!("[QQBot] Failed to send message: {}", e);
+                                                                tracing::error!("[QQBot] ❌ 发送消息到通道失败: {}", e);
                                                             }
+                                                        } else {
+                                                            tracing::debug!("[QQBot] ⚠️ 消息被忽略（可能是重复消息）");
                                                         }
                                                     }
                                                 }
@@ -392,18 +467,20 @@ impl PlatformIntegration for QQBotAdapter {
                                                         .and_then(|v| v.as_u64())
                                                     {
                                                         heartbeat_interval = interval;
-                                                        tracing::debug!("[QQBot] Heartbeat interval: {}ms", heartbeat_interval);
+                                                        tracing::info!("[QQBot] 💓 HELLO 收到，心跳间隔: {}ms", heartbeat_interval);
                                                     }
+                                                    // 收到 HELLO 后发送鉴权
+                                                    tracing::info!("[QQBot] 🔐 发送鉴权消息...");
                                                 }
                                                 11 => { // HEARTBEAT_ACK
-                                                    tracing::trace!("[QQBot] Heartbeat ACK");
+                                                    tracing::debug!("[QQBot] 💓 心跳确认");
                                                 }
                                                 7 => { // RECONNECT
-                                                    tracing::warn!("[QQBot] Server requested reconnect");
+                                                    tracing::warn!("[QQBot] ⚠️ 服务器请求重连");
                                                     break;
                                                 }
                                                 _ => {
-                                                    tracing::trace!("[QQBot] Unhandled op: {}", op);
+                                                    tracing::debug!("[QQBot] 📩 未处理的 op: {}", op);
                                                 }
                                             }
                                         }

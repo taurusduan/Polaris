@@ -100,6 +100,8 @@ export interface QQBotConfig {
   sandbox: boolean;
   /** 消息显示模式 */
   displayMode: IntegrationDisplayMode;
+  /** 启动时自动连接 */
+  autoConnect: boolean;
 }
 
 /** 应用配置 */

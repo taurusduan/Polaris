@@ -330,6 +330,10 @@ pub struct QQBotConfig {
     /// 消息显示模式
     #[serde(default)]
     pub display_mode: IntegrationDisplayMode,
+
+    /// 启动时自动连接
+    #[serde(default)]
+    pub auto_connect: bool,
 }
 
 /// 消息显示模式
@@ -353,6 +357,7 @@ impl Default for QQBotConfig {
             client_secret: String::new(),
             sandbox: false,
             display_mode: IntegrationDisplayMode::default(),
+            auto_connect: true,
         }
     }
 }

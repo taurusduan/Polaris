@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useConfigStore } from '../../stores';
+import { useConfigStore, useIntegrationStore, useIntegrationStatus } from '../../stores';
 import { Button, ClaudePathSelector } from '../Common';
 // import { LanguageSwitcher } from '../Common';
 import type { Config, EngineId, FloatingWindowMode, Language } from '../../types';
@@ -251,6 +251,78 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       ...localConfig,
       dingtalk: { ...localConfig.dingtalk, webhookPort }
     });
+  };
+
+  // QQ Bot 配置处理函数
+  const handleQQBotEnabledChange = (enabled: boolean) => {
+    if (!localConfig) return;
+    setLocalConfig({
+      ...localConfig,
+      qqbot: { ...localConfig.qqbot, enabled }
+    });
+  };
+
+  const handleQQBotAppIdChange = (appId: string) => {
+    if (!localConfig) return;
+    setLocalConfig({
+      ...localConfig,
+      qqbot: { ...localConfig.qqbot, appId }
+    });
+  };
+
+  const handleQQBotClientSecretChange = (clientSecret: string) => {
+    if (!localConfig) return;
+    setLocalConfig({
+      ...localConfig,
+      qqbot: { ...localConfig.qqbot, clientSecret }
+    });
+  };
+
+  const handleQQBotSandboxChange = (sandbox: boolean) => {
+    if (!localConfig) return;
+    setLocalConfig({
+      ...localConfig,
+      qqbot: { ...localConfig.qqbot, sandbox }
+    });
+  };
+
+  const handleQQBotDisplayModeChange = (displayMode: import('../../types/config').IntegrationDisplayMode) => {
+    if (!localConfig) return;
+    setLocalConfig({
+      ...localConfig,
+      qqbot: { ...localConfig.qqbot, displayMode }
+    });
+  };
+
+  const handleQQBotAutoConnectChange = (autoConnect: boolean) => {
+    if (!localConfig) return;
+    setLocalConfig({
+      ...localConfig,
+      qqbot: { ...localConfig.qqbot, autoConnect }
+    });
+  };
+
+  // QQ Bot 连接状态和控制
+  const qqbotStatus = useIntegrationStatus('qqbot');
+  const { startPlatform, stopPlatform, loading: integrationLoading } = useIntegrationStore();
+  const isQQBotConnected = qqbotStatus?.connected ?? false;
+
+  const handleQQBotConnect = async () => {
+    if (!localConfig?.qqbot) return;
+    try {
+      // 传入当前配置以确保初始化
+      await startPlatform('qqbot', localConfig.qqbot);
+    } catch (error) {
+      console.error('Failed to connect QQ Bot:', error);
+    }
+  };
+
+  const handleQQBotDisconnect = async () => {
+    try {
+      await stopPlatform('qqbot');
+    } catch (error) {
+      console.error('Failed to disconnect QQ Bot:', error);
+    }
   };
 
   if (!localConfig) {
@@ -723,6 +795,168 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       <li>获取 App Key 和 App Secret</li>
                       <li>配置机器人权限和消息接收地址</li>
                       <li>会话 ID 可以在群设置或单聊中查看</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* QQ Bot 集成配置 */}
+        <div className="mb-6 p-4 bg-surface rounded-lg border border-border">
+          <h3 className="text-sm font-medium text-text-primary mb-3">QQ Bot 集成</h3>
+
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="text-sm text-text-primary">启用 QQ Bot 集成</div>
+              <div className="text-xs text-text-secondary">通过 QQ 机器人接收和发送消息</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleQQBotEnabledChange(!localConfig.qqbot?.enabled)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${
+                localConfig.qqbot?.enabled ? 'bg-primary' : 'bg-border'
+              }`}
+            >
+              <span
+                className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                  localConfig.qqbot?.enabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          {localConfig.qqbot?.enabled && (
+            <>
+              <div className="mb-4">
+                <label className="block text-xs text-text-secondary mb-2">
+                  App ID
+                </label>
+                <input
+                  type="text"
+                  value={localConfig.qqbot?.appId || ''}
+                  onChange={(e) => handleQQBotAppIdChange(e.target.value)}
+                  placeholder="QQ 机器人应用的 App ID"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-xs text-text-secondary mb-2">
+                  Client Secret
+                </label>
+                <input
+                  type="password"
+                  value={localConfig.qqbot?.clientSecret || ''}
+                  onChange={(e) => handleQQBotClientSecretChange(e.target.value)}
+                  placeholder="QQ 机器人应用的 Client Secret"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-xs text-text-secondary mb-2">
+                  消息显示模式
+                </label>
+                <select
+                  value={localConfig.qqbot?.displayMode || 'chat'}
+                  onChange={(e) => handleQQBotDisplayModeChange(e.target.value as import('../../types/config').IntegrationDisplayMode)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  disabled={loading}
+                >
+                  <option value="chat">聊天模式 - 消息显示在聊天窗口</option>
+                  <option value="separate">独立模式 - 消息显示在独立面板</option>
+                  <option value="both">双模式 - 同时显示在两处</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-3 mb-4">
+                <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={localConfig.qqbot?.sandbox || false}
+                    onChange={(e) => handleQQBotSandboxChange(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  沙箱环境
+                </label>
+                <span className="text-xs text-text-tertiary">（用于测试，不会发送真实消息）</span>
+              </div>
+
+              {/* 自动连接开关 */}
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-sm text-text-primary">启动时自动连接</div>
+                  <div className="text-xs text-text-secondary">应用启动时自动建立 WebSocket 连接</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleQQBotAutoConnectChange(!localConfig.qqbot?.autoConnect)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${
+                    localConfig.qqbot?.autoConnect ? 'bg-primary' : 'bg-border'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                      localConfig.qqbot?.autoConnect ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* 连接状态和控制 */}
+              <div className="p-3 bg-surface-secondary rounded-lg border border-border-subtle mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${isQQBotConnected ? 'bg-success' : 'bg-text-tertiary'}`} />
+                    <span className="text-sm text-text-primary">
+                      {isQQBotConnected ? '已连接' : '未连接'}
+                    </span>
+                    {qqbotStatus?.error && (
+                      <span className="text-xs text-danger ml-2">{qqbotStatus.error}</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    {isQQBotConnected ? (
+                      <button
+                        type="button"
+                        onClick={handleQQBotDisconnect}
+                        disabled={integrationLoading}
+                        className="px-3 py-1.5 text-xs border border-border rounded-lg text-text-secondary hover:text-text-primary hover:bg-background-hover transition-colors disabled:opacity-50"
+                      >
+                        {integrationLoading ? '断开中...' : '断开连接'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleQQBotConnect}
+                        disabled={integrationLoading || !localConfig.qqbot?.appId || !localConfig.qqbot?.clientSecret}
+                        className="px-3 py-1.5 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >
+                        {integrationLoading ? '连接中...' : '连接'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <svg className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-xs text-text-primary">
+                      <span className="font-medium">配置说明：</span>
+                    </p>
+                    <ul className="text-xs text-text-tertiary mt-1 space-y-1 list-disc list-inside">
+                      <li>在 QQ 开放平台创建机器人应用</li>
+                      <li>获取 App ID 和 Client Secret</li>
+                      <li>配置机器人权限和事件订阅</li>
+                      <li>沙箱环境用于开发测试</li>
                     </ul>
                   </div>
                 </div>
