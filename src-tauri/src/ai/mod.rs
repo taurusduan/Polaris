@@ -18,4 +18,4 @@ pub use traits::{AIEngine, EngineId, SessionOptions};
 pub use types::{EngineStatus, EngineDescriptor};
 pub use session::SessionManager;
 pub use registry::EngineRegistry;
-pub use engine::{ClaudeEngine, IFlowEngine, CodexEngine};
+pub use engine::{ClaudeEngine, IFlowEngine, CodexEngine, OpenAIEngine, OpenAIProviderConfig};
