@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, Mutex, oneshot};
 use tauri::{AppHandle, Emitter};
 
 use super::common::SessionManager;
@@ -187,6 +187,10 @@ impl IntegrationManager {
         let accumulated_text_clone = accumulated_text.clone();
         let app_handle_for_callback = app_handle.clone();
 
+        // 创建 oneshot 通道等待进程完成
+        let (complete_tx, complete_rx) = oneshot::channel();
+        let complete_tx = Arc::new(std::sync::Mutex::new(Some(complete_tx)));
+
         // 创建事件回调
         let callback = move |event: crate::models::AIEvent| {
             // 提取文本
@@ -217,11 +221,25 @@ impl IntegrationManager {
             }
         };
 
+        // 创建完成回调
+        let complete_callback = {
+            let complete_tx = complete_tx.clone();
+            move |_exit_code: i32| {
+                tracing::debug!("[IntegrationManager] 进程完成回调触发");
+                if let Ok(mut tx) = complete_tx.lock() {
+                    if let Some(tx) = tx.take() {
+                        let _ = tx.send(());
+                    }
+                }
+            }
+        };
+
         // 调用 AI 引擎
         let result = {
             let mut registry = engine_registry.lock().await;
             let options = crate::ai::SessionOptions::new(callback)
-                .with_system_prompt("你是一个友好的助手，通过 QQ 回复用户消息。回复简洁、有帮助。");
+                .with_system_prompt("你是一个友好的助手，通过 QQ 回复用户消息。回复简洁、有帮助。")
+                .with_on_complete(complete_callback);
 
             registry.start_session(None, &message, options)
         };
@@ -230,8 +248,20 @@ impl IntegrationManager {
             Ok(session_id) => {
                 tracing::info!("[IntegrationManager] AI 会话创建: session_id={}", session_id);
 
+                // 等待进程完成
+                tracing::info!("[IntegrationManager] ⏳ 等待 AI 进程完成...");
+                match complete_rx.await {
+                    Ok(()) => {
+                        tracing::info!("[IntegrationManager] ✅ AI 进程已完成");
+                    }
+                    Err(_) => {
+                        tracing::warn!("[IntegrationManager] ⚠️ 完成通道已关闭");
+                    }
+                }
+
                 // 获取完整回复文本
                 let final_text = accumulated_text.lock().await.clone();
+                tracing::info!("[IntegrationManager] 📝 回复文本长度: {}", final_text.len());
 
                 // 发送完整回复事件到前端
                 let _ = app_handle.emit("integration:ai:complete", serde_json::json!({
@@ -260,6 +290,8 @@ impl IntegrationManager {
                     } else {
                         tracing::warn!("[IntegrationManager] ⚠️ 未找到 {} 适配器", platform);
                     }
+                } else {
+                    tracing::warn!("[IntegrationManager] ⚠️ AI 返回空文本，不发送回复");
                 }
             }
             Err(e) => {
