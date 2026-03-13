@@ -13,7 +13,6 @@ export * from './session'
 export * from './task'
 export * from './event'
 export * from './event-bus'
-export * from './cli-parser'
 export * from './engine-registry'
 export * from './task-template'
 export * from './project-context'
@@ -132,13 +131,6 @@ export {
   type EventTransformer,
   type ListenerOptions,
 } from './event-bus'
-
-// CLI Parser 导出
-export {
-  CLIParser,
-  createParser,
-  parseOutput,
-} from './cli-parser'
 
 // Task Manager 导出
 export {
