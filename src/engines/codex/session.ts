@@ -7,7 +7,6 @@
 import type { AISessionConfig, AITask, AIEvent } from '../../ai-runtime'
 import { BaseSession } from '../../ai-runtime/base'
 import { createEventIterable } from '../../ai-runtime/base'
-import { CodexEventParser } from './event-parser'
 
 /**
  * Codex CLI 配置
@@ -46,7 +45,6 @@ interface CodexProcess {
 export class CodexSession extends BaseSession {
   readonly engineId: string = 'codex'
   private codexConfig: CodexConfig
-  private parser: CodexEventParser
   private process: CodexProcess | null = null
   private currentTaskId: string | null = null
 
@@ -54,7 +52,6 @@ export class CodexSession extends BaseSession {
     const sessionId = crypto.randomUUID()
     super({ id: sessionId, config: sessionConfig })
     this.codexConfig = codexConfig || {}
-    this.parser = new CodexEventParser(sessionId)
   }
 
   /**
@@ -106,7 +103,6 @@ export class CodexSession extends BaseSession {
       this.process = null
     }
 
-    this.parser.reset()
     this.currentTaskId = null
   }
 

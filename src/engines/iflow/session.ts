@@ -7,7 +7,6 @@
 import type { AISessionConfig, AITask, AIEvent } from '../../ai-runtime'
 import { BaseSession } from '../../ai-runtime/base'
 import { createEventIterable } from '../../ai-runtime/base'
-import { IFlowEventParser } from './event-parser'
 
 /**
  * IFlow CLI 配置
@@ -48,7 +47,6 @@ interface IFlowProcess {
 export class IFlowSession extends BaseSession {
   readonly engineId: string = 'iflow'
   private iflowConfig: IFlowConfig
-  private parser: IFlowEventParser
   private process: IFlowProcess | null = null
   private currentTaskId: string | null = null
 
@@ -57,7 +55,6 @@ export class IFlowSession extends BaseSession {
     const sessionId = crypto.randomUUID()
     super({ id: sessionId, config: sessionConfig })
     this.iflowConfig = iflowConfig || {}
-    this.parser = new IFlowEventParser(sessionId)
   }
 
   /**
@@ -115,8 +112,6 @@ export class IFlowSession extends BaseSession {
       this.process = null
     }
 
-    // 重置解析器
-    this.parser.reset()
     this.currentTaskId = null
   }
 

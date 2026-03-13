@@ -11,7 +11,6 @@ import { BaseSession } from '../../ai-runtime/base'
 import { createEventIterable } from '../../ai-runtime/base'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { ClaudeEventParser, type ClaudeStreamEvent } from './event-parser'
 
 /**
  * Claude Code 会话配置
@@ -26,34 +25,12 @@ export interface ClaudeSessionConfig extends AISessionConfig {
 /**
  * Tauri Chat 事件类型（来自 Rust 后端）
  *
- * 这是 Tauri 后端发送的前端事件格式。
- * 需要将其转换为 ClaudeStreamEvent 以便解析。
+ * 后端已发送标准 AIEvent 格式，结构为：
+ * { contextId: string, payload: AIEvent }
  */
 interface TauriChatEvent {
-  type: string
-  data?: unknown
-  session_id?: string
-  [key: string]: unknown
-}
-
-/**
- * 将 TauriChatEvent 转换为 ClaudeStreamEvent
- *
- * 这是一个类型安全的转换函数，避免使用 `as any`。
- */
-function tauriEventToStreamEvent(event: TauriChatEvent): ClaudeStreamEvent {
-  const streamEvent: ClaudeStreamEvent = {
-    type: event.type,
-  }
-
-  // 复制所有其他属性
-  for (const [key, value] of Object.entries(event)) {
-    if (key !== 'type') {
-      streamEvent[key] = value
-    }
-  }
-
-  return streamEvent
+  contextId?: string
+  payload: AIEvent
 }
 
 /**
@@ -67,7 +44,6 @@ function tauriEventToStreamEvent(event: TauriChatEvent): ClaudeStreamEvent {
  */
 export class ClaudeCodeSession extends BaseSession {
   protected config: ClaudeSessionConfig
-  private parser: ClaudeEventParser
   private currentTaskId: string | null = null
   private unlistenChatEvent: (() => void) | null = null
 
@@ -80,7 +56,6 @@ export class ClaudeCodeSession extends BaseSession {
       claudePath: config?.claudePath,
       options: config?.options,
     }
-    this.parser = new ClaudeEventParser(id)
   }
 
   /**
@@ -130,8 +105,6 @@ export class ClaudeCodeSession extends BaseSession {
       this.unlistenChatEvent = null
     }
 
-    // 重置解析器
-    this.parser.reset()
     this.currentTaskId = null
   }
 
@@ -240,17 +213,13 @@ export class ClaudeCodeSession extends BaseSession {
 
   /**
    * 处理来自 Tauri 的事件
+   * 后端已发送标准 AIEvent，直接使用 payload
    */
   private handleTauriEvent(event: TauriChatEvent): void {
-    // 将 Tauri 事件转换为 ClaudeStreamEvent（类型安全）
-    const streamEvent = tauriEventToStreamEvent(event)
-
-    // 解析为 AIEvent 并 emit
-    const aiEvents = this.parser.parse(streamEvent)
-
-    for (const aiEvent of aiEvents) {
-      this.emit(aiEvent)
-    }
+    // 后端发送的事件格式: { contextId: string, payload: AIEvent }
+    // 直接提取 payload 作为 AIEvent
+    const aiEvent = event.payload
+    this.emit(aiEvent)
   }
 
   /**

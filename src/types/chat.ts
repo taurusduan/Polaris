@@ -56,51 +56,6 @@ export interface PermissionRequest {
   createdAt: string;
 }
 
-/** 内容块类型（旧格式，用于 StreamEvent 解析） */
-interface StreamEventContentBlock {
-  type: string;
-  text?: string;
-  id?: string;
-  name?: string;
-  input?: Record<string, unknown>;
-  tool_use_id?: string;
-  is_error?: boolean;
-  content?: string;
-}
-
-/** 助手消息结构 */
-interface AssistantMessage {
-  id: string;
-  type: string;
-  role: string;
-  model: string;
-  content: StreamEventContentBlock[];
-  stop_reason?: string;
-  usage?: unknown;
-  [key: string]: unknown;
-}
-
-/** 用户消息结构（包含工具结果） */
-interface UserMessage {
-  role: string;
-  content: StreamEventContentBlock[];
-  [key: string]: unknown;
-}
-
-/** 流事件类型 */
-export type StreamEvent =
-  | { type: 'system'; subtype?: string; [key: string]: unknown }
-  | { type: 'assistant'; message: AssistantMessage }
-  | { type: 'user'; message: UserMessage }
-  | { type: 'session_start'; sessionId: string }
-  | { type: 'text_delta'; text: string }
-  | { type: 'tool_start'; toolUseId: string; toolName: string; input: Record<string, unknown> }
-  | { type: 'tool_end'; toolUseId: string; toolName?: string; output?: string }
-  | { type: 'permission_request'; sessionId: string; denials: PermissionDenial[] }
-  | { type: 'result'; subtype: string; [key: string]: unknown }
-  | { type: 'error'; error: string }
-  | { type: 'session_end' };
-
 /**
  * ========================================
  * 新型消息类型定义 - 分层对话流

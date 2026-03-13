@@ -973,7 +973,6 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
       try {
         // 后端已发送标准 AIEvent，直接使用
         const aiEvent = payload as AIEvent
-        const state = get()
 
         console.log('[EventChatStore] 收到 AIEvent:', aiEvent.type)
 
