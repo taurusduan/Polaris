@@ -10,7 +10,9 @@ pub mod traits;
 pub mod common;
 pub mod qqbot;
 pub mod manager;
+pub mod commands;
 
 pub use types::*;
 pub use traits::PlatformIntegration;
 pub use manager::IntegrationManager;
+pub use commands::{BotCommand, CommandParser, ConversationState, PromptMode, get_help_text};
