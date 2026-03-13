@@ -224,7 +224,17 @@ impl IntegrationManager {
 
                 // 累积文本 (使用 try_lock 避免阻塞)
                 if let Ok(mut accumulated) = accumulated_text_clone.try_lock() {
-                    accumulated.push_str(&text);
+                    // Progress 事件（表情）单独一行
+                    if matches!(event, crate::models::AIEvent::Progress(_)) {
+                        // 如果累积文本不为空且不以换行结尾，先添加换行
+                        if !accumulated.is_empty() && !accumulated.ends_with('\n') {
+                            accumulated.push('\n');
+                        }
+                        accumulated.push_str(&text);
+                        accumulated.push('\n');
+                    } else {
+                        accumulated.push_str(&text);
+                    }
                 }
 
                 // 发送增量更新到前端
@@ -307,18 +317,6 @@ impl IntegrationManager {
                         match adapter.send(target, content).await {
                             Ok(_) => {
                                 tracing::info!("[IntegrationManager] ✅ 回复已发送到 QQ");
-
-                                // 发送完成消息（包含处理时间）
-                                let elapsed = start_time.elapsed();
-                                let elapsed_secs = elapsed.as_secs_f32();
-                                let complete_msg = format!("✅ 处理完成，耗时 {:.1}s", elapsed_secs);
-
-                                let target = SendTarget::Conversation(conversation_id.clone());
-                                let complete_content = MessageContent::text(&complete_msg);
-
-                                if let Err(e) = adapter.send(target, complete_content).await {
-                                    tracing::error!("[IntegrationManager] ❌ 发送完成消息失败: {:?}", e);
-                                }
                             }
                             Err(e) => {
                                 tracing::error!("[IntegrationManager] ❌ 发送回复失败: {:?}", e);

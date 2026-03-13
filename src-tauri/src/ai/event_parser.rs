@@ -154,12 +154,13 @@ impl EventParser {
         extra: HashMap<String, serde_json::Value>,
     ) -> Vec<AIEvent> {
         let message = if let Some(ref subtype) = subtype {
+            // 使用表情替代文字，更简洁直观
             let message_map = HashMap::from([
-                ("init", "初始化会话..."),
-                ("reading", "读取文件..."),
-                ("writing", "写入文件..."),
-                ("thinking", "思考中..."),
-                ("searching", "搜索中..."),
+                ("init", "🔄"),        // 初始化会话
+                ("reading", "📖"),     // 读取文件
+                ("writing", "✏️"),     // 写入文件
+                ("thinking", "🤔"),    // 思考中
+                ("searching", "🔍"),   // 搜索中
             ]);
 
             if let Some(&msg) = message_map.get(subtype.as_str()) {
@@ -236,7 +237,7 @@ impl EventParser {
         );
 
         vec![
-            AIEvent::Progress(ProgressEvent::new(format!("调用工具: {}", tool_name))),
+            AIEvent::Progress(ProgressEvent::new(format!("🔧 {}", tool_name))),
             AIEvent::ToolCallStart(
                 ToolCallStartEvent::new(tool_name, args)
                     .with_call_id(tool_use_id)
@@ -256,8 +257,9 @@ impl EventParser {
 
         // 更新工具调用状态
         if let Some(tc) = self.tool_call_manager.end_tool_call(&tool_use_id, result.clone(), success) {
+            let status_emoji = if success { "✅" } else { "❌" };
             return vec![
-                AIEvent::Progress(ProgressEvent::new(format!("工具完成: {}", tc.name))),
+                AIEvent::Progress(ProgressEvent::new(format!("{} {}", status_emoji, tc.name))),
                 AIEvent::ToolCallEnd(
                     ToolCallEndEvent::new(tc.name, success)
                         .with_call_id(tool_use_id)
@@ -271,8 +273,9 @@ impl EventParser {
             if let Some(tc) = self.tool_call_manager.find_running_by_name(name) {
                 let tc_id = tc.id.clone();
                 self.tool_call_manager.end_tool_call(&tc_id, result.clone(), success);
+                let status_emoji = if success { "✅" } else { "❌" };
                 return vec![
-                    AIEvent::Progress(ProgressEvent::new(format!("工具完成: {}", name))),
+                    AIEvent::Progress(ProgressEvent::new(format!("{} {}", status_emoji, name))),
                     AIEvent::ToolCallEnd(
                         ToolCallEndEvent::new(name.clone(), success)
                             .with_call_id(tc_id)
@@ -284,8 +287,9 @@ impl EventParser {
 
         // 找不到工具调用信息，仍然发送事件
         if let Some(name) = tool_name {
+            let status_emoji = if success { "✅" } else { "❌" };
             vec![
-                AIEvent::Progress(ProgressEvent::new(format!("工具完成: {}", name))),
+                AIEvent::Progress(ProgressEvent::new(format!("{} {}", status_emoji, name))),
                 AIEvent::ToolCallEnd(ToolCallEndEvent::new(name, success)),
             ]
         } else {
@@ -299,20 +303,31 @@ impl EventParser {
         subtype: String,
         extra: HashMap<String, serde_json::Value>,
     ) -> Vec<AIEvent> {
-        let message = match subtype.as_str() {
-            "success" => "任务完成",
-            "canceled" => "任务已取消",
-            _ => &subtype,
-        };
-
-        // 检查是否有输出
-        if let Some(output) = extra.get("output") {
-            vec![
-                AIEvent::Progress(ProgressEvent::new(message)),
-                AIEvent::Result(crate::models::ResultEvent::new(output.clone())),
-            ]
-        } else {
-            vec![AIEvent::Progress(ProgressEvent::new(message))]
+        // success 类型不发送 Progress 事件，避免显示 "任务完成"
+        match subtype.as_str() {
+            "success" => {
+                // 任务成功完成，只发送 Result 事件（如果有输出）
+                if let Some(output) = extra.get("output") {
+                    vec![AIEvent::Result(crate::models::ResultEvent::new(output.clone()))]
+                } else {
+                    vec![]
+                }
+            }
+            "canceled" => {
+                // 任务取消，发送提示
+                vec![AIEvent::Progress(ProgressEvent::new("⚠️ 任务已取消"))]
+            }
+            _ => {
+                // 其他类型
+                if let Some(output) = extra.get("output") {
+                    vec![
+                        AIEvent::Progress(ProgressEvent::new(&subtype)),
+                        AIEvent::Result(crate::models::ResultEvent::new(output.clone())),
+                    ]
+                } else {
+                    vec![AIEvent::Progress(ProgressEvent::new(&subtype))]
+                }
+            }
         }
     }
 
