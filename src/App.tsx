@@ -444,6 +444,23 @@ function App() {
     };
   }, []);
 
+  // F12 快捷键 - 切换 DevTools
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      if (e.key === 'F12') {
+        e.preventDefault();
+        try {
+          await tauri.invoke('toggle_devtools');
+        } catch (error) {
+          console.error('[App] 切换 DevTools 失败:', error);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // ToolPanel 拖拽处理（左边手柄）
   const handleToolPanelResize = (delta: number) => {
     const newWidth = Math.max(200, Math.min(600, toolPanelWidth - delta));

@@ -1,5 +1,23 @@
 use tauri::{AppHandle, Manager};
 
+/// 切换 DevTools（F12 快捷键调用）
+#[tauri::command]
+pub async fn toggle_devtools(app: AppHandle, window_label: Option<String>) -> Result<(), String> {
+    let label = window_label.unwrap_or_else(|| "main".to_string());
+
+    if let Some(window) = app.get_webview_window(&label) {
+        // Tauri v2: is_devtools_open 返回 bool，open/close_devtools 不返回值
+        if window.is_devtools_open() {
+            window.close_devtools();
+        } else {
+            window.open_devtools();
+        }
+        Ok(())
+    } else {
+        Err(format!("窗口 {} 不存在", label))
+    }
+}
+
 /// 显示悬浮窗，隐藏主窗口
 #[tauri::command]
 pub async fn show_floating_window(app: AppHandle) -> Result<(), String> {

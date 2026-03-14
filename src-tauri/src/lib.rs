@@ -21,7 +21,8 @@ use commands::chat::{
 use commands::{validate_workspace_path, get_directory_info, get_home_dir};
 use commands::window::{
     show_floating_window, show_main_window, toggle_floating_window,
-    is_floating_window_visible, set_floating_window_position, get_floating_window_position
+    is_floating_window_visible, set_floating_window_position, get_floating_window_position,
+    toggle_devtools
 };
 use commands::file_explorer::{
     read_directory, get_file_content, create_file, create_directory,
@@ -313,6 +314,7 @@ pub fn run() {
             is_floating_window_visible,
             set_floating_window_position,
             get_floating_window_position,
+            toggle_devtools,
             // 上下文管理相关
             context_upsert,
             context_upsert_many,

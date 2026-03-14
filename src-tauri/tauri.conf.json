@@ -19,7 +19,8 @@
         "minWidth": 800,
         "minHeight": 600,
         "decorations": false,
-        "hiddenTitle": true
+        "hiddenTitle": true,
+        "devtools": true
       },
       {
         "label": "floating",
@@ -35,7 +36,8 @@
         "resizable": true,
         "transparent": false,
         "visible": false,
-        "center": false
+        "center": false,
+        "devtools": true
       }
     ],
     "security": {
