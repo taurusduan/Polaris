@@ -1,5 +1,16 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-03-14T16:42:01.609Z",
-  "todos": []
+  "updatedAt": "2026-03-14T18:08:34.658Z",
+  "todos": [
+    {
+      "id": "d64fe89c-dfae-43b7-b816-0e3543b32176",
+      "content": "ai的询问",
+      "description": "已询问\n107ms\nAskUserQuestion\n开始: 01:49:59\n完成: 01:49:59\n输入参数\nquestions: [{\"header\":\"右键菜单\",\"multiSelect\":false,\"options\":[{\"description\":\"添加复制、搜索等功能，保留翻译\",\"label\":\"改造（推荐）\"},{\"description\":\"删除文件和引用\",\"label\":\"直接移除\"}],\"question\":\"如何处理这个右键菜单组件？\"}]\n输出结果\nAnswer questions?\n已完成\n耗时 107ms",
+      "status": "pending",
+      "priority": "normal",
+      "subtasks": [],
+      "createdAt": "2026-03-14T18:08:34.658Z",
+      "updatedAt": "2026-03-14T18:08:34.658Z"
+    }
+  ]
 }

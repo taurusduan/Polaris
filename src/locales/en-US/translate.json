@@ -17,7 +17,10 @@
   "translateToZh": "Translate to Chinese",
   "search": "Search",
   "copyQuote": "Copy as Quote",
-  "askAI": "Ask AI",
+  "askAI": "Ask AI with Reference",
+  "referenceContent": "Reference Content",
+  "yourQuestion": "Your Question",
+  "questionPlaceholder": "Enter your question...",
   "errors": {
     "notConfigured": "Please configure Baidu Translate API in settings",
     "failed": "Translation failed",
