@@ -63,7 +63,7 @@ impl TaskStoreService {
         task.updated_at = now;
 
         // 计算下次执行时间
-        task.next_run_at = TriggerType::calculate_next_run(&task.trigger_value, now);
+        task.next_run_at = task.trigger_type.calculate_next_run(&task.trigger_value, now);
 
         self.store.tasks.push(task.clone());
         self.save()?;
@@ -84,7 +84,7 @@ impl TaskStoreService {
             existing.updated_at = now;
 
             // 重新计算下次执行时间
-            existing.next_run_at = TriggerType::calculate_next_run(&existing.trigger_value, now);
+            existing.next_run_at = existing.trigger_type.calculate_next_run(&existing.trigger_value, now);
 
             self.save()?;
         }
@@ -106,7 +106,7 @@ impl TaskStoreService {
 
             // 如果启用，重新计算下次执行时间
             if enabled {
-                task.next_run_at = TriggerType::calculate_next_run(&task.trigger_value, Utc::now().timestamp());
+                task.next_run_at = task.trigger_type.calculate_next_run(&task.trigger_value, Utc::now().timestamp());
             } else {
                 task.next_run_at = None;
             }
@@ -125,7 +125,7 @@ impl TaskStoreService {
 
             // 如果是间隔或 cron 任务，计算下次执行时间
             if task.enabled {
-                task.next_run_at = TriggerType::calculate_next_run(&task.trigger_value, now);
+                task.next_run_at = task.trigger_type.calculate_next_run(&task.trigger_value, now);
             }
 
             self.save()?;
