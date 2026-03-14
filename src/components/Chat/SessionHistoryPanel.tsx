@@ -2,24 +2,29 @@
  * 会话历史面板
  *
  * 显示所有历史会话（localStorage + IFlow + Claude Code 原生），支持恢复和删除
+ * 支持滚动加载更多（每次显示20条）
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useEventChatStore, type UnifiedHistoryItem } from '../../stores/eventChatStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { Clock, MessageSquare, Trash2, RotateCcw, HardDrive, Zap, Loader2, X, Terminal } from 'lucide-react'
+import { Clock, MessageSquare, Trash2, RotateCcw, HardDrive, Zap, Loader2, X, Terminal, ChevronDown } from 'lucide-react'
+
+const PAGE_SIZE = 20
 
 interface SessionHistoryPanelProps {
   onClose?: () => void
 }
 
 export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
-  const [history, setHistory] = useState<UnifiedHistoryItem[]>([])
+  const [allHistory, setAllHistory] = useState<UnifiedHistoryItem[]>([])
+  const [displayCount, setDisplayCount] = useState(PAGE_SIZE)
   const [loading, setLoading] = useState(true)
   const [restoring, setRestoring] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'claude-code' | 'iflow' | 'codex' | 'provider'>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const currentWorkspace = useWorkspaceStore(state => state.getCurrentWorkspace())
 
   // 加载历史会话
@@ -29,15 +34,31 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
 
   const loadHistory = async () => {
     setLoading(true)
+    setDisplayCount(PAGE_SIZE) // 重置显示数量
     try {
       const items = await useEventChatStore.getState().getUnifiedHistory()
-      setHistory(items)
+      setAllHistory(items)
     } catch (e) {
       console.error('[SessionHistoryPanel] 加载历史失败:', e)
     } finally {
       setLoading(false)
     }
   }
+
+  // 滚动加载更多
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    const { scrollTop, scrollHeight, clientHeight } = container
+    // 距离底部100px时加载更多
+    if (scrollHeight - scrollTop - clientHeight < 100) {
+      const filteredCount = filteredHistory.length
+      if (displayCount < filteredCount) {
+        setDisplayCount(prev => Math.min(prev + PAGE_SIZE, filteredCount))
+      }
+    }
+  }, [displayCount])
 
   // 恢复会话
   const handleRestore = async (sessionId: string, engineId: 'claude-code' | 'iflow' | 'codex' | `provider-${string}`) => {
@@ -60,7 +81,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
   // 删除会话
   const handleDelete = (sessionId: string, source: 'local' | 'iflow' | 'claude-code-native' | 'codex') => {
     useEventChatStore.getState().deleteHistorySession(sessionId, source === 'local' ? 'local' : undefined)
-    setHistory(prev => prev.filter(h => h.id !== sessionId))
+    setAllHistory(prev => prev.filter(h => h.id !== sessionId))
   }
 
   // 格式化时间
@@ -126,7 +147,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
   }
 
   // 过滤历史
-  const filteredHistory = history.filter(item => {
+  const filteredHistory = allHistory.filter(item => {
     // 处理 provider 引擎的过滤
     if (filter === 'provider' && !item.engineId.startsWith('provider-')) return false
     if (filter !== 'all' && filter !== 'provider' && item.engineId !== filter) return false
@@ -135,6 +156,10 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
     }
     return true
   })
+
+  // 当前显示的历史
+  const displayedHistory = filteredHistory.slice(0, displayCount)
+  const hasMore = displayCount < filteredHistory.length
 
   // 格式化文件大小
   const formatFileSize = (bytes: number) => {
@@ -184,7 +209,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
       {/* 引擎筛选 */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border-subtle shrink-0">
         <button
-          onClick={() => setFilter('all')}
+          onClick={() => { setFilter('all'); setDisplayCount(PAGE_SIZE); }}
           className={`px-2 py-1 rounded-md text-xs transition-colors ${
             filter === 'all'
               ? 'bg-primary/20 text-primary'
@@ -194,7 +219,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
           全部
         </button>
         <button
-          onClick={() => setFilter('claude-code')}
+          onClick={() => { setFilter('claude-code'); setDisplayCount(PAGE_SIZE); }}
           className={`px-2 py-1 rounded-md text-xs transition-colors ${
             filter === 'claude-code'
               ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
@@ -204,7 +229,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
           Claude Code
         </button>
         <button
-          onClick={() => setFilter('iflow')}
+          onClick={() => { setFilter('iflow'); setDisplayCount(PAGE_SIZE); }}
           className={`px-2 py-1 rounded-md text-xs transition-colors ${
             filter === 'iflow'
               ? 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300'
@@ -214,7 +239,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
           IFlow
         </button>
         <button
-          onClick={() => setFilter('codex')}
+          onClick={() => { setFilter('codex'); setDisplayCount(PAGE_SIZE); }}
           className={`px-2 py-1 rounded-md text-xs transition-colors ${
             filter === 'codex'
               ? 'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-300'
@@ -224,7 +249,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
           Codex
         </button>
         <button
-          onClick={() => setFilter('provider')}
+          onClick={() => { setFilter('provider'); setDisplayCount(PAGE_SIZE); }}
           className={`px-2 py-1 rounded-md text-xs transition-colors ${
             filter === 'provider'
               ? 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300'
@@ -241,21 +266,25 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
           type="text"
           placeholder="搜索会话..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => { setSearchQuery(e.target.value); setDisplayCount(PAGE_SIZE); }}
           className="w-full px-3 py-2 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
         />
       </div>
 
       {/* 会话列表 */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        {filteredHistory.length === 0 ? (
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto min-h-0"
+      >
+        {displayedHistory.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-text-tertiary">
             <MessageSquare className="w-12 h-12 mb-4 opacity-50" />
             <p className="text-sm">暂无历史会话</p>
           </div>
         ) : (
           <ul>
-            {filteredHistory.map((item, index) => {
+            {displayedHistory.map((item, index) => {
               const isRestoring = restoring === item.id
               const canDelete = item.source === 'local'
               const engineInfo = getEngineInfo(item.engineId, item.source)
@@ -331,6 +360,14 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
             })}
           </ul>
         )}
+
+        {/* 加载更多提示 */}
+        {hasMore && (
+          <div className="flex items-center justify-center py-3 text-text-tertiary">
+            <ChevronDown className="w-4 h-4 animate-bounce mr-2" />
+            <span className="text-xs">向下滚动加载更多 ({filteredHistory.length - displayCount} 条未显示)</span>
+          </div>
+        )}
       </div>
 
       {/* 底部提示 */}
@@ -341,4 +378,3 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
     </div>
   )
 }
-
