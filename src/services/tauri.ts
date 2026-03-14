@@ -247,6 +247,16 @@ export async function pathExists(path: string) {
   return invoke('path_exists', { path });
 }
 
+/** 复制文件或目录 */
+export async function copyPath(source: string, destination: string) {
+  return invoke('copy_path', { source, destination });
+}
+
+/** 移动文件或目录 */
+export async function movePath(source: string, destination: string) {
+  return invoke('move_path', { source, destination });
+}
+
 
 
 // ============================================================================
@@ -662,4 +672,73 @@ export async function updateIntegrationInstance(
   instance: PlatformInstance
 ): Promise<void> {
   return invoke('update_integration_instance', { instance });
+}
+
+// ============================================================================
+// 定时任务相关命令
+// ============================================================================
+
+import type { ScheduledTask, TaskLog, TriggerType } from '../types/scheduler';
+
+/** 获取所有任务 */
+export async function schedulerGetTasks(): Promise<ScheduledTask[]> {
+  return invoke<ScheduledTask[]>('scheduler_get_tasks');
+}
+
+/** 获取单个任务 */
+export async function schedulerGetTask(id: string): Promise<ScheduledTask | null> {
+  return invoke<ScheduledTask | null>('scheduler_get_task', { id });
+}
+
+/** 创建任务 */
+export async function schedulerCreateTask(task: Omit<ScheduledTask, 'id' | 'createdAt' | 'updatedAt'>): Promise<ScheduledTask> {
+  return invoke<ScheduledTask>('scheduler_create_task', { task });
+}
+
+/** 更新任务 */
+export async function schedulerUpdateTask(task: ScheduledTask): Promise<void> {
+  return invoke('scheduler_update_task', { task });
+}
+
+/** 删除任务 */
+export async function schedulerDeleteTask(id: string): Promise<void> {
+  return invoke('scheduler_delete_task', { id });
+}
+
+/** 切换任务启用状态 */
+export async function schedulerToggleTask(id: string, enabled: boolean): Promise<void> {
+  return invoke('scheduler_toggle_task', { id, enabled });
+}
+
+/** 立即执行任务 */
+export async function schedulerRunTask(id: string): Promise<void> {
+  return invoke('scheduler_run_task', { id });
+}
+
+/** 获取任务日志 */
+export async function schedulerGetTaskLogs(taskId: string): Promise<TaskLog[]> {
+  return invoke<TaskLog[]>('scheduler_get_task_logs', { taskId });
+}
+
+/** 获取所有日志 */
+export async function schedulerGetAllLogs(limit?: number): Promise<TaskLog[]> {
+  return invoke<TaskLog[]>('scheduler_get_all_logs', { limit });
+}
+
+/** 清理过期日志 */
+export async function schedulerCleanupLogs(): Promise<void> {
+  return invoke('scheduler_cleanup_logs');
+}
+
+/** 验证触发表达式 */
+export async function schedulerValidateTrigger(
+  triggerType: TriggerType,
+  triggerValue: string
+): Promise<number | null> {
+  return invoke<number | null>('scheduler_validate_trigger', { triggerType, triggerValue });
+}
+
+/** 解析间隔表达式 */
+export async function schedulerParseInterval(value: string): Promise<number | null> {
+  return invoke<number | null>('scheduler_parse_interval', { value });
 }

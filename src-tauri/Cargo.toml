@@ -53,3 +53,6 @@ tauri-plugin-notification = "2.3.3"
 # 集成模块依赖
 tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
 async-trait = "0.1"
+
+# 定时任务依赖
+cron = "0.12"

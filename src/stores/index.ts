@@ -30,3 +30,4 @@ export {
   useHasActiveInstance,
 } from './integrationStore';
 export { useToastStore, type Toast, type ToastType } from './toastStore';
+export { useSchedulerStore } from './schedulerStore';

@@ -7,6 +7,7 @@ pub mod git;
 pub mod translate;
 pub mod openai_proxy;
 pub mod integration;
+pub mod scheduler;
 
 // 重新导出命令函数，确保它们在模块级别可见
 pub use chat::{start_chat, continue_chat, interrupt_chat};
@@ -19,7 +20,8 @@ pub use workspace::get_directory_info;
 pub use workspace::get_home_dir;
 pub use file_explorer::{
     read_directory, get_file_content, create_file, create_directory,
-    delete_file, rename_file, path_exists, read_commands, search_files
+    delete_file, rename_file, path_exists, read_commands, search_files,
+    copy_path, move_path
 };
 pub use window::{
     show_floating_window, show_main_window, toggle_floating_window,

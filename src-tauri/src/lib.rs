@@ -29,7 +29,8 @@ use commands::window::{
 };
 use commands::file_explorer::{
     read_directory, get_file_content, create_file, create_directory,
-    delete_file, rename_file, path_exists, read_commands, search_files
+    delete_file, rename_file, path_exists, read_commands, search_files,
+    copy_path, move_path
 };
 use commands::context::{
     context_upsert, context_upsert_many, context_query, context_get_all,
@@ -62,6 +63,12 @@ use commands::integration::{
     list_integration_instances, list_integration_instances_by_platform,
     get_active_integration_instance, switch_integration_instance,
     disconnect_integration_instance, update_integration_instance,
+};
+use commands::scheduler::{
+    scheduler_get_tasks, scheduler_get_task, scheduler_create_task,
+    scheduler_update_task, scheduler_delete_task, scheduler_toggle_task,
+    scheduler_run_task, scheduler_get_task_logs, scheduler_get_all_logs,
+    scheduler_cleanup_logs, scheduler_validate_trigger, scheduler_parse_interval,
 };
 
 use std::sync::Arc;
@@ -309,6 +316,8 @@ pub fn run() {
             path_exists,
             read_commands,
             search_files,
+            copy_path,
+            move_path,
             // 窗口管理相关
             show_floating_window,
             show_main_window,
@@ -402,6 +411,19 @@ pub fn run() {
             switch_integration_instance,
             disconnect_integration_instance,
             update_integration_instance,
+            // 定时任务相关
+            scheduler_get_tasks,
+            scheduler_get_task,
+            scheduler_create_task,
+            scheduler_update_task,
+            scheduler_delete_task,
+            scheduler_toggle_task,
+            scheduler_run_task,
+            scheduler_get_task_logs,
+            scheduler_get_all_logs,
+            scheduler_cleanup_logs,
+            scheduler_validate_trigger,
+            scheduler_parse_interval,
 
         ])
         .run(tauri::generate_context!())

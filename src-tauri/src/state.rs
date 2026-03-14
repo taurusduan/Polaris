@@ -13,6 +13,7 @@ use crate::ai::EngineRegistry;
 use crate::commands::context::ContextMemoryStore;
 use crate::integrations::IntegrationManager;
 use crate::services::config_store::ConfigStore;
+use crate::services::scheduler::{TaskStoreService, LogStoreService, SchedulerDispatcher};
 
 /// 全局配置状态
 pub struct AppState {
@@ -29,6 +30,12 @@ pub struct AppState {
     pub integration_manager: AsyncMutex<IntegrationManager>,
     /// AI 引擎注册表（使用 tokio::sync::Mutex 支持异步操作和共享）
     pub engine_registry: Arc<AsyncMutex<EngineRegistry>>,
+    /// 定时任务存储
+    pub scheduler_task_store: Arc<AsyncMutex<TaskStoreService>>,
+    /// 定时任务日志存储
+    pub scheduler_log_store: Arc<AsyncMutex<LogStoreService>>,
+    /// 定时任务调度器
+    pub scheduler_dispatcher: Arc<AsyncMutex<SchedulerDispatcher>>,
 }
 
 /// 创建应用状态
@@ -37,6 +44,23 @@ pub fn create_app_state(
     engine_registry: Arc<AsyncMutex<EngineRegistry>>,
     integration_manager: IntegrationManager,
 ) -> AppState {
+    // 初始化定时任务服务
+    let task_store = Arc::new(AsyncMutex::new(
+        TaskStoreService::new().expect("无法初始化任务存储")
+    ));
+    let log_store = Arc::new(AsyncMutex::new(
+        LogStoreService::new().expect("无法初始化日志存储")
+    ));
+
+    let dispatcher = SchedulerDispatcher::new(
+        task_store.clone(),
+        log_store.clone(),
+        engine_registry.clone(),
+    );
+
+    // 启动调度器
+    dispatcher.clone().start();
+
     AppState {
         config_store: Mutex::new(config_store),
         sessions: Arc::new(Mutex::new(HashMap::new())),
@@ -44,5 +68,8 @@ pub fn create_app_state(
         context_store: Arc::new(Mutex::new(ContextMemoryStore::new())),
         integration_manager: AsyncMutex::new(integration_manager),
         engine_registry,
+        scheduler_task_store: task_store,
+        scheduler_log_store: log_store,
+        scheduler_dispatcher: Arc::new(AsyncMutex::new(dispatcher)),
     }
 }
