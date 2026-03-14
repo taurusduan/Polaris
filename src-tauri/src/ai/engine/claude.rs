@@ -373,6 +373,11 @@ impl AIEngine for ClaudeEngine {
     ) -> Result<()> {
         tracing::info!("[ClaudeEngine] 继续会话: {}, 消息长度: {}", session_id, message.len());
 
+        // 检查 CLI 可用性（确保 node_exe 和 cli_js 已初始化）
+        if !self.check_cli_available() {
+            return Err(AppError::ProcessError("Claude CLI 不可用".to_string()));
+        }
+
         // 获取会话信息，找到真实的 session_id
         let real_session_id = if let Some(info) = self.sessions.get(session_id) {
             tracing::info!("[ClaudeEngine] 找到会话，真实 ID: {}, PID: {}", info.id, info.pid);
