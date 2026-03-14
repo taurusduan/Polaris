@@ -12,6 +12,7 @@ import {
   IconSettings,
   IconSearch,
   IconGeneral,
+  IconClock,
 } from '../Common/Icons';
 import type { ReactNode } from 'react';
 
@@ -22,6 +23,7 @@ export type SettingsTabId =
   | 'translate'
   | 'qqbot'
   | 'floating-window'
+  | 'scheduler'
   | 'advanced';
 
 export interface SettingsNavItem {
@@ -44,6 +46,7 @@ const NAV_ITEMS: SettingsNavItem[] = [
   { id: 'translate', icon: <IconTranslate size={16} />, labelKey: 'nav.translate' },
   { id: 'qqbot', icon: <IconBot size={16} />, labelKey: 'nav.qqbot' },
   { id: 'floating-window', icon: <IconWindow size={16} />, labelKey: 'nav.floatingWindow' },
+  { id: 'scheduler', icon: <IconClock size={16} />, labelKey: 'nav.scheduler' },
   { id: 'advanced', icon: <IconSettings size={16} />, labelKey: 'nav.advanced' },
 ];
 

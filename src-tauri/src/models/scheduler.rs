@@ -1,6 +1,31 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// 创建任务参数
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateTaskParams {
+    /// 任务名称
+    pub name: String,
+    /// 是否启用
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    /// 触发类型
+    pub trigger_type: TriggerType,
+    /// 触发值
+    pub trigger_value: String,
+    /// 使用的引擎 ID
+    pub engine_id: String,
+    /// 提示词
+    pub prompt: String,
+    /// 工作目录（可选）
+    pub work_dir: Option<String>,
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
 /// 定时任务
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,6 +59,26 @@ pub struct ScheduledTask {
     pub created_at: i64,
     /// 更新时间
     pub updated_at: i64,
+}
+
+impl From<CreateTaskParams> for ScheduledTask {
+    fn from(params: CreateTaskParams) -> Self {
+        Self {
+            id: String::new(),
+            name: params.name,
+            enabled: params.enabled,
+            trigger_type: params.trigger_type,
+            trigger_value: params.trigger_value,
+            engine_id: params.engine_id,
+            prompt: params.prompt,
+            work_dir: params.work_dir,
+            last_run_at: None,
+            last_run_status: None,
+            next_run_at: None,
+            created_at: 0,
+            updated_at: 0,
+        }
+    }
 }
 
 /// 触发类型

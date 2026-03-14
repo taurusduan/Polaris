@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use crate::models::scheduler::{ScheduledTask, TaskLog, TaskStore, LogStore, TriggerType};
+use crate::models::scheduler::{CreateTaskParams, ScheduledTask, TaskLog, TaskStore, LogStore, TriggerType};
 use std::path::PathBuf;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -56,8 +56,10 @@ impl TaskStoreService {
     }
 
     /// 创建任务
-    pub fn create(&mut self, mut task: ScheduledTask) -> Result<ScheduledTask> {
+    pub fn create(&mut self, params: CreateTaskParams) -> Result<ScheduledTask> {
         let now = Utc::now().timestamp();
+        let mut task: ScheduledTask = params.into();
+
         task.id = Uuid::new_v4().to_string();
         task.created_at = now;
         task.updated_at = now;

@@ -678,7 +678,7 @@ export async function updateIntegrationInstance(
 // 定时任务相关命令
 // ============================================================================
 
-import type { ScheduledTask, TaskLog, TriggerType } from '../types/scheduler';
+import type { ScheduledTask, TaskLog, TriggerType, CreateTaskParams } from '../types/scheduler';
 
 /** 获取所有任务 */
 export async function schedulerGetTasks(): Promise<ScheduledTask[]> {
@@ -691,8 +691,8 @@ export async function schedulerGetTask(id: string): Promise<ScheduledTask | null
 }
 
 /** 创建任务 */
-export async function schedulerCreateTask(task: Omit<ScheduledTask, 'id' | 'createdAt' | 'updatedAt'>): Promise<ScheduledTask> {
-  return invoke<ScheduledTask>('scheduler_create_task', { task });
+export async function schedulerCreateTask(params: CreateTaskParams): Promise<ScheduledTask> {
+  return invoke<ScheduledTask>('scheduler_create_task', { params });
 }
 
 /** 更新任务 */

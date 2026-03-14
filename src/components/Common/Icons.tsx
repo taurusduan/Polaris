@@ -878,3 +878,32 @@ export function IconPaperclip({ size = 16, className = '', ...props }: IconProps
     </svg>
   );
 }
+
+/** 定时器/时钟图标 */
+export function IconClock({ size = 16, className = '', ...props }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      className={className}
+      {...props}
+    >
+      <circle
+        cx="8"
+        cy="8"
+        r="6.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M8 4V8L11 10"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
