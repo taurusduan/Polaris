@@ -293,6 +293,11 @@ export class ClaudeCodeHistoryService {
 
   /**
    * 解析助手消息的 content 数组为 blocks
+   *
+   * 支持的内容类型：
+   * - text: 普通文本
+   * - thinking: 思考过程（转换为文本，带折叠标记）
+   * - tool_use: 工具调用
    */
   private parseAssistantBlocks(content: unknown): ContentBlock[] {
     const blocks: ContentBlock[] = []
@@ -314,6 +319,15 @@ export class ClaudeCodeHistoryService {
               type: 'text',
               content: String(item.text),
             })
+          } else if (item.type === 'thinking' && 'thinking' in item) {
+            // 思考块 - 转换为带标记的文本
+            const thinkingContent = String(item.thinking)
+            if (thinkingContent.trim()) {
+              blocks.push({
+                type: 'text',
+                content: `<details>\n<summary>💭 思考过程</summary>\n\n${thinkingContent}\n\n</details>`,
+              })
+            }
           } else if (item.type === 'tool_use') {
             // 工具调用块
             blocks.push({
