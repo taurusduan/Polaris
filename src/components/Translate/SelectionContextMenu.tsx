@@ -11,9 +11,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTranslateStore, useConfigStore, useViewStore, useEventChatStore, useWorkspaceStore } from '../../stores';
+import { useTranslateStore, useConfigStore, useViewStore, useEventChatStore, useWorkspaceStore, useTabStore } from '../../stores';
 import { baiduTranslate } from '../../services/tauri';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import { Copy, Search, Languages, Quote, MessageSquare, Check, X, Send, Loader2 } from 'lucide-react';
 
 interface Position {
@@ -51,6 +50,7 @@ export function SelectionContextMenu() {
   const setSourceText = useTranslateStore((state) => state.setSourceText);
   const sendMessage = useEventChatStore((state) => state.sendMessage);
   const currentWorkspace = useWorkspaceStore((state) => state.getCurrentWorkspace());
+  const openWebviewTab = useTabStore((state) => state.openWebviewTab);
 
   // 右键菜单显示
   const handleContextMenu = useCallback((e: MouseEvent) => {
@@ -136,7 +136,7 @@ export function SelectionContextMenu() {
     }, 500);
   };
 
-  // 搜索
+  // 搜索（使用内置 Webview）
   const handleSearch = async () => {
     if (!selection) return;
     const query = encodeURIComponent(selection.text);
@@ -144,7 +144,9 @@ export function SelectionContextMenu() {
     const searchUrl = isChinese
       ? `https://www.baidu.com/s?wd=${query}`
       : `https://www.google.com/search?q=${query}`;
-    await openUrl(searchUrl);
+
+    // 在 Webview 标签页中打开搜索
+    await openWebviewTab(searchUrl);
     setSelection(null);
   };
 

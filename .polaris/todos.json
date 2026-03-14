@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-03-14T18:08:34.658Z",
+  "updatedAt": "2026-03-14T18:26:29.374Z",
   "todos": [
     {
       "id": "d64fe89c-dfae-43b7-b816-0e3543b32176",
@@ -11,6 +11,16 @@
       "subtasks": [],
       "createdAt": "2026-03-14T18:08:34.658Z",
       "updatedAt": "2026-03-14T18:08:34.658Z"
+    },
+    {
+      "id": "b1c05ceb-d554-491b-aacc-acea05f025de",
+      "content": "代码块渲染bug",
+      "description": "__CODE_BLOCK_0__",
+      "status": "pending",
+      "priority": "normal",
+      "subtasks": [],
+      "createdAt": "2026-03-14T18:26:29.374Z",
+      "updatedAt": "2026-03-14T18:26:29.374Z"
     }
   ]
 }

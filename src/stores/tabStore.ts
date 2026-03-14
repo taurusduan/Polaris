@@ -9,7 +9,7 @@ import { persist } from 'zustand/middleware'
 import type { GitDiffEntry } from '@/types/git'
 
 /** Tab 类型 */
-export type TabType = 'editor' | 'diff' | 'preview'
+export type TabType = 'editor' | 'diff' | 'preview' | 'webview'
 
 /** Tab 数据结构 */
 export interface Tab {
@@ -21,6 +21,8 @@ export interface Tab {
   filePath?: string
   // Diff Tab 数据
   diffData?: GitDiffEntry
+  // Webview Tab 数据
+  url?: string
   // 其他元数据
   metadata?: Record<string, any>
 }
@@ -34,6 +36,7 @@ interface TabActions {
   // Tab 操作
   openEditorTab: (filePath: string, title?: string) => string
   openDiffTab: (diff: GitDiffEntry) => string
+  openWebviewTab: (url: string, title?: string) => Promise<string>
   closeTab: (tabId: string) => void
   switchTab: (tabId: string) => void
   closeAllTabs: () => void
@@ -111,6 +114,41 @@ export const useTabStore = create<TabStore>()(
         return tabId
       },
 
+      // 打开 Webview Tab
+      openWebviewTab: async (url: string, title?: string) => {
+        // 检查是否已存在相同 URL 的 Webview Tab
+        const existingTab = get().tabs.find(
+          (tab) => tab.type === 'webview' && tab.url === url
+        )
+
+        if (existingTab) {
+          // 如果已存在,切换到该 Tab
+          set({ activeTabId: existingTab.id })
+          return existingTab.id
+        }
+
+        // 否则创建新 Tab
+        const tabId = `webview-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+        // 提取标题
+        const tabTitle = title || extractDomainTitle(url)
+
+        const newTab: Tab = {
+          id: tabId,
+          type: 'webview',
+          title: tabTitle,
+          closable: true,
+          url,
+        }
+
+        set((state) => ({
+          tabs: [...state.tabs, newTab],
+          activeTabId: tabId,
+        }))
+
+        return tabId
+      },
+
       // 关闭 Tab
       closeTab: (tabId: string) => {
         set((state) => {
@@ -177,3 +215,29 @@ export const useTabStore = create<TabStore>()(
     }
   )
 )
+
+/** 从 URL 提取标题 */
+function extractDomainTitle(url: string): string {
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.replace(/^www\./, '')
+
+    // 搜索引擎特殊处理
+    if (host.includes('google.')) return 'Google 搜索'
+    if (host.includes('baidu.')) return '百度搜索'
+    if (host.includes('bing.')) return 'Bing 搜索'
+    if (host.includes('github.')) return 'GitHub'
+    if (host.includes('stackoverflow.')) return 'Stack Overflow'
+
+    return host
+  } catch {
+    return '网页'
+  }
+}
+
+/** Webview Tab 信息（与 Rust 端对应） */
+export interface WebviewTabInfo {
+  id: string
+  url: string
+  title: string
+}
