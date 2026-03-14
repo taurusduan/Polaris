@@ -51,7 +51,7 @@ export function DeveloperPanel({ className = '', width }: DeveloperPanelProps) {
   const [filterType, setFilterType] = useState<FilterType>('all')
   const [filterValue, setFilterValue] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
-  const [maxEvents, setMaxEvents] = useState(500)
+  const [maxEvents, setMaxEvents] = useState(20)
   const [selectedEventType, setSelectedEventType] = useState<string | null>(null)
 
   const eventsEndRef = useRef<HTMLDivElement>(null)
