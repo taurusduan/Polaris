@@ -40,9 +40,10 @@ impl SchedulerDispatcher {
     }
 
     /// 启动调度循环
-    pub fn start(self) {
-        let dispatcher = Arc::new(self);
-        tokio::spawn(async move {
+    pub fn start(&self) {
+        let dispatcher = self.clone();
+        // 使用 tauri::async_runtime 而不是 tokio::spawn，确保在 Tauri 运行时中
+        tauri::async_runtime::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
 
             loop {
@@ -87,6 +88,7 @@ impl SchedulerDispatcher {
     /// 执行单个任务
     async fn execute_task(&self, task: ScheduledTask) {
         let task_id = task.id.clone();
+        let task_id_for_map = task.id.clone(); // 用于后续插入 running_tasks
         let task_name = task.name.clone();
         let prompt = task.prompt.clone();
         let engine_id = task.engine_id.clone();
@@ -182,7 +184,7 @@ impl SchedulerDispatcher {
         // 添加到运行列表
         {
             let mut running = self.running_tasks.lock().await;
-            running.insert(task_id.clone(), handle);
+            running.insert(task_id_for_map, handle);
         }
     }
 

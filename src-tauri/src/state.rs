@@ -58,8 +58,7 @@ pub fn create_app_state(
         engine_registry.clone(),
     );
 
-    // 启动调度器
-    dispatcher.clone().start();
+    // 注意：调度器启动需要在 Tauri 运行时中进行，在 lib.rs 的 setup hook 中启动
 
     AppState {
         config_store: Mutex::new(config_store),

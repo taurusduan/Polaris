@@ -73,6 +73,7 @@ use commands::scheduler::{
 
 use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
+use tauri::Manager;
 use ai::EngineRegistry;
 use integrations::IntegrationManager;
 
@@ -246,6 +247,13 @@ pub fn run() {
             engine_registry_arc,
             integration_manager,
         ))
+        .setup(|app| {
+            // 启动定时任务调度器
+            let state = app.handle().state::<state::AppState>();
+            state.scheduler_dispatcher.blocking_lock().start();
+            tracing::info!("[Scheduler] 调度器已启动");
+            Ok(())
+        })
         .on_window_event(|window, event| {
             // 处理窗口关闭事件
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
