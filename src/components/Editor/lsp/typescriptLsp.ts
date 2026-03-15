@@ -25,6 +25,10 @@ import type { LSPLocation } from '../../../types/lsp';
 let tsEnv: VirtualTypeScriptEnvironment | null = null;
 let envInitPromise: Promise<void> | null = null;
 
+// 使用已验证可用的 CDN 版本（避免 ts.version 与 CDN 版本不匹配）
+// TypeScript Playground CDN 版本列表: https://playgroundcdn.typescriptlang.org/index.json
+const TS_CDN_VERSION = '5.4.5';
+
 /**
  * 创建或更新文件
  * 在 TypeScript 中，需要先创建文件才能更新
@@ -50,10 +54,12 @@ async function initTSEnvironment(): Promise<void> {
 
   envInitPromise = (async () => {
     try {
-      // 创建默认库文件映射
+      console.log(`[TypeScript LSP] Initializing with CDN version ${TS_CDN_VERSION}...`);
+
+      // 创建默认库文件映射（使用固定 CDN 版本）
       const fsMap = await createDefaultMapFromCDN(
         { target: ts.ScriptTarget.ES2022 },
-        ts.version,
+        TS_CDN_VERSION,
         true,
         ts
       );

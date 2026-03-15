@@ -10,6 +10,7 @@
     "qqbot": "QQ Bot",
     "floatingWindow": "Floating Window",
     "scheduler": "Scheduler",
+    "lsp": "Language Services",
     "advanced": "Advanced"
   },
   "messages": {

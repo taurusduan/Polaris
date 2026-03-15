@@ -74,7 +74,7 @@ use commands::lsp::{
     lsp_check_server, lsp_install_server, lsp_uninstall_server,
     lsp_start_server, lsp_stop_server, lsp_did_change,
     lsp_completion, lsp_diagnostics, lsp_goto_definition,
-    lsp_find_references, lsp_hover,
+    lsp_find_references, lsp_hover, LSPState,
 };
 
 use std::sync::Arc;
@@ -244,6 +244,9 @@ pub fn run() {
     let integration_manager = IntegrationManager::new()
         .with_engine_registry(engine_registry_arc.clone());
 
+    // 初始化 LSP 状态
+    let lsp_state = LSPState::default();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -253,6 +256,7 @@ pub fn run() {
             engine_registry_arc,
             integration_manager,
         ))
+        .manage(lsp_state)
         .setup(|app| {
             // 启动定时任务调度器
             let state = app.handle().state::<state::AppState>();
