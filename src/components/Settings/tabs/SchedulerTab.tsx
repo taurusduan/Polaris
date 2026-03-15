@@ -3,8 +3,9 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useSchedulerStore } from '../../../stores';
+import { useSchedulerStore, useToastStore } from '../../../stores';
 import { schedulerGetLockStatus, schedulerStart, schedulerStop } from '../../../services/tauri';
+import { ConfirmDialog } from '../../Common/ConfirmDialog';
 import type { ScheduledTask, TriggerType, CreateTaskParams, LockStatus } from '../../../types/scheduler';
 import { TriggerTypeLabels, IntervalUnitLabels, parseIntervalValue } from '../../../types/scheduler';
 
@@ -239,6 +240,7 @@ function TaskEditor({
 export function SchedulerTab() {
   const { tasks, logs, loading, loadTasks, loadLogs, createTask, updateTask, deleteTask, toggleTask, runTask } =
     useSchedulerStore();
+  const toast = useToastStore();
 
   const [showEditor, setShowEditor] = useState(false);
   const [editingTask, setEditingTask] = useState<ScheduledTask | undefined>();
@@ -246,6 +248,13 @@ export function SchedulerTab() {
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [lockStatus, setLockStatus] = useState<LockStatus | null>(null);
   const [operating, setOperating] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    show: boolean;
+    title?: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'warning' | 'info';
+  } | null>(null);
 
   useEffect(() => {
     loadTasks();
@@ -266,36 +275,44 @@ export function SchedulerTab() {
     setOperating(true);
     try {
       const result = await schedulerStart();
-      alert(result);
+      toast.success(result);
       await loadLockStatus();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '启动失败');
+      toast.error('启动失败', e instanceof Error ? e.message : undefined);
     } finally {
       setOperating(false);
     }
   };
 
-  const handleStopScheduler = async () => {
-    if (!confirm('确定要停止调度器吗？定时任务将不再自动执行。')) return;
-
-    setOperating(true);
-    try {
-      const result = await schedulerStop();
-      alert(result);
-      await loadLockStatus();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '停止失败');
-    } finally {
-      setOperating(false);
-    }
+  const handleStopScheduler = () => {
+    setConfirmDialog({
+      show: true,
+      title: '停止调度器',
+      message: '确定要停止调度器吗？\n定时任务将不再自动执行。',
+      type: 'warning',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setOperating(true);
+        try {
+          const result = await schedulerStop();
+          toast.success(result);
+          await loadLockStatus();
+        } catch (e) {
+          toast.error('停止失败', e instanceof Error ? e.message : undefined);
+        } finally {
+          setOperating(false);
+        }
+      },
+    });
   };
 
   const handleCreate = async (params: CreateTaskParams) => {
     try {
       await createTask(params);
+      toast.success('任务创建成功');
       setShowEditor(false);
     } catch (e) {
-      alert(e instanceof Error ? e.message : '创建失败');
+      toast.error('创建失败', e instanceof Error ? e.message : undefined);
     }
   };
 
@@ -306,20 +323,30 @@ export function SchedulerTab() {
         ...editingTask,
         ...params,
       });
+      toast.success('任务更新成功');
       setShowEditor(false);
       setEditingTask(undefined);
     } catch (e) {
-      alert(e instanceof Error ? e.message : '更新失败');
+      toast.error('更新失败', e instanceof Error ? e.message : undefined);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除这个任务吗？')) return;
-    try {
-      await deleteTask(id);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '删除失败');
-    }
+  const handleDelete = (id: string) => {
+    setConfirmDialog({
+      show: true,
+      title: '删除任务',
+      message: '确定要删除这个任务吗？\n此操作不可撤销。',
+      type: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await deleteTask(id);
+          toast.success('任务已删除');
+        } catch (e) {
+          toast.error('删除失败', e instanceof Error ? e.message : undefined);
+        }
+      },
+    });
   };
 
   return (
@@ -571,6 +598,17 @@ export function SchedulerTab() {
             setShowEditor(false);
             setEditingTask(undefined);
           }}
+        />
+      )}
+
+      {/* 确认对话框 */}
+      {confirmDialog?.show && (
+        <ConfirmDialog
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          type={confirmDialog.type}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
         />
       )}
     </div>
