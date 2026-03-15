@@ -6,12 +6,12 @@
 
 use std::collections::HashMap;
 use std::io::{Read as _, Write as _};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::thread;
 
 use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
 use crate::error::{AppError, Result};
@@ -108,7 +108,10 @@ impl TerminalManager {
         });
 
         // 构建命令 - 使用系统默认 shell
+        // 使用 /K 参数执行 chcp 65001 设置 UTF-8 编码，解决中文乱码问题
         let mut cmd = CommandBuilder::new("cmd");
+        cmd.arg("/K");
+        cmd.arg("chcp 65001 >nul");
         if let Some(ref dir) = cwd {
             cmd.cwd(dir);
         }

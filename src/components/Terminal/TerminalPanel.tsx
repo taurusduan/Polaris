@@ -83,8 +83,10 @@ function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps) {
 
     // 监听用户输入
     xterm.onData((data) => {
-      // 将输入编码为 base64
-      const encoded = btoa(data);
+      // 将输入编码为 base64 (支持 UTF-8)
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(data);
+      const encoded = btoa(String.fromCharCode(...bytes));
       write(sessionId, encoded);
     });
 
@@ -104,9 +106,13 @@ function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps) {
       if (!xterm) return;
 
       try {
-        // 解码 base64 数据
-        const decoded = atob(e.detail.data);
-        xterm.write(decoded);
+        // 解码 base64 数据为字节数组 (支持 UTF-8)
+        const binary = atob(e.detail.data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        xterm.write(bytes);
       } catch (err) {
         console.error('[Terminal] 解码输出失败:', err);
       }
