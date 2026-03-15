@@ -120,6 +120,13 @@ pub fn detect_rust_analyzer() -> LSPCheckResult {
 
 /// 通过 rustup 检测
 fn detect_via_rustup() -> LSPCheckResult {
+    #[cfg(windows)]
+    let output = Command::new("rustup")
+        .args(["component", "list", "--installed"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+
+    #[cfg(not(windows))]
     let output = Command::new("rustup")
         .args(["component", "list", "--installed"])
         .output();
@@ -258,6 +265,14 @@ fn get_common_rust_analyzer_paths() -> Vec<PathBuf> {
 
 /// 获取 rustup 版本
 fn get_rustup_version() -> Option<String> {
+    #[cfg(windows)]
+    let output = Command::new("rustup")
+        .args(["--version"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+
+    #[cfg(not(windows))]
     let output = Command::new("rustup")
         .args(["--version"])
         .output()
@@ -276,6 +291,14 @@ fn get_rustup_version() -> Option<String> {
 
 /// 获取 rust-analyzer 版本
 fn get_rust_analyzer_version(path: &str) -> Option<String> {
+    #[cfg(windows)]
+    let output = Command::new(path)
+        .args(["--version"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+
+    #[cfg(not(windows))]
     let output = Command::new(path)
         .args(["--version"])
         .output()
@@ -294,6 +317,13 @@ fn get_rust_analyzer_version(path: &str) -> Option<String> {
 
 /// 通过 rustup 安装 rust-analyzer
 fn install_rust_analyzer() -> LSPInstallResult {
+    #[cfg(windows)]
+    let output = Command::new("rustup")
+        .args(["component", "add", "rust-analyzer"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+
+    #[cfg(not(windows))]
     let output = Command::new("rustup")
         .args(["component", "add", "rust-analyzer"])
         .output();
@@ -322,6 +352,13 @@ fn install_rust_analyzer() -> LSPInstallResult {
 
 /// 通过 rustup 卸载 rust-analyzer
 fn uninstall_rust_analyzer() -> LSPInstallResult {
+    #[cfg(windows)]
+    let output = Command::new("rustup")
+        .args(["component", "remove", "rust-analyzer"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+
+    #[cfg(not(windows))]
     let output = Command::new("rustup")
         .args(["component", "remove", "rust-analyzer"])
         .output();
