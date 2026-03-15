@@ -125,9 +125,8 @@ function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps) {
   }, [sessionId]);
 
   // 调整大小 - 使用 ResizeObserver 监听容器尺寸变化
+  // 注意：移除 isActive 限制，让所有终端实例都能响应宽度变化
   useEffect(() => {
-    if (!isActive) return;
-
     const fitAddon = fitAddonRef.current;
     const xterm = xtermRef.current;
     const container = terminalRef.current;
@@ -144,18 +143,19 @@ function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps) {
     // 使用 ResizeObserver 监听容器尺寸变化
     // 这样可以响应父容器宽度变化（如拖拽调整左侧面板宽度）
     const resizeObserver = new ResizeObserver(() => {
-      handleResize();
+      // 使用 requestAnimationFrame 确保 DOM 更新后再调整
+      requestAnimationFrame(handleResize);
     });
 
     resizeObserver.observe(container);
 
     // 初始调整
-    setTimeout(handleResize, 50);
+    requestAnimationFrame(handleResize);
 
     return () => {
       resizeObserver.disconnect();
     };
-  }, [sessionId, isActive, resize]);
+  }, [sessionId, resize]);
 
   // 激活时聚焦
   useEffect(() => {
