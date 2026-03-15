@@ -8,7 +8,6 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::Arc;
-use std::time::Duration;
 
 use parking_lot::Mutex;
 use serde_json::{json, Value};
@@ -43,17 +42,6 @@ pub struct LSPServerHandle {
     pub workspace_root: PathBuf,
     /// 是否已初始化
     pub initialized: bool,
-}
-
-impl LSPServerHandle {
-    /// 检查进程是否仍在运行
-    pub fn is_process_running(&mut self) -> bool {
-        match self.process.try_wait() {
-            Ok(None) => true,  // 进程仍在运行
-            Ok(Some(_)) => false,  // 进程已退出
-            Err(_) => false,  // 检查失败，假设已退出
-        }
-    }
 }
 
 /// LSP 管理器
@@ -110,10 +98,7 @@ impl LSPManager {
             crate::error::AppError::LSPError("Server path not found".to_string())
         })?;
 
-        tracing::info!("[LSP] Starting server for {:?} at {:?}", language, workspace_root);
-
         // 启动进程
-        #[cfg(windows)]
         let mut process = if server_path == "rustup" {
             // rustup 方式安装的 rust-analyzer
             Command::new("rustup")
@@ -122,26 +107,6 @@ impl LSPManager {
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
-                .creation_flags(CREATE_NO_WINDOW)
-                .spawn()?
-        } else {
-            Command::new(&server_path)
-                .current_dir(&workspace_root)
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .creation_flags(CREATE_NO_WINDOW)
-                .spawn()?
-        };
-
-        #[cfg(not(windows))]
-        let mut process = if server_path == "rustup" {
-            Command::new("rustup")
-                .args(["run", "stable", "rust-analyzer"])
-                .current_dir(&workspace_root)
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
                 .spawn()?
         } else {
             Command::new(&server_path)
@@ -151,37 +116,6 @@ impl LSPManager {
                 .stderr(Stdio::piped())
                 .spawn()?
         };
-
-        // 短暂等待，检查进程是否立即退出
-        std::thread::sleep(std::time::Duration::from_millis(100));
-
-        match process.try_wait() {
-            Ok(Some(status)) => {
-                // 进程已退出，读取 stderr 获取错误信息
-                let stderr = process.stderr.take();
-                let error_msg = if let Some(mut stderr) = stderr {
-                    let mut buf = String::new();
-                    let _ = stderr.read_to_string(&mut buf);
-                    buf
-                } else {
-                    "Unknown error".to_string()
-                };
-                tracing::error!("[LSP] Process exited immediately with status: {:?}, stderr: {}", status, error_msg);
-                return Err(crate::error::AppError::LSPError(format!(
-                    "LSP process exited immediately: {:?}, error: {}",
-                    status, error_msg
-                )));
-            }
-            Ok(None) => {
-                tracing::info!("[LSP] Process started successfully");
-            }
-            Err(e) => {
-                tracing::error!("[LSP] Failed to check process status: {}", e);
-                return Err(crate::error::AppError::LSPError(format!(
-                    "Failed to check process status: {}", e
-                )));
-            }
-        }
 
         let stdin = process.stdin.take().ok_or_else(|| {
             crate::error::AppError::LSPError("Failed to get stdin".to_string())
@@ -203,22 +137,13 @@ impl LSPManager {
             initialized: false,
         };
 
-        // 发送初始化请求，不再静默忽略错误
-        tracing::info!("[LSP] Sending initialize request...");
-        match Self::send_initialize(&mut handle, &workspace_root) {
-            Ok(result) => {
-                tracing::info!("[LSP] Initialize successful: {:?}", result);
-                handle.initialized = true;
-                servers.insert(language, handle);
-                Ok(())
-            }
-            Err(e) => {
-                tracing::error!("[LSP] Initialize failed: {}", e);
-                // 清理进程
-                let _ = handle.process.kill();
-                Err(e)
-            }
-        }
+        // 发送初始化请求
+        let _ = Self::send_initialize(&mut handle, &workspace_root);
+
+        handle.initialized = true;
+        servers.insert(language, handle);
+
+        Ok(())
     }
 
     /// 停止服务器
@@ -279,13 +204,6 @@ impl LSPManager {
 
     /// 发送请求并等待响应
     fn send_request(handle: &mut LSPServerHandle, method: &str, params: Value) -> Result<Value> {
-        // 检查进程是否仍在运行
-        if !handle.is_process_running() {
-            return Err(crate::error::AppError::LSPError(
-                "LSP process has exited".to_string()
-            ));
-        }
-
         handle.request_id += 1;
         let id = handle.request_id;
 
@@ -375,13 +293,6 @@ impl LSPManager {
             crate::error::AppError::LSPError("Server not running".to_string())
         })?;
 
-        // 检查进程是否仍在运行
-        if !handle.is_process_running() {
-            tracing::warn!("[LSP] Process not running, removing from servers");
-            servers.remove(&language);
-            return Err(crate::error::AppError::LSPError("LSP process has exited".to_string()));
-        }
-
         let language_id = match language {
             LSPServerType::Rust => "rust",
             LSPServerType::TypeScript => "typescript",
@@ -408,13 +319,6 @@ impl LSPManager {
             crate::error::AppError::LSPError("Server not running".to_string())
         })?;
 
-        // 检查进程是否仍在运行
-        if !handle.is_process_running() {
-            tracing::warn!("[LSP] Process not running, removing from servers");
-            servers.remove(&language);
-            return Err(crate::error::AppError::LSPError("LSP process has exited".to_string()));
-        }
-
         let params = json!({
             "textDocument": {
                 "uri": uri,
@@ -434,13 +338,6 @@ impl LSPManager {
         let handle = servers.get_mut(&language).ok_or_else(|| {
             crate::error::AppError::LSPError("Server not running".to_string())
         })?;
-
-        // 检查进程是否仍在运行
-        if !handle.is_process_running() {
-            tracing::warn!("[LSP] Process not running, removing from servers");
-            servers.remove(&language);
-            return Err(crate::error::AppError::LSPError("LSP process has exited".to_string()));
-        }
 
         let params = json!({
             "textDocument": { "uri": uri },
@@ -468,13 +365,6 @@ impl LSPManager {
         let handle = servers.get_mut(&language).ok_or_else(|| {
             crate::error::AppError::LSPError("Server not running".to_string())
         })?;
-
-        // 检查进程是否仍在运行
-        if !handle.is_process_running() {
-            tracing::warn!("[LSP] Process not running, removing from servers");
-            servers.remove(&language);
-            return Err(crate::error::AppError::LSPError("LSP process has exited".to_string()));
-        }
 
         let params = json!({
             "textDocument": { "uri": uri },
@@ -528,13 +418,6 @@ impl LSPManager {
             crate::error::AppError::LSPError("Server not running".to_string())
         })?;
 
-        // 检查进程是否仍在运行
-        if !handle.is_process_running() {
-            tracing::warn!("[LSP] Process not running, removing from servers");
-            servers.remove(&language);
-            return Err(crate::error::AppError::LSPError("LSP process has exited".to_string()));
-        }
-
         let params = json!({
             "textDocument": { "uri": uri },
             "position": { "line": line, "character": character },
@@ -566,13 +449,6 @@ impl LSPManager {
         let handle = servers.get_mut(&language).ok_or_else(|| {
             crate::error::AppError::LSPError("Server not running".to_string())
         })?;
-
-        // 检查进程是否仍在运行
-        if !handle.is_process_running() {
-            tracing::warn!("[LSP] Process not running, removing from servers");
-            servers.remove(&language);
-            return Err(crate::error::AppError::LSPError("LSP process has exited".to_string()));
-        }
 
         let params = json!({
             "textDocument": { "uri": uri },
