@@ -46,15 +46,33 @@ function OptionInput({
       return (
         <button
           onClick={() => onChange(!value)}
-          className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${
-            value ? 'bg-primary' : 'bg-background-surface border border-border'
+          className={`relative w-12 h-7 rounded-full transition-all shrink-0 ${
+            value
+              ? 'bg-primary shadow-[0_0_8px_rgba(var(--color-primary-rgb),0.4)]'
+              : 'bg-background-surface border-2 border-border hover:border-text-tertiary'
           }`}
+          title={value ? '点击关闭' : '点击开启'}
         >
           <span
-            className={`absolute top-0.5 w-4 h-4 rounded-full transition-transform ${
-              value ? 'translate-x-4 bg-white' : 'translate-x-0.5 bg-text-tertiary'
+            className={`absolute top-0.5 w-6 h-6 rounded-full transition-all duration-200 ${
+              value
+                ? 'translate-x-5 bg-white shadow-sm'
+                : 'translate-x-0.5 bg-text-tertiary'
             }`}
           />
+          {value && (
+            <svg
+              className="absolute left-1.5 top-1.5 w-4 h-4 text-white pointer-events-none"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+          )}
         </button>
       )
 
@@ -63,7 +81,7 @@ function OptionInput({
         <select
           value={value as string || ''}
           onChange={(e) => onChange(e.target.value)}
-          className="px-2 py-1 bg-background-surface border border-border rounded text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-primary min-w-[80px]"
+          className="px-3 py-2 bg-background-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary min-w-[140px] cursor-pointer hover:border-primary/50 transition-colors"
         >
           <option value="">{t('commandSelector.selectPlaceholder', '选择...')}</option>
           {option.options?.map((opt) => (
@@ -77,7 +95,7 @@ function OptionInput({
     case 'multiselect':
       const selectedValues = Array.isArray(value) ? value : []
       return (
-        <div className="flex flex-wrap gap-1 max-w-[200px]">
+        <div className="flex flex-wrap gap-1.5">
           {option.options?.map((opt) => {
             const isSelected = selectedValues.includes(opt.value)
             return (
@@ -90,10 +108,10 @@ function OptionInput({
                     onChange([...selectedValues, opt.value])
                   }
                 }}
-                className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
+                className={`px-2.5 py-1.5 text-sm rounded-lg transition-all ${
                   isSelected
-                    ? 'bg-primary text-white'
-                    : 'bg-background-surface border border-border text-text-secondary hover:border-primary'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-background-surface border border-border text-text-secondary hover:border-primary hover:text-text-primary'
                 }`}
               >
                 {opt.label}
@@ -110,7 +128,7 @@ function OptionInput({
           value={value as number || ''}
           onChange={(e) => onChange(Number(e.target.value))}
           placeholder={option.placeholder}
-          className="px-2 py-1 w-20 bg-background-surface border border-border rounded text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="px-3 py-2 w-28 bg-background-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary hover:border-primary/50 transition-colors"
         />
       )
 
@@ -122,14 +140,14 @@ function OptionInput({
           value={value as string || ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={option.placeholder}
-          className="px-2 py-1 flex-1 min-w-[100px] bg-background-surface border border-border rounded text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="px-3 py-2 w-full bg-background-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary hover:border-primary/50 transition-colors"
         />
       )
   }
 }
 
 /**
- * 命令选项行 - 紧凑布局
+ * 命令选项行 - 上下布局，确保命令完整显示
  */
 function OptionRow({
   option,
@@ -153,62 +171,71 @@ function OptionRow({
   }
 
   return (
-    <div className="flex items-start gap-2 py-1.5 px-2 hover:bg-background-hover/50 rounded-md transition-colors group">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-text-primary truncate">{option.name}</span>
-          {option.dangerous && (
-            <span className="text-warning shrink-0" title={option.dangerWarning}>
-              <IconAlertTriangle size={12} />
-            </span>
-          )}
-          <code className="text-[10px] px-1 py-0.5 bg-background-surface rounded text-text-tertiary shrink-0">
-            {option.cliFlag}
+    <div className="py-2 px-3 hover:bg-background-hover/50 rounded-md transition-colors group border-b border-border/30 last:border-b-0">
+      {/* 第一行：名称 + CLI flag + 危险图标 + 删除按钮 */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-sm font-medium text-text-primary">{option.name}</span>
+        <code className="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded font-mono shrink-0">
+          {option.cliFlag}
+        </code>
+        {option.shortFlag && (
+          <code className="text-xs px-1.5 py-0.5 bg-background-surface text-text-tertiary rounded font-mono shrink-0">
+            {option.shortFlag}
           </code>
-        </div>
-
-        {/* 危险操作确认 */}
-        {showDangerConfirm && option.dangerWarning && (
-          <div className="mt-1.5 p-1.5 bg-warning/10 border border-warning/30 rounded text-[10px] text-warning">
-            <p className="font-medium">⚠️ {option.dangerWarning}</p>
-            <div className="flex gap-1.5 mt-1">
-              <button
-                onClick={() => setShowDangerConfirm(false)}
-                className="px-1.5 py-0.5 bg-background-surface border border-border rounded hover:border-warning"
-              >
-                取消
-              </button>
-              <button
-                onClick={() => {
-                  setShowDangerConfirm(false)
-                  onChange(value === undefined ? true : value)
-                }}
-                className="px-1.5 py-0.5 bg-warning text-white rounded hover:bg-warning/90"
-              >
-                确认
-              </button>
-            </div>
-          </div>
         )}
+        {option.dangerous && (
+          <span className="text-warning shrink-0 flex items-center gap-1 text-xs" title={option.dangerWarning}>
+            <IconAlertTriangle size={14} />
+            <span className="text-warning/80">危险</span>
+          </span>
+        )}
+        <div className="flex-1" />
+        <button
+          onClick={onRemove}
+          className="shrink-0 p-1 text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-danger hover:bg-danger/10 rounded transition-all"
+          title="移除选项"
+        >
+          <IconX size={14} />
+        </button>
       </div>
 
-      <div className="shrink-0 pt-0.5">
+      {/* 第二行：描述 */}
+      <p className="text-xs text-text-tertiary mb-2 pl-0.5">{option.description}</p>
+
+      {/* 第三行：输入控件 */}
+      <div className="pl-0.5">
         <OptionInput option={option} value={value} onChange={handleChange} />
       </div>
 
-      <button
-        onClick={onRemove}
-        className="shrink-0 p-0.5 text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-danger transition-all"
-        title="移除选项"
-      >
-        <IconX size={12} />
-      </button>
+      {/* 危险操作确认 */}
+      {showDangerConfirm && option.dangerWarning && (
+        <div className="mt-2 p-2 bg-warning/10 border border-warning/30 rounded-md text-xs text-warning">
+          <p className="font-medium mb-2">⚠️ {option.dangerWarning}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowDangerConfirm(false)}
+              className="px-2 py-1 bg-background-surface border border-border rounded hover:border-warning transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={() => {
+                setShowDangerConfirm(false)
+                onChange(value === undefined ? true : value)
+              }}
+              className="px-2 py-1 bg-warning text-white rounded hover:bg-warning/90 transition-colors"
+            >
+              确认执行
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 /**
- * 分类面板 - 紧凑布局
+ * 分类面板 - 清晰布局
  */
 function CategoryPanel({
   category,
@@ -222,39 +249,30 @@ function CategoryPanel({
   const selectedOptionIds = selectedOptions.map((o) => o.optionId)
 
   return (
-    <div className="border-b border-border/50 last:border-b-0">
-      <div className="px-2 py-1.5 bg-background-surface/30">
-        <h3 className="text-xs font-medium text-text-secondary">{category.name}</h3>
+    <div className="border-b border-border/30 last:border-b-0">
+      <div className="px-4 py-2 bg-background-surface/30">
+        <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wide">{category.name}</h3>
       </div>
-      <div className="py-0.5">
+      <div className="py-1">
         {category.options.map((option) => {
           const isSelected = selectedOptionIds.includes(option.id)
           return (
             <button
               key={option.id}
               onClick={() => onToggleOption(option)}
-              className={`w-full px-2 py-1.5 text-left flex items-center justify-between hover:bg-background-hover/50 transition-colors ${
+              className={`w-full px-4 py-2 text-left flex items-center gap-3 hover:bg-background-hover/50 transition-colors ${
                 isSelected ? 'bg-primary/5' : ''
               }`}
             >
-              <div className="flex-1 min-w-0 pr-2">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-text-primary truncate">{option.name}</span>
-                  {option.dangerous && (
-                    <IconAlertTriangle size={10} className="text-warning shrink-0" />
-                  )}
-                </div>
-                <p className="text-[10px] text-text-tertiary truncate">{option.description}</p>
-              </div>
               <div
-                className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
                   isSelected
                     ? 'bg-primary border-primary text-white'
-                    : 'border-border/50 bg-background-surface'
+                    : 'border-border/50 bg-background-surface hover:border-primary/50'
                 }`}
               >
                 {isSelected && (
-                  <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"
                       d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -262,6 +280,18 @@ function CategoryPanel({
                     />
                   </svg>
                 )}
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-text-primary">{option.name}</span>
+                  <code className="text-xs px-1.5 py-0.5 bg-background-surface text-text-tertiary rounded font-mono">
+                    {option.cliFlag}
+                  </code>
+                  {option.dangerous && (
+                    <IconAlertTriangle size={12} className="text-warning shrink-0" />
+                  )}
+                </div>
+                <p className="text-xs text-text-tertiary mt-0.5">{option.description}</p>
               </div>
             </button>
           )
@@ -389,40 +419,40 @@ export function EngineCommandSelector({
     <div
       ref={panelRef}
       style={panelStyle}
-      className="w-72 max-h-[360px] bg-background-elevated border border-border rounded-lg shadow-xl overflow-hidden flex flex-col z-50"
+      className="w-96 max-h-[480px] bg-background-elevated border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col z-50"
     >
       {/* 头部 */}
-      <div className="px-3 py-2 border-b border-border/50 bg-background-surface/30">
+      <div className="px-4 py-3 border-b border-border/50 bg-background-surface/50">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold text-text-primary">
+          <h2 className="text-sm font-semibold text-text-primary">
             {config.engineName} {t('commandSelector.title', '命令选项')}
           </h2>
           <button
             onClick={onClose}
-            className="p-0.5 text-text-tertiary hover:text-text-primary transition-colors"
+            className="p-1 text-text-tertiary hover:text-text-primary hover:bg-background-hover rounded transition-colors"
           >
-            <IconX size={14} />
+            <IconX size={16} />
           </button>
         </div>
 
         {/* Tab 切换 */}
-        <div className="flex gap-1 mt-1.5">
+        <div className="flex gap-2 mt-2">
           <button
             onClick={() => setActiveTab('selected')}
-            className={`px-2 py-0.5 text-[10px] rounded-full transition-colors ${
+            className={`px-3 py-1 text-xs rounded-full transition-all ${
               activeTab === 'selected'
-                ? 'bg-primary text-white'
-                : 'bg-background-surface text-text-tertiary hover:text-text-primary'
+                ? 'bg-primary text-white shadow-sm'
+                : 'bg-background-surface text-text-tertiary hover:text-text-primary border border-border'
             }`}
           >
             {t('commandSelector.selected', '已选')} ({selectedOptions.length})
           </button>
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-2 py-0.5 text-[10px] rounded-full transition-colors ${
+            className={`px-3 py-1 text-xs rounded-full transition-all ${
               activeTab === 'all'
-                ? 'bg-primary text-white'
-                : 'bg-background-surface text-text-tertiary hover:text-text-primary'
+                ? 'bg-primary text-white shadow-sm'
+                : 'bg-background-surface text-text-tertiary hover:text-text-primary border border-border'
             }`}
           >
             {t('commandSelector.all', '全部')}
@@ -434,16 +464,16 @@ export function EngineCommandSelector({
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {activeTab === 'selected' ? (
           selectedOptions.length === 0 ? (
-            <div className="p-4 text-center text-text-tertiary">
-              <p className="text-xs">
+            <div className="p-6 text-center text-text-tertiary">
+              <p className="text-sm">
                 {t('commandSelector.emptyHint', '暂无已选选项')}
               </p>
-              <p className="text-[10px] mt-1">
+              <p className="text-xs mt-1.5">
                 {t('commandSelector.emptyHintSub', '点击"全部"标签添加选项')}
               </p>
             </div>
           ) : (
-            <div className="py-0.5">
+            <div className="py-1">
               {selectedOptions.map((opt) => {
                 const option = allOptions.find((o) => o.id === opt.optionId)
                 if (!option) return null
@@ -475,9 +505,9 @@ export function EngineCommandSelector({
 
       {/* CLI 预览 */}
       {selectedOptions.length > 0 && (
-        <div className="px-2 py-1.5 border-t border-border/50 bg-background-surface/30">
-          <div className="text-[10px] text-text-tertiary mb-0.5">CLI 参数预览:</div>
-          <code className="text-[10px] text-primary break-all line-clamp-2">{cliPreview || '(无)'}</code>
+        <div className="px-4 py-3 border-t border-border/50 bg-background-surface/50">
+          <div className="text-xs text-text-tertiary mb-1.5 font-medium">CLI 参数预览</div>
+          <code className="text-xs text-primary break-all bg-primary/5 px-2 py-1.5 rounded block">{cliPreview || '(无)'}</code>
         </div>
       )}
     </div>
@@ -532,11 +562,11 @@ export function EngineCommandTrigger({
     return (
       <button
         onClick={onClick}
-        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-text-tertiary hover:text-text-secondary hover:bg-background-hover/50 transition-colors"
+        className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-background-hover transition-all border border-transparent hover:border-border"
         title="引擎命令选项"
       >
-        <IconSettings size={12} />
-        <span className="text-[10px]">选项</span>
+        <IconSettings size={14} />
+        <span className="text-xs">选项</span>
       </button>
     )
   }
@@ -545,12 +575,12 @@ export function EngineCommandTrigger({
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors max-w-[160px]"
+      className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-all border border-primary/30 max-w-[200px]"
       title={`${selectedOptions.length} 个命令选项已配置`}
     >
-      <IconSettings size={12} />
-      <span className="text-[10px] truncate">{summary}</span>
-      <span className="text-[10px] opacity-70">({selectedOptions.length})</span>
+      <IconSettings size={14} />
+      <span className="text-xs truncate font-medium">{summary}</span>
+      <span className="text-xs opacity-60">({selectedOptions.length})</span>
     </button>
   )
 }

@@ -586,12 +586,13 @@ export function ChatInput({
 
     const rect = textarea.getBoundingClientRect()
     const spaceBelow = window.innerHeight - rect.bottom
-    const selectorHeight = 400
+    const selectorHeight = 500
+    const selectorWidth = 384 // w-96 = 384px
     const shouldShowAbove = spaceBelow < selectorHeight
 
     setCommandSelectorPosition({
       top: shouldShowAbove ? rect.top - selectorHeight - 8 : rect.bottom + 8,
-      left: rect.right - 320, // 320px 是选择器宽度
+      left: Math.max(8, rect.right - selectorWidth), // 确保不超出左侧边界
     })
     setShowCommandSelector(true)
   }, [])
