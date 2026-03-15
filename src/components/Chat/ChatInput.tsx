@@ -8,6 +8,7 @@
  * - 工作区引用 (@workspace)
  * - 文件引用 (@/path)
  * - Git 上下文 (@git)
+ * - 引擎命令选项 (--option)
  */
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
@@ -19,12 +20,14 @@ import { FileSuggestion, WorkspaceSuggestion } from './FileSuggestion'
 import { GitSuggestion, getGitRootSuggestions, commitsToSuggestionItems, type GitSuggestionItem } from './GitSuggestion'
 import { AttachmentPreview } from './AttachmentPreview'
 import { AutoResizingTextarea } from './AutoResizingTextarea'
+import { EngineCommandSelector, EngineCommandTrigger } from './EngineCommandSelector'
 import { useFileSearch } from '../../hooks/useFileSearch'
 import { getGitCommits } from '../../services/gitContextService'
 import { baiduTranslate } from '../../services/tauri'
 import type { FileMatch } from '../../services/fileSearch'
 import type { Workspace } from '../../types'
 import type { Attachment } from '../../types/attachment'
+import type { CommandOptionValue } from '../../types/engineCommand'
 import {
   createAttachment,
   validateAttachment,
@@ -33,7 +36,7 @@ import {
 } from '../../types/attachment'
 
 interface ChatInputProps {
-  onSend: (message: string, workspaceDir?: string, attachments?: Attachment[]) => void
+  onSend: (message: string, workspaceDir?: string, attachments?: Attachment[], engineOptions?: CommandOptionValue[]) => void
   disabled?: boolean
   isStreaming?: boolean
   onInterrupt?: () => void
@@ -57,6 +60,11 @@ export function ChatInput({
 
   // 附件状态
   const [attachments, setAttachments] = useState<Attachment[]>([])
+
+  // 引擎命令选项状态
+  const [engineOptions, setEngineOptions] = useState<CommandOptionValue[]>([])
+  const [showCommandSelector, setShowCommandSelector] = useState(false)
+  const [commandSelectorPosition, setCommandSelectorPosition] = useState({ top: 0, left: 0 })
 
   // 工作区建议状态
   const [showWorkspaceSuggestions, setShowWorkspaceSuggestions] = useState(false)
@@ -531,13 +539,14 @@ export function ChatInput({
     if ((disabled || isStreaming) && attachments.length === 0) return
     if (!trimmed && attachments.length === 0) return
 
-    onSend(trimmed, undefined, attachments.length > 0 ? attachments : undefined)
+    onSend(trimmed, undefined, attachments.length > 0 ? attachments : undefined, engineOptions.length > 0 ? engineOptions : undefined)
     resetInput()
-  }, [value, disabled, isStreaming, attachments, onSend])
+  }, [value, disabled, isStreaming, attachments, engineOptions, onSend])
 
   const resetInput = useCallback(() => {
     setValue('')
     setAttachments([])
+    setEngineOptions([])
     setShowWorkspaceSuggestions(false)
     setShowFileSuggestions(false)
     setShowGitSuggestions(false)
@@ -558,7 +567,7 @@ export function ChatInput({
     try {
       const result = await baiduTranslate(trimmed, baiduConfig.appId, baiduConfig.secretKey)
       if (result.success && result.result) {
-        onSend(result.result, undefined, attachments.length > 0 ? attachments : undefined)
+        onSend(result.result, undefined, attachments.length > 0 ? attachments : undefined, engineOptions.length > 0 ? engineOptions : undefined)
         resetInput()
       } else {
         alert(t('error.translateFailed') + ': ' + (result.error || 'Unknown error'))
@@ -568,7 +577,24 @@ export function ChatInput({
     } finally {
       setIsTranslating(false)
     }
-  }, [value, disabled, isStreaming, isTranslating, config, attachments, onSend, resetInput, t])
+  }, [value, disabled, isStreaming, isTranslating, config, attachments, engineOptions, onSend, resetInput, t])
+
+  // 打开命令选择器
+  const openCommandSelector = useCallback(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const rect = textarea.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const selectorHeight = 400
+    const shouldShowAbove = spaceBelow < selectorHeight
+
+    setCommandSelectorPosition({
+      top: shouldShowAbove ? rect.top - selectorHeight - 8 : rect.bottom + 8,
+      left: rect.right - 320, // 320px 是选择器宽度
+    })
+    setShowCommandSelector(true)
+  }, [])
 
   // 点击外部关闭建议
   useEffect(() => {
@@ -619,6 +645,13 @@ export function ChatInput({
           >
             <IconPaperclip size={18} />
           </button>
+
+          {/* 引擎命令选项按钮 */}
+          <EngineCommandTrigger
+            engineId={config?.defaultEngine || 'claude-code'}
+            selectedOptions={engineOptions}
+            onClick={openCommandSelector}
+          />
 
           {/* 文本输入 */}
           <AutoResizingTextarea
@@ -672,7 +705,7 @@ export function ChatInput({
         </div>
 
         {/* 状态栏 */}
-        {(isStreaming || suggestionMode || value.length > 0 || attachments.length > 0) && (
+        {(isStreaming || suggestionMode || value.length > 0 || attachments.length > 0 || engineOptions.length > 0) && (
           <div className="flex items-center justify-between mt-1.5 px-1">
             <div className="text-xs text-text-tertiary">
               {isStreaming ? (
@@ -686,6 +719,10 @@ export function ChatInput({
                 <span>{t('input.selectFile')}</span>
               ) : suggestionMode === 'git' ? (
                 <span>{t('input.gitContext')}</span>
+              ) : engineOptions.length > 0 ? (
+                <span className="flex items-center gap-1 text-primary">
+                  {engineOptions.length} 个命令选项已配置
+                </span>
               ) : attachments.length > 0 ? (
                 <span className="flex items-center gap-1">
                   <IconPaperclip size={10} />
@@ -739,6 +776,17 @@ export function ChatInput({
           onHover={setSelectedGitIndex}
           position={gitPosition}
           isLoading={isGitLoading}
+        />
+      )}
+
+      {/* 引擎命令选择器 */}
+      {showCommandSelector && (
+        <EngineCommandSelector
+          engineId={config?.defaultEngine || 'claude-code'}
+          selectedOptions={engineOptions}
+          onChange={setEngineOptions}
+          position={commandSelectorPosition}
+          onClose={() => setShowCommandSelector(false)}
         />
       )}
     </div>
