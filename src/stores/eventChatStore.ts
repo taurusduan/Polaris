@@ -379,7 +379,7 @@ interface EventChatState {
   initializeEventListeners: () => Promise<() => void>
 
   /** 发送消息 */
-  sendMessage: (content: string, workspaceDir?: string, attachments?: import('../types/attachment').Attachment[]) => Promise<void>
+  sendMessage: (content: string, workspaceDir?: string, attachments?: import('../types/attachment').Attachment[], engineOptions?: import('../types/engineCommand').CommandOptionValue[]) => Promise<void>
   /** 使用前端引擎发送消息（OpenAI Provider） */
   sendMessageToFrontendEngine: (content: string, workspaceDir?: string, systemPrompt?: string, attachments?: import('../types/attachment').Attachment[]) => Promise<void>
   /** 继续会话 */
@@ -960,7 +960,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
     return cleanup
   },
 
-  sendMessage: async (content, workspaceDir, attachments) => {
+  sendMessage: async (content, workspaceDir, attachments, engineOptions) => {
     const { conversationId } = get()
 
     const router = getEventRouter()
@@ -1063,6 +1063,13 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
           content: a.content,
         }))
 
+        // 将引擎选项转换为 CLI 参数数组
+        let cliArgs: string[] = []
+        if (engineOptions && engineOptions.length > 0) {
+          const { optionsToCliArgs } = await import('../utils/engineOptions')
+          cliArgs = optionsToCliArgs(currentEngine, engineOptions)
+        }
+
         if (conversationId) {
           await invoke('continue_chat', {
             sessionId: conversationId,
@@ -1072,6 +1079,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
             contextId: 'main',
             engineId: currentEngine,
             attachments: attachmentsForBackend,
+            cliArgs,
           })
         } else {
           const newSessionId = await invoke<string>('start_chat', {
@@ -1081,6 +1089,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
             contextId: 'main',
             engineId: currentEngine,
             attachments: attachmentsForBackend,
+            cliArgs,
           })
           set({ conversationId: newSessionId })
         }
