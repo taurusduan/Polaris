@@ -23,6 +23,8 @@ pub struct CreateTaskParams {
     /// 任务模式
     #[serde(default)]
     pub mode: TaskMode,
+    /// 分组名称（可选）
+    pub group: Option<String>,
     /// 任务目标（protocol 模式使用）
     pub mission: Option<String>,
     /// 最大执行轮次（可选，None 表示不限）
@@ -81,6 +83,9 @@ pub struct ScheduledTask {
     /// 任务模式
     #[serde(default)]
     pub mode: TaskMode,
+    /// 分组名称（可选）
+    #[serde(default)]
+    pub group: Option<String>,
     /// 任务路径 (protocol 模式使用，相对于 workDir)
     pub task_path: Option<String>,
     /// 上次执行时间
@@ -134,6 +139,7 @@ impl From<CreateTaskParams> for ScheduledTask {
             prompt: params.prompt,
             work_dir: params.work_dir,
             mode: params.mode,
+            group: params.group,
             task_path: None, // 将在创建任务目录后设置
             last_run_at: None,
             last_run_status: None,

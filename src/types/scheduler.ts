@@ -31,6 +31,8 @@ export interface ScheduledTask {
   workDir?: string;
   /** 任务模式 */
   mode: TaskMode;
+  /** 分组名称（可选，未分组则为 undefined） */
+  group?: string;
   /** 任务路径 (protocol 模式使用，相对于 workDir) */
   taskPath?: string;
   /** 上次执行时间 */
@@ -108,6 +110,8 @@ export interface CreateTaskParams {
   workDir?: string;
   /** 任务模式 */
   mode?: TaskMode;
+  /** 分组名称（可选） */
+  group?: string;
   /** 任务目标 (protocol 模式使用，用于生成协议文档) */
   mission?: string;
   /** 最大执行轮次 (可选，undefined 表示不限) */

@@ -84,6 +84,7 @@ impl TaskStoreService {
             prompt: params.prompt,
             work_dir: params.work_dir.clone(),
             mode: params.mode.clone(),
+            group: params.group,
             task_path: None,
             last_run_at: None,
             last_run_status: None,
