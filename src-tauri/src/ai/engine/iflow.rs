@@ -754,17 +754,39 @@ impl AIEngine for IFlowEngine {
                 }
 
                 wait_count += 1;
-                if wait_count > 50 {
+                if wait_count > 100 {
+                    // 超时后检查进程状态
+                    let process_running = Self::is_process_running(cli_pid);
                     tracing::error!(
-                        "[IFlowEngine] 超时未找到会话文件! 目录: {:?}, 等待了 {} 次",
-                        session_dir, wait_count
+                        "[IFlowEngine] 超时未找到会话文件! 目录: {:?}, 等待了 {} 次, 进程运行中: {}",
+                        session_dir, wait_count, process_running
                     );
-                    event_callback(AIEvent::error("未找到会话文件"));
-                    return;
+
+                    if process_running {
+                        // 进程还在运行，继续等待（最多再等 50 次 = 5 秒）
+                        // 这处理了 IFlow CLI 启动慢或响应慢的情况
+                        tracing::info!("[IFlowEngine] 进程仍在运行，继续等待文件创建...");
+                        if wait_count > 150 {
+                            // 真正的超时，进程运行但长时间未创建文件
+                            tracing::error!(
+                                "[IFlowEngine] 进程运行但长时间未创建会话文件，可能是异常"
+                            );
+                            event_callback(AIEvent::error("IFlow 长时间未响应，请检查网络连接"));
+                            return;
+                        }
+                        // 继续循环等待
+                    } else {
+                        // 进程已退出但没有创建文件，可能是启动失败或配置问题
+                        tracing::error!(
+                            "[IFlowEngine] IFlow 进程已退出但未创建会话文件，可能是启动失败"
+                        );
+                        event_callback(AIEvent::error("IFlow 启动失败，请检查配置"));
+                        return;
+                    }
                 }
                 if wait_count % 10 == 0 {
                     tracing::info!(
-                        "[IFlowEngine] 等待会话文件... ({}/50), 目录: {:?}",
+                        "[IFlowEngine] 等待会话文件... ({}/100), 目录: {:?}",
                         wait_count, session_dir
                     );
                 }
