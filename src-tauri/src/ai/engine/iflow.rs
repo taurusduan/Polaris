@@ -660,12 +660,12 @@ impl AIEngine for IFlowEngine {
                 work_dir_owned, temp_id_for_monitor
             );
 
-            // 记录进程启动时间，用于判断文件是否是新创建的
-            let start_time = std::time::SystemTime::now()
+            // 记录进程启动时间（毫秒级精度），用于判断文件是否是新创建的
+            let start_time_ms = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
-                .as_secs();
-            tracing::info!("[IFlowEngine] 会话启动时间戳: {}", start_time);
+                .as_millis() as u64;
+            tracing::info!("[IFlowEngine] 会话启动时间戳(ms): {}", start_time_ms);
 
             // 等待会话文件创建
             std::thread::sleep(Duration::from_millis(500));
@@ -686,12 +686,14 @@ impl AIEngine for IFlowEngine {
             );
 
             // 等待新文件出现（修改时间 >= 启动时间）
+            // 修复：使用毫秒级时间戳，并且当有多个"新文件"时选择最新的
             let mut wait_count = 0;
             let jsonl_path = loop {
                 if let Ok(entries) = std::fs::read_dir(&session_dir) {
                     let mut newest: Option<PathBuf> = None;
-                    let mut newest_time: u64 = 0;
-                    let mut new_file: Option<PathBuf> = None;
+                    let mut newest_time_ms: u64 = 0;
+                    let mut newest_new_file: Option<PathBuf> = None;
+                    let mut newest_new_file_time_ms: u64 = 0;
                     let mut jsonl_count = 0;
 
                     for entry in entries.flatten() {
@@ -700,25 +702,31 @@ impl AIEngine for IFlowEngine {
                             jsonl_count += 1;
                             if let Ok(meta) = std::fs::metadata(&path) {
                                 if let Ok(modified) = meta.modified() {
-                                    let secs = modified
+                                    // 使用毫秒级时间戳提高精度
+                                    let modified_ms = modified
                                         .duration_since(std::time::UNIX_EPOCH)
                                         .unwrap_or_default()
-                                        .as_secs();
+                                        .as_millis() as u64;
                                     tracing::debug!(
-                                        "[IFlowEngine] 发现 jsonl 文件: {:?}, 修改时间戳: {}",
-                                        path, secs
+                                        "[IFlowEngine] 发现 jsonl 文件: {:?}, 修改时间戳(ms): {}",
+                                        path, modified_ms
                                     );
-                                    if secs > newest_time {
-                                        newest_time = secs;
+                                    // 跟踪最新文件
+                                    if modified_ms > newest_time_ms {
+                                        newest_time_ms = modified_ms;
                                         newest = Some(path.clone());
                                     }
-                                    // 检查是否是新创建的文件（修改时间 >= 启动时间）
-                                    if secs >= start_time {
+                                    // 检查是否是新创建的文件（修改时间 >= 启动时间，允许 1 秒误差）
+                                    // 修复：当有多个新文件时，选择时间戳最大的那个
+                                    if modified_ms >= start_time_ms.saturating_sub(1000) {
                                         tracing::info!(
-                                            "[IFlowEngine] 发现新创建的会话文件: {:?}, 时间戳: {}",
-                                            path, secs
+                                            "[IFlowEngine] 发现新创建的会话文件: {:?}, 时间戳(ms): {}, 启动时间(ms): {}",
+                                            path, modified_ms, start_time_ms
                                         );
-                                        new_file = Some(path);
+                                        if modified_ms > newest_new_file_time_ms {
+                                            newest_new_file_time_ms = modified_ms;
+                                            newest_new_file = Some(path);
+                                        }
                                     }
                                 }
                             }
@@ -726,21 +734,18 @@ impl AIEngine for IFlowEngine {
                     }
 
                     tracing::info!(
-                        "[IFlowEngine] 目录中有 {} 个 jsonl 文件，最新时间戳: {}, 启动时间戳: {}",
-                        jsonl_count, newest_time, start_time
+                        "[IFlowEngine] 目录中有 {} 个 jsonl 文件，最新时间戳(ms): {}, 启动时间戳(ms): {}",
+                        jsonl_count, newest_time_ms, start_time_ms
                     );
 
-                    // 优先使用新创建的文件
-                    if let Some(p) = new_file {
+                    // 优先使用新创建的文件（选择时间戳最大的）
+                    if let Some(p) = newest_new_file {
                         tracing::info!("[IFlowEngine] 使用新创建的会话文件: {:?}", p);
                         break p;
                     }
 
-                    // 如果没有新文件，使用最新的文件（可能是恢复会话的情况）
-                    if let Some(p) = newest {
-                        tracing::info!("[IFlowEngine] 使用最新的会话文件: {:?}", p);
-                        break p;
-                    }
+                    // 修复：如果没有新文件，继续等待而不是使用旧文件
+                    // 这避免了读取到错误的会话内容
                 } else {
                     tracing::warn!(
                         "[IFlowEngine] 无法读取目录: {:?}, 等待中...",
