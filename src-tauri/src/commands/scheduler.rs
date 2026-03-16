@@ -7,6 +7,7 @@ use crate::models::scheduler::{CreateTaskParams, ScheduledTask, TaskLog, Trigger
 use crate::state::AppState;
 use crate::utils::{LockStatus, SchedulerLock};
 use crate::services::scheduler::ProtocolTaskService;
+use tauri::Window;
 
 /// 获取所有任务
 #[tauri::command]
@@ -76,6 +77,21 @@ pub async fn scheduler_run_task(
 ) -> Result<RunTaskResult> {
     let disp = state.scheduler_dispatcher.lock().await;
     disp.run_now(&id).await
+}
+
+/// 立即执行任务（订阅模式 - 发送事件到前端窗口）
+///
+/// 与 scheduler_run_task 不同，此命令会将 AI 执行过程的事件
+/// 实时发送到前端窗口，用户可以在 AI 对话窗口中看到执行过程。
+#[tauri::command]
+pub async fn scheduler_run_task_with_window(
+    id: String,
+    context_id: Option<String>,
+    window: Window,
+    state: tauri::State<'_, AppState>,
+) -> Result<RunTaskResult> {
+    let disp = state.scheduler_dispatcher.lock().await;
+    disp.run_now_with_window(&id, window, context_id).await
 }
 
 /// 获取任务日志

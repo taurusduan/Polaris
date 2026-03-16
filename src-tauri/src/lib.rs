@@ -68,7 +68,7 @@ use commands::integration::{
 use commands::scheduler::{
     scheduler_get_tasks, scheduler_get_task, scheduler_create_task,
     scheduler_update_task, scheduler_delete_task, scheduler_toggle_task,
-    scheduler_run_task, scheduler_get_task_logs, scheduler_get_all_logs,
+    scheduler_run_task, scheduler_run_task_with_window, scheduler_get_task_logs, scheduler_get_all_logs,
     scheduler_cleanup_logs, scheduler_validate_trigger, scheduler_parse_interval,
     scheduler_get_lock_status, scheduler_start, scheduler_stop,
     scheduler_get_logs_paginated, scheduler_delete_log, scheduler_delete_logs,
@@ -452,6 +452,7 @@ pub fn run() {
             scheduler_delete_task,
             scheduler_toggle_task,
             scheduler_run_task,
+            scheduler_run_task_with_window,
             scheduler_get_task_logs,
             scheduler_get_all_logs,
             scheduler_cleanup_logs,

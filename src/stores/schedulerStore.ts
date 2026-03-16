@@ -15,6 +15,8 @@ interface SchedulerState {
   loading: boolean;
   /** 错误信息 */
   error: string | null;
+  /** 正在订阅执行的任务 ID（用于在 AI 对话窗口显示） */
+  subscribingTaskId: string | null;
 
   /** 加载任务列表 */
   loadTasks: () => Promise<void>;
@@ -30,10 +32,14 @@ interface SchedulerState {
   toggleTask: (id: string, enabled: boolean) => Promise<void>;
   /** 立即执行任务 */
   runTask: (id: string) => Promise<RunTaskResult>;
+  /** 立即执行任务（订阅模式 - 发送事件到 AI 对话窗口） */
+  runTaskWithSubscription: (id: string, contextId?: string) => Promise<RunTaskResult>;
   /** 验证触发表达式 */
   validateTrigger: (type: TriggerType, value: string) => Promise<number | null>;
   /** 清理过期日志 */
   cleanupLogs: () => Promise<void>;
+  /** 清除订阅状态 */
+  clearSubscription: () => void;
 }
 
 export const useSchedulerStore = create<SchedulerState>((set) => ({
@@ -41,6 +47,7 @@ export const useSchedulerStore = create<SchedulerState>((set) => ({
   logs: [],
   loading: false,
   error: null,
+  subscribingTaskId: null,
 
   loadTasks: async () => {
     set({ loading: true, error: null });
@@ -153,6 +160,25 @@ export const useSchedulerStore = create<SchedulerState>((set) => ({
     }
   },
 
+  runTaskWithSubscription: async (id, contextId) => {
+    try {
+      // 设置订阅状态
+      set({ subscribingTaskId: id });
+
+      const result = await tauri.schedulerRunTaskWithWindow(id, contextId);
+
+      // 刷新任务列表获取最新状态
+      const tasks = await tauri.schedulerGetTasks();
+      set({ tasks });
+
+      return result;
+    } catch (e) {
+      set({ subscribingTaskId: null });
+      console.error('执行任务（订阅模式）失败:', e);
+      throw e;
+    }
+  },
+
   validateTrigger: async (type, value) => {
     try {
       return await tauri.schedulerValidateTrigger(type, value);
@@ -171,5 +197,9 @@ export const useSchedulerStore = create<SchedulerState>((set) => ({
     } catch (e) {
       console.error('清理日志失败:', e);
     }
+  },
+
+  clearSubscription: () => {
+    set({ subscribingTaskId: null });
   },
 }));

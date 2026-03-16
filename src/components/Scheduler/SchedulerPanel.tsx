@@ -60,14 +60,18 @@ function TaskCard({
   onDelete,
   onToggle,
   onRun,
+  onSubscribe,
   onViewDocs,
+  isSubscribing,
 }: {
   task: ScheduledTask;
   onEdit: () => void;
   onDelete: () => void;
   onToggle: () => void;
   onRun: () => void;
+  onSubscribe: () => void;
   onViewDocs?: () => void;
+  isSubscribing?: boolean;
 }) {
   return (
     <div className="bg-[#1a1a2e] rounded-lg p-4 border border-[#2a2a4a]">
@@ -130,10 +134,32 @@ function TaskCard({
               文档
             </button>
           )}
+          {/* 订阅执行按钮 - 在 AI 对话窗口实时显示执行过程 */}
+          <button
+            onClick={onSubscribe}
+            disabled={isSubscribing}
+            className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${
+              isSubscribing
+                ? 'bg-cyan-600 text-white cursor-wait'
+                : 'bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30'
+            }`}
+            title={isSubscribing ? '正在执行中...' : '订阅执行 - 在 AI 对话窗口查看执行过程'}
+          >
+            {isSubscribing ? (
+              <>
+                <span className="animate-spin">⏳</span>
+                执行中
+              </>
+            ) : (
+              <>
+                👁 订阅
+              </>
+            )}
+          </button>
           <button
             onClick={onRun}
             className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-            title="立即执行"
+            title="立即执行（后台）"
           >
             执行
           </button>
@@ -306,7 +332,7 @@ function LogList({ logs }: { logs: TaskLog[] }) {
 
 /** 主面板 */
 export function SchedulerPanel() {
-  const { tasks, logs, loading, loadTasks, loadLogs, createTask, updateTask, deleteTask, toggleTask, runTask } =
+  const { tasks, logs, loading, subscribingTaskId, loadTasks, loadLogs, createTask, updateTask, deleteTask, toggleTask, runTask, runTaskWithSubscription, clearSubscription } =
     useSchedulerStore();
   const toast = useToastStore();
 
@@ -320,7 +346,7 @@ export function SchedulerPanel() {
     loadLogs(50);
   }, [loadTasks, loadLogs]);
 
-  /** 处理立即执行任务 */
+  /** 处理立即执行任务（后台执行） */
   const handleRunTask = async (task: ScheduledTask) => {
     try {
       await runTask(task.id);
@@ -331,6 +357,20 @@ export function SchedulerPanel() {
       loadLogs(50);
     } catch (e) {
       toast.error('提交失败', e instanceof Error ? e.message : '未知错误');
+    }
+  };
+
+  /** 处理订阅执行任务（在 AI 对话窗口实时显示） */
+  const handleSubscribeTask = async (task: ScheduledTask) => {
+    try {
+      await runTaskWithSubscription(task.id);
+      toast.info('订阅执行', `任务「${task.name}」正在执行，请在 AI 对话窗口查看实时进度`);
+      // 刷新任务列表和日志
+      loadTasks();
+      loadLogs(50);
+    } catch (e) {
+      toast.error('执行失败', e instanceof Error ? e.message : '未知错误');
+      clearSubscription();
     }
   };
 
@@ -435,7 +475,9 @@ export function SchedulerPanel() {
                   onDelete={() => handleDelete(task.id)}
                   onToggle={() => toggleTask(task.id, !task.enabled)}
                   onRun={() => handleRunTask(task)}
+                  onSubscribe={() => handleSubscribeTask(task)}
                   onViewDocs={() => setViewingTask(task)}
+                  isSubscribing={subscribingTaskId === task.id}
                 />
               ))}
             </div>

@@ -715,6 +715,14 @@ export async function schedulerRunTask(id: string): Promise<RunTaskResult> {
   return invoke<RunTaskResult>('scheduler_run_task', { id });
 }
 
+/** 立即执行任务（订阅模式 - 发送事件到前端窗口） */
+export async function schedulerRunTaskWithWindow(
+  id: string,
+  contextId?: string
+): Promise<RunTaskResult> {
+  return invoke<RunTaskResult>('scheduler_run_task_with_window', { id, contextId });
+}
+
 /** 获取任务日志 */
 export async function schedulerGetTaskLogs(taskId: string): Promise<TaskLog[]> {
   return invoke<TaskLog[]>('scheduler_get_task_logs', { taskId });
