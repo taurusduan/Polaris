@@ -69,15 +69,39 @@ impl IFlowEngine {
     }
 
     /// 构建 IFlow 命令
-    fn build_command(&self, message: &str, session_id: Option<&str>) -> Result<Command> {
+    fn build_command(&self, message: &str, session_id: Option<&str>) -> Result<(Command, Option<PathBuf>)> {
         let cli_path = self.cli_path.as_ref()
             .ok_or_else(|| AppError::ProcessError("CLI 路径未初始化".to_string()))?;
 
-        // Windows 上如果是批处理文件，需要使用环境变量传递消息
-        // 避免 bat/cmd 参数解析问题（如包含 "Protocol" 等词被误解为参数）
+        // 打印 CLI 路径信息
+        tracing::info!("[IFlowEngine] CLI 路径: {}", cli_path);
+
+        // 返回值：(Command, 临时文件路径)
+        // 临时文件路径用于后续清理，Some 表示使用了临时文件
+        let mut temp_file_path: Option<PathBuf> = None;
+
+        // Windows 上如果是批处理文件，需要使用临时文件传递消息
+        // 因为环境变量无法正确处理包含换行符、反引号等特殊字符的长消息
         #[cfg(windows)]
         {
-            if Self::is_batch_file(cli_path) {
+            let is_batch = Self::is_batch_file(cli_path);
+            tracing::info!("[IFlowEngine] 是否批处理文件: {}", is_batch);
+
+            if is_batch {
+                // 创建临时文件存储消息
+                let temp_dir = std::env::temp_dir();
+                let temp_file_name = format!("iflow_msg_{}.txt", uuid::Uuid::new_v4());
+                let temp_file = temp_dir.join(&temp_file_name);
+
+                // 写入消息到临时文件
+                std::fs::write(&temp_file, message)
+                    .map_err(|e| AppError::ProcessError(format!("创建临时消息文件失败: {}", e)))?;
+
+                temp_file_path = Some(temp_file.clone());
+
+                tracing::info!("[IFlowEngine] 消息已写入临时文件: {:?}", temp_file);
+                tracing::info!("[IFlowEngine] 消息长度: {} 字符", message.len());
+
                 let mut cmd = Command::new("cmd");
                 cmd.arg("/S").arg("/C");
 
@@ -88,17 +112,66 @@ impl IFlowEngine {
                     cmd_parts.push(sid.to_string());
                 }
 
+                // 使用 type 命令读取临时文件内容作为 prompt
+                // 注意：这里使用 for /f 来读取文件内容
+                let prompt_arg = format!("$(type \"{}\")", temp_file.display());
+                cmd_parts.push("--prompt".to_string());
+                cmd_parts.push(prompt_arg.clone());
+
+                // 打印完整命令
+                let full_cmd = format!("cmd /S /C \"{}\"", cmd_parts.join(" "));
+                tracing::info!("[IFlowEngine] 完整命令: {}", full_cmd);
+
+                // 实际执行时，使用更可靠的方式：直接传递文件路径让 IFlow 读取
+                // 但 IFlow 不支持 --prompt-file，所以我们需要另一种方式
+                // 方案：使用 set /p 读取文件第一行，但这不支持多行
+                // 最终方案：直接用 node 执行 iflow（绕过批处理文件）
+                // 或者：用 PowerShell 传递参数
+
+                // 最简单的方案：找到 iflow.cmd 实际调用的 node 脚本，直接调用 node
+                // 但这需要解析 cmd 文件
+
+                // 临时方案：对于批处理文件，尝试使用 node 直接执行
+                // 大多数 npm 安装的 CLI 都是通过 node 执行的
+                let node_path = Self::find_node_path();
+                if let Some(node) = node_path {
+                    // 尝试找到 iflow 的 JS 入口
+                    if let Some(js_entry) = Self::find_npm_cli_js_entry(cli_path) {
+                        tracing::info!("[IFlowEngine] 使用 node 直接执行: {} {}", node, js_entry);
+
+                        let mut cmd = Command::new(&node);
+                        cmd.arg(&js_entry);
+                        cmd.arg("--yolo");
+
+                        if let Some(sid) = session_id {
+                            cmd.arg("--resume").arg(sid);
+                        }
+
+                        cmd.arg("--prompt").arg(message);
+
+                        let args: Vec<String> = cmd.get_args().map(|s| s.to_string_lossy().to_string()).collect();
+                        tracing::info!("[IFlowEngine] 实际命令: {} {}", node, args.join(" "));
+                        // 不需要临时文件了
+                        temp_file_path = None;
+
+                        return Ok((cmd, temp_file_path));
+                    }
+                }
+
+                // 如果无法找到 node 或 JS 入口，回退到环境变量方案（短消息可能有效）
+                cmd_parts.pop(); // 移除 prompt_arg
+                cmd_parts.pop(); // 移除 --prompt
+
                 cmd_parts.push("--prompt".to_string());
                 cmd_parts.push("%IFLOW_MSG%".to_string());
 
                 cmd.env("IFLOW_MSG", message);
                 cmd.arg(&cmd_parts.join(" "));
 
-                tracing::debug!(
-                    "[IFlowEngine] Windows 批处理命令: cmd /S /C \"{}\"",
-                    cmd_parts.join(" ")
-                );
-                return Ok(cmd);
+                let full_cmd = format!("cmd /S /C \"{}\"", cmd_parts.join(" "));
+                tracing::info!("[IFlowEngine] 回退到环境变量方案: {}", full_cmd);
+
+                return Ok((cmd, temp_file_path));
             }
         }
 
@@ -112,14 +185,87 @@ impl IFlowEngine {
 
         cmd.arg("--prompt").arg(message);
 
-        tracing::debug!(
-            "[IFlowEngine] 命令构建完成: {} --yolo {} --prompt [消息长度: {}]",
-            cli_path,
-            session_id.map(|s| format!("--resume {}", s)).unwrap_or_default(),
-            message.len()
-        );
+        // 打印完整命令
+        let args: Vec<String> = cmd.get_args().map(|s| s.to_string_lossy().to_string()).collect();
+        tracing::info!("[IFlowEngine] 完整命令: {} {}", cli_path, args.join(" "));
+        // 安全地截取前200字符（避免切到多字节字符中间）
+        let preview: String = message.chars().take(200).collect();
+        tracing::info!("[IFlowEngine] 消息内容预览(前200字符): {}", preview);
 
-        Ok(cmd)
+        Ok((cmd, temp_file_path))
+    }
+
+    /// 查找 node 可执行文件路径
+    #[cfg(windows)]
+    fn find_node_path() -> Option<String> {
+        // 尝试从 PATH 环境变量中查找 node
+        if let Ok(path_env) = std::env::var("PATH") {
+            for path in path_env.split(';') {
+                let node_path = PathBuf::from(path).join("node.exe");
+                if node_path.exists() {
+                    tracing::info!("[IFlowEngine] 找到 node: {:?}", node_path);
+                    return Some(node_path.to_string_lossy().to_string());
+                }
+            }
+        }
+        None
+    }
+
+    /// 解析 npm cmd 文件，找到实际的 JS 入口
+    #[cfg(windows)]
+    fn find_npm_cli_js_entry(cmd_path: &str) -> Option<String> {
+        // npm 安装的 cmd 文件通常格式：
+        // @ECHO off
+        // SETLOCAL
+        // ...
+        // node "%~dp0\..\包名\bin\cli.js" %*
+        // 或者
+        // node  "${basedir}/../包名/bin/cli.js" "$@"
+
+        if let Ok(content) = std::fs::read_to_string(cmd_path) {
+            tracing::debug!("[IFlowEngine] cmd 文件内容:\n{}", content);
+
+            // 查找 node 命令行
+            for line in content.lines() {
+                let line = line.trim();
+
+                // 查找包含 node 的行
+                if line.contains("node") {
+                    // 尝试提取 JS 文件路径
+                    // 常见格式：
+                    // node "%~dp0\..\包名\bin\cli.js"
+                    // node "${basedir}/../包名/bin/cli.js"
+
+                    // 获取 cmd 文件所在目录
+                    let cmd_dir = PathBuf::from(cmd_path).parent()?.to_string_lossy().to_string();
+
+                    // 尝试匹配 %~dp0 模式
+                    if let Some(start) = line.find("\"%~dp0") {
+                        if let Some(end) = line[start..].find("\"") {
+                            let relative_path = &line[start + 6..start + end]; // 跳过 "%~dp0
+                            // 替换 \ 为正确的路径分隔符
+                            let relative_path = relative_path.replace('\\', "/");
+                            let js_path = format!("{}/{}", cmd_dir.replace('\\', "/"), relative_path);
+                            tracing::info!("[IFlowEngine] 解析到 JS 入口: {}", js_path);
+                            return Some(js_path);
+                        }
+                    }
+
+                    // 尝试匹配 ${basedir} 模式
+                    if let Some(start) = line.find("${basedir}") {
+                        if let Some(end) = line[start..].find("\"") {
+                            let relative_path = &line[start + 11..start + end]; // 跳过 ${basedir}
+                            let js_path = format!("{}/{}", cmd_dir.replace('\\', "/"), relative_path);
+                            tracing::info!("[IFlowEngine] 解析到 JS 入口: {}", js_path);
+                            return Some(js_path);
+                        }
+                    }
+                }
+            }
+
+            tracing::warn!("[IFlowEngine] 无法从 cmd 文件解析 JS 入口");
+        }
+        None
     }
 
     /// 检查是否是批处理文件
@@ -581,7 +727,7 @@ impl AIEngine for IFlowEngine {
         tracing::info!("[IFlowEngine] start_session work_dir: {}", work_dir);
 
         // 构建命令
-        let mut cmd = self.build_command(message, None)?;
+        let (mut cmd, _temp_file) = self.build_command(message, None)?;
         self.configure_command(&mut cmd, Some(&work_dir));
 
         // 启动进程
@@ -673,6 +819,14 @@ impl AIEngine for IFlowEngine {
 
             // 等待会话文件创建
             std::thread::sleep(Duration::from_millis(500));
+
+            // 检查进程是否还在运行
+            let process_running = Self::is_process_running(cli_pid);
+            tracing::info!(
+                "[IFlowEngine] 500ms 后检查进程状态: PID={}, 运行中={}",
+                cli_pid, process_running
+            );
+
             tracing::debug!("[IFlowEngine] 初始等待 500ms 完成");
 
             // 尝试找到新的会话文件
@@ -877,7 +1031,7 @@ impl AIEngine for IFlowEngine {
         tracing::info!("[IFlowEngine] 使用 --resume 参数，session_id: {}", real_session_id);
 
         // 构建命令（带 --resume，使用真实 session_id）
-        let mut cmd = self.build_command(message, Some(&real_session_id))?;
+        let (mut cmd, _temp_file) = self.build_command(message, Some(&real_session_id))?;
         self.configure_command(&mut cmd, Some(&work_dir));
 
         // 启动进程

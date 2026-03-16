@@ -77,7 +77,7 @@ impl ProtocolTaskService {
         let now = Local::now().format("%Y-%m-%d %H:%M:%S");
 
         format!(
-r#"# Task Protocol
+r#"# 任务协议
 
 > 任务ID: {}
 > 创建时间: {}
