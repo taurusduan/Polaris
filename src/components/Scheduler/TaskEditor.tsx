@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useToastStore } from '../../stores';
+import { useToastStore, useWorkspaceStore } from '../../stores';
 import { useProtocolTemplateStore } from '../../stores/protocolTemplateStore';
 import type { ScheduledTask, TriggerType, CreateTaskParams, TaskMode } from '../../types/scheduler';
 import { TriggerTypeLabels, IntervalUnitLabels, TaskModeLabels, parseIntervalValue } from '../../types/scheduler';
@@ -219,6 +219,11 @@ export function TaskEditor({
   title,
 }: TaskEditorProps) {
   const toast = useToastStore();
+  const { getCurrentWorkspace, workspaces } = useWorkspaceStore();
+
+  // 获取当前工作区路径作为默认工作目录
+  const currentWorkspace = getCurrentWorkspace();
+  const defaultWorkDir = currentWorkspace?.path || '';
 
   // 基础字段
   const [name, setName] = useState(task?.name || '');
@@ -227,7 +232,8 @@ export function TaskEditor({
   const [triggerValue, setTriggerValue] = useState(task?.triggerValue || '1h');
   const [engineId, setEngineId] = useState(task?.engineId || 'claude');
   const [prompt, setPrompt] = useState(task?.prompt || '');
-  const [workDir, setWorkDir] = useState(task?.workDir || '');
+  // 新建任务时自动填充当前工作区路径，编辑任务保持原值
+  const [workDir, setWorkDir] = useState(task?.workDir || defaultWorkDir);
 
   // 协议模式字段
   const [mission, setMission] = useState('');
@@ -779,13 +785,35 @@ export function TaskEditor({
             <label className="block text-sm text-gray-400 mb-1">
               工作目录 {mode === 'protocol' && <span className="text-red-400">*</span>}
             </label>
-            <input
-              type="text"
-              value={workDir}
-              onChange={(e) => setWorkDir(e.target.value)}
-              className="w-full px-3 py-2 bg-[#1a1a2e] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
-              placeholder={mode === 'protocol' ? '协议模式必须指定工作目录' : '留空使用默认目录'}
-            />
+            <div className="space-y-2">
+              {/* 工作区快捷选择 */}
+              {workspaces.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {workspaces.map((ws) => (
+                    <button
+                      key={ws.id}
+                      type="button"
+                      onClick={() => setWorkDir(ws.path)}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${
+                        workDir === ws.path
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-[#2a2a4a] text-gray-400 hover:bg-[#3a3a5a]'
+                      }`}
+                    >
+                      {ws.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* 手动输入 */}
+              <input
+                type="text"
+                value={workDir}
+                onChange={(e) => setWorkDir(e.target.value)}
+                className="w-full px-3 py-2 bg-[#1a1a2e] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+                placeholder={mode === 'protocol' ? '协议模式必须指定工作目录' : '留空使用默认目录'}
+              />
+            </div>
           </div>
         </div>
 
