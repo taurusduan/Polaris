@@ -62,8 +62,10 @@ function TaskCard({
   onRun,
   onSubscribe,
   onCancelSubscription,
+  onUnsubscribe,
   onViewDocs,
   isSubscribing,
+  isSubscribed,
 }: {
   task: ScheduledTask;
   onEdit: () => void;
@@ -72,8 +74,11 @@ function TaskCard({
   onRun: () => void;
   onSubscribe: () => void;
   onCancelSubscription?: () => void;
+  onUnsubscribe?: () => void;
   onViewDocs?: () => void;
   isSubscribing?: boolean;
+  /** 是否已订阅（有 subscribedContextId） */
+  isSubscribed?: boolean;
 }) {
   return (
     <div className="bg-[#1a1a2e] rounded-lg p-4 border border-[#2a2a4a]">
@@ -138,7 +143,7 @@ function TaskCard({
           )}
           {/* 订阅执行按钮 - 在 AI 对话窗口实时显示执行过程 */}
           {isSubscribing ? (
-            // 正在订阅执行中 - 显示取消按钮
+            // 正在订阅执行中 - 显示停止按钮
             <button
               onClick={onCancelSubscription}
               className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex items-center gap-1"
@@ -146,6 +151,20 @@ function TaskCard({
             >
               ⏹ 停止
             </button>
+          ) : isSubscribed ? (
+            // 已订阅等待触发 - 显示订阅状态和取消订阅按钮
+            <div className="flex items-center gap-1">
+              <span className="px-2 py-1 text-xs bg-cyan-600/30 text-cyan-400 rounded flex items-center gap-1">
+                🔔 已订阅
+              </span>
+              <button
+                onClick={onUnsubscribe}
+                className="px-2 py-1 text-xs bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
+                title="取消订阅"
+              >
+                取消
+              </button>
+            </div>
           ) : (
             // 未订阅 - 显示订阅按钮
             <button
@@ -332,7 +351,7 @@ function LogList({ logs }: { logs: TaskLog[] }) {
 
 /** 主面板 */
 export function SchedulerPanel() {
-  const { tasks, logs, loading, subscribingTaskId, loadTasks, loadLogs, createTask, updateTask, deleteTask, toggleTask, runTask, runTaskWithSubscription, clearSubscription, initSchedulerEventListener } =
+  const { tasks, logs, loading, subscribingTaskId, loadTasks, loadLogs, createTask, updateTask, deleteTask, toggleTask, runTask, runTaskWithSubscription, clearSubscription, subscribeTask, unsubscribeTask, initSchedulerEventListener } =
     useSchedulerStore();
   const toast = useToastStore();
 
@@ -368,25 +387,6 @@ export function SchedulerPanel() {
     }
   };
 
-  /** 处理订阅执行任务（在 AI 对话窗口实时显示） */
-  const handleSubscribeTask = async (task: ScheduledTask) => {
-    // 防抖：如果已有任务在执行，不允许再次点击
-    if (subscribingTaskId) {
-      toast.warning('请等待', '已有任务在执行中，请等待完成后再试');
-      return;
-    }
-
-    try {
-      await runTaskWithSubscription(task.id, task.name);
-      toast.info('订阅执行', `任务「${task.name}」正在执行，请在 AI 对话窗口查看实时进度`);
-      // 刷新任务列表和日志
-      loadTasks();
-      loadLogs(50);
-    } catch (e) {
-      toast.error('执行失败', e instanceof Error ? e.message : '未知错误');
-    }
-  };
-
   /** 取消订阅（中断正在执行的任务） */
   const handleCancelSubscription = async () => {
     // 通过 eventChatStore 的 interruptChat 来中断
@@ -398,6 +398,45 @@ export function SchedulerPanel() {
       console.error('中断任务失败:', e);
     }
     clearSubscription();
+  };
+
+  /** 订阅并立即执行任务（在 AI 对话窗口实时显示） */
+  const handleSubscribeAndRun = async (task: ScheduledTask) => {
+    // 防抖：如果已有任务在执行，不允许再次点击
+    if (subscribingTaskId) {
+      toast.warning('请等待', '已有任务在执行中，请等待完成后再试');
+      return;
+    }
+
+    try {
+      // 获取当前会话 ID 作为上下文 ID
+      const { useEventChatStore } = await import('../../stores/eventChatStore');
+      const conversationId = useEventChatStore.getState().conversationId;
+      
+      // 先持久化订阅状态
+      if (conversationId) {
+        await subscribeTask(task.id, conversationId);
+      }
+      
+      await runTaskWithSubscription(task.id, task.name, conversationId || undefined);
+      toast.info('订阅执行', `任务「${task.name}」正在执行，请在 AI 对话窗口查看实时进度`);
+      // 刷新任务列表和日志
+      loadTasks();
+      loadLogs(50);
+    } catch (e) {
+      toast.error('执行失败', e instanceof Error ? e.message : '未知错误');
+    }
+  };
+
+  /** 取消任务订阅 */
+  const handleUnsubscribe = async (task: ScheduledTask) => {
+    try {
+      await unsubscribeTask(task.id);
+      toast.info('已取消订阅', `任务「${task.name}」已取消订阅`);
+      loadTasks();
+    } catch (e) {
+      toast.error('取消订阅失败', e instanceof Error ? e.message : '未知错误');
+    }
   };
 
   const handleCreate = async (params: CreateTaskParams) => {
@@ -501,10 +540,12 @@ export function SchedulerPanel() {
                   onDelete={() => handleDelete(task.id)}
                   onToggle={() => toggleTask(task.id, !task.enabled)}
                   onRun={() => handleRunTask(task)}
-                  onSubscribe={() => handleSubscribeTask(task)}
+                  onSubscribe={() => handleSubscribeAndRun(task)}
                   onCancelSubscription={handleCancelSubscription}
+                  onUnsubscribe={() => handleUnsubscribe(task)}
                   onViewDocs={() => setViewingTask(task)}
                   isSubscribing={subscribingTaskId === task.id}
+                  isSubscribed={!!task.subscribedContextId}
                 />
               ))}
             </div>
