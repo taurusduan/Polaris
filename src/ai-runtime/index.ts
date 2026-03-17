@@ -14,10 +14,8 @@ export * from './task'
 export * from './event'
 export * from './event-bus'
 export * from './engine-registry'
-export * from './task-template'
-export * from './project-context'
-export * from './session-pool'
 export * from './tool-registry'
+
 // 导出基类（用于 Engine 实现）
 export * from './base'
 
@@ -132,35 +130,10 @@ export {
   type ListenerOptions,
 } from './event-bus'
 
-// Task Manager 导出
-export {
-  TaskManager,
-  getTaskManager,
-  resetTaskManager,
-  submitTask,
-  executeTask,
-  abortTask,
-  type TaskManagerConfig,
-  type TaskOptions,
-  type TaskPriority,
-  type TaskResult,
-  type TaskManagerEvent,
-} from './task-manager'
-
-// Task Queue 导出
-export {
-  TaskQueue,
-  createTaskQueue,
-  getTaskQueue,
-  resetTaskQueue,
-  type QueuedTaskStatus,
-  type TaskQueueConfig,
-} from './task-queue'
-
 /**
  * AI Runtime 版本
  */
-export const VERSION = '2.0.0'
+export const VERSION = '2.1.0'
 
 /**
  * 默认 Engine ID
