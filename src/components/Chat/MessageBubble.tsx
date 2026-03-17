@@ -187,7 +187,16 @@ const ClaudeMessage = memo(function ClaudeMessage({
           )}
         </div>
 
-
+        {/* 流式光标 */}
+        {isStreaming && (
+          <span className="inline-flex ml-1">
+            <span className="flex gap-0.5 items-end h-4">
+              <span className="w-1 h-1 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1 h-1 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1 h-1 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </span>
+          </span>
+        )}
 
         {/* 工具摘要标签 */}
         {!isStreaming && toolSummary && (
