@@ -833,3 +833,47 @@ export async function schedulerSubscribeTask(
 export async function schedulerUnsubscribeTask(id: string): Promise<void> {
   return invoke('scheduler_unsubscribe_task', { id });
 }
+
+// ============================================================================
+// 任务导出导入
+// ============================================================================
+
+/** 任务导出格式 */
+export interface TaskExportData {
+  /** 版本号 */
+  version: string;
+  /** 导出时间 (ISO 格式) */
+  exportedAt: string;
+  /** 任务列表 */
+  tasks: TaskExportItem[];
+}
+
+/** 任务导出项（不包含运行时状态） */
+export interface TaskExportItem {
+  name: string;
+  enabled: boolean;
+  triggerType: string;
+  triggerValue: string;
+  engineId: string;
+  prompt: string;
+  workDir?: string;
+  mode: string;
+  group?: string;
+  maxRuns?: number;
+  runInTerminal: boolean;
+  templateId?: string;
+  templateParamValues?: Record<string, string>;
+  maxRetries?: number;
+  retryInterval?: string;
+  notifyOnComplete: boolean;
+}
+
+/** 导出任务到 JSON 文件 */
+export async function schedulerExportTasks(tasks: TaskExportItem[]): Promise<boolean> {
+  return invoke<boolean>('scheduler_export_tasks', { tasks });
+}
+
+/** 从 JSON 文件导入任务 */
+export async function schedulerImportTasks(): Promise<TaskExportItem[]> {
+  return invoke<TaskExportItem[]>('scheduler_import_tasks');
+}

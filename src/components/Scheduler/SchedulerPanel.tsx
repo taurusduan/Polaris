@@ -8,7 +8,7 @@ import type { TaskLog, CreateTaskParams } from '../../types/scheduler';
 import type { ScheduledTask } from '../../types/scheduler';
 import { TriggerTypeLabels, TaskModeLabels } from '../../types/scheduler';
 import * as tauri from '../../services/tauri';
-import type { ProtocolFileType } from '../../services/tauri';
+import type { ProtocolFileType, TaskExportItem } from '../../services/tauri';
 import { TaskEditor } from './TaskEditor';
 
 /** 格式化时间戳 */
@@ -907,6 +907,98 @@ export function SchedulerPanel() {
     }
   };
 
+  /** 将任务转换为导出格式 */
+  const taskToExportItem = (task: ScheduledTask): TaskExportItem => ({
+    name: task.name,
+    enabled: task.enabled,
+    triggerType: task.triggerType,
+    triggerValue: task.triggerValue,
+    engineId: task.engineId,
+    prompt: task.prompt,
+    workDir: task.workDir,
+    mode: task.mode,
+    group: task.group,
+    maxRuns: task.maxRuns,
+    runInTerminal: task.runInTerminal,
+    templateId: task.templateId,
+    templateParamValues: task.templateParamValues,
+    maxRetries: task.maxRetries,
+    retryInterval: task.retryInterval,
+    notifyOnComplete: task.notifyOnComplete ?? true,
+  });
+
+  /** 处理导出任务 */
+  const handleExportTasks = async () => {
+    // 确定要导出的任务
+    const tasksToExport = selectionMode && selectedTaskIds.size > 0
+      ? filteredTasks.filter(t => selectedTaskIds.has(t.id))
+      : filteredTasks;
+
+    if (tasksToExport.length === 0) {
+      toast.warning('无可导出任务', '请选择要导出的任务');
+      return;
+    }
+
+    try {
+      const exportItems = tasksToExport.map(taskToExportItem);
+      const success = await tauri.schedulerExportTasks(exportItems);
+      if (success) {
+        toast.success('导出成功', `已导出 ${tasksToExport.length} 个任务`);
+      }
+    } catch (e) {
+      toast.error('导出失败', e instanceof Error ? e.message : '未知错误');
+    }
+  };
+
+  /** 处理导入任务 */
+  const handleImportTasks = async () => {
+    try {
+      const importItems = await tauri.schedulerImportTasks();
+      if (importItems.length === 0) {
+        return; // 用户取消
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const item of importItems) {
+        try {
+          const params: CreateTaskParams = {
+            name: item.name,
+            enabled: item.enabled,
+            triggerType: item.triggerType as 'once' | 'cron' | 'interval',
+            triggerValue: item.triggerValue,
+            engineId: item.engineId,
+            prompt: item.prompt,
+            workDir: item.workDir,
+            mode: item.mode as 'simple' | 'protocol',
+            group: item.group,
+            maxRuns: item.maxRuns,
+            runInTerminal: item.runInTerminal,
+            templateId: item.templateId,
+            templateParamValues: item.templateParamValues,
+            maxRetries: item.maxRetries,
+            retryInterval: item.retryInterval,
+            notifyOnComplete: item.notifyOnComplete,
+          };
+          await createTask(params);
+          successCount++;
+        } catch {
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success('导入完成', `成功导入 ${successCount} 个任务${failCount > 0 ? `，失败 ${failCount} 个` : ''}`);
+        loadTasks();
+      } else {
+        toast.error('导入失败', '所有任务导入失败');
+      }
+    } catch (e) {
+      toast.error('导入失败', e instanceof Error ? e.message : '未知错误');
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-[#12122a]">
       {/* 头部 */}
@@ -914,15 +1006,23 @@ export function SchedulerPanel() {
         <h1 className="text-xl font-medium text-white flex items-center gap-2">
           定时任务
         </h1>
-        <button
-          onClick={() => {
-            setEditingTask(undefined);
-            setShowEditor(true);
-          }}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-        >
-          + 新建任务
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleImportTasks}
+            className="px-3 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors text-sm"
+          >
+            导入
+          </button>
+          <button
+            onClick={() => {
+              setEditingTask(undefined);
+              setShowEditor(true);
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+          >
+            + 新建任务
+          </button>
+        </div>
       </div>
 
       {/* 标签页 */}
@@ -1057,6 +1157,13 @@ export function SchedulerPanel() {
               }`}
             >
               {selectionMode ? '退出选择' : '批量选择'}
+            </button>
+            {/* 导出按钮 */}
+            <button
+              onClick={handleExportTasks}
+              className="px-3 py-1.5 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
+            >
+              导出
             </button>
           </div>
         </div>

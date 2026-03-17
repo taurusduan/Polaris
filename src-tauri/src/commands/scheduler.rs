@@ -355,3 +355,103 @@ pub async fn scheduler_unsubscribe_task(
     let mut store = state.scheduler_task_store.lock().await;
     store.set_subscription(&id, None)
 }
+
+// ============================================================================
+// 任务导出导入
+// ============================================================================
+
+use serde::{Deserialize, Serialize};
+use tauri_plugin_dialog::DialogExt;
+
+/// 任务导出项（用于 JSON 序列化）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskExportItem {
+    pub name: String,
+    pub enabled: bool,
+    pub trigger_type: String,
+    pub trigger_value: String,
+    pub engine_id: String,
+    pub prompt: String,
+    pub work_dir: Option<String>,
+    pub mode: String,
+    pub group: Option<String>,
+    pub max_runs: Option<u32>,
+    pub run_in_terminal: bool,
+    pub template_id: Option<String>,
+    pub template_param_values: Option<std::collections::HashMap<String, String>>,
+    pub max_retries: Option<u32>,
+    pub retry_interval: Option<String>,
+    pub notify_on_complete: bool,
+}
+
+/// 任务导出数据结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskExportData {
+    pub version: String,
+    pub exported_at: String,
+    pub tasks: Vec<TaskExportItem>,
+}
+
+/// 导出任务到 JSON 文件
+#[tauri::command]
+pub async fn scheduler_export_tasks(
+    tasks: Vec<TaskExportItem>,
+    app: tauri::AppHandle,
+) -> Result<bool> {
+    // 打开保存对话框
+    let file_path = app.dialog()
+        .file()
+        .set_file_name(format!("tasks_export_{}.json", chrono::Utc::now().format("%Y-%m-%d")))
+        .add_filter("JSON", &["json"])
+        .blocking_save_file();
+
+    match file_path {
+        Some(path) => {
+            let export_data = TaskExportData {
+                version: "1.0".to_string(),
+                exported_at: chrono::Utc::now().to_rfc3339(),
+                tasks,
+            };
+
+            let content = serde_json::to_string_pretty(&export_data)
+                .map_err(crate::error::AppError::from)?;
+
+            let path_str = path.to_string();
+            std::fs::write(&path_str, content)
+                .map_err(|e| crate::error::AppError::IoError(e))?;
+
+            tracing::info!("[Scheduler] 任务已导出到: {:?}", path);
+            Ok(true)
+        }
+        None => Ok(false), // 用户取消
+    }
+}
+
+/// 从 JSON 文件导入任务
+#[tauri::command]
+pub async fn scheduler_import_tasks(
+    app: tauri::AppHandle,
+) -> Result<Vec<TaskExportItem>> {
+    // 打开文件选择对话框
+    let file_path = app.dialog()
+        .file()
+        .add_filter("JSON", &["json"])
+        .blocking_pick_file();
+
+    match file_path {
+        Some(path) => {
+            let path_str = path.to_string();
+            let content = std::fs::read_to_string(&path_str)
+                .map_err(|e| crate::error::AppError::IoError(e))?;
+
+            let data: TaskExportData = serde_json::from_str(&content)
+                .map_err(crate::error::AppError::from)?;
+
+            tracing::info!("[Scheduler] 从 {:?} 导入了 {} 个任务", path, data.tasks.len());
+            Ok(data.tasks)
+        }
+        None => Ok(vec![]), // 用户取消
+    }
+}
