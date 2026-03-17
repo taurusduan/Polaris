@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, lazy, Suspense, useCallback } from 'react';
+import { useEffect, useState, useRef, lazy, Suspense, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Layout, FileExplorer, ConnectingOverlay, ErrorBoundary, ToastContainer } from './components/Common';
 import { ConfirmDialog } from './components/Common/ConfirmDialog';
@@ -88,10 +88,34 @@ function App() {
   const hasCenterStage = hasOpenTabs;
   const hasRightPanel = !rightPanelCollapsed;
 
-  // 计算各面板是否需要填充剩余空间（只有最后一个显示的面板需要填充）
+  // 计算各面板是否需要填充剩余空间
+  // 左侧面板：只有在没有中间编辑区和右侧面板时才填充
   const leftPanelFillRemaining = hasLeftPanel && !hasCenterStage && !hasRightPanel;
+  // 中间编辑区：只有在没有右侧面板时才填充
   const centerStageFillRemaining = hasCenterStage && !hasRightPanel;
-  const rightPanelFillRemaining = !hasCenterStage && !hasLeftPanel;
+  // 右侧面板：只有在没有中间编辑区时才填充（不管有没有左侧面板）
+  const rightPanelFillRemaining = !hasCenterStage;
+
+  // 引擎选项列表
+  const engineOptions = useMemo(() => {
+    const options: { id: EngineId; name: string }[] = [
+      { id: 'claude-code', name: 'Claude Code' },
+      { id: 'iflow', name: 'IFlow' },
+      { id: 'codex', name: 'Codex' },
+    ];
+
+    if (config?.openaiProviders && config.openaiProviders.length > 0) {
+      for (const provider of config.openaiProviders) {
+        if (!provider.enabled) continue;
+        options.push({
+          id: provider.id as EngineId,
+          name: provider.name || provider.id,
+        });
+      }
+    }
+
+    return options;
+  }, [config?.openaiProviders]);
 
   const applyEngineSwitch = useCallback(async (engineId: EngineId) => {
     if (!config) return;
@@ -527,6 +551,29 @@ function App() {
         {/* 右侧 AI 对话面板 */}
         {!rightPanelCollapsed && (
           <RightPanel fillRemaining={rightPanelFillRemaining}>
+            {/* 头部 - 引擎选择器 */}
+            <div className="flex items-center justify-between px-4 py-2 bg-background-elevated border-b border-border shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-text-primary">{t('labels.aiChat')}</span>
+                <select
+                  className="bg-background-surface border border-border text-text-primary text-xs px-2 py-1 rounded-md hover:border-primary/50 transition-colors cursor-pointer"
+                  value={config?.defaultEngine || 'claude-code'}
+                  onChange={(e) => {
+                    const engineId = e.target.value as EngineId;
+                    if (engineId !== config?.defaultEngine) {
+                      setPendingEngineId(engineId);
+                      setShowEngineSwitchConfirm(true);
+                    }
+                  }}
+                  disabled={isStreaming}
+                >
+                  {engineOptions.map((opt) => (
+                    <option key={opt.id} value={opt.id} className="bg-background text-text-primary">{opt.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {/* 错误提示 */}
             {error && (
               <div className="mx-4 mt-4 p-3 bg-danger-faint border border-danger/30 rounded-xl text-danger text-sm shrink-0">
