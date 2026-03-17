@@ -12,15 +12,22 @@ interface RightPanelProps {
 
 /**
  * 右侧面板组件
+ * 支持折叠（完全隐藏）和任意宽度调整
  */
 export function RightPanel({ children }: RightPanelProps) {
-  const minWidth = useViewStore((state) => state.rightPanelWidth)
+  const width = useViewStore((state) => state.rightPanelWidth)
   const setWidth = useViewStore((state) => state.setRightPanelWidth)
+  const collapsed = useViewStore((state) => state.rightPanelCollapsed)
 
-  // 拖拽处理 - 调整最小宽度
+  // 折叠状态：不渲染面板
+  if (collapsed) {
+    return null
+  }
+
+  // 拖拽处理 - 调整宽度，支持更灵活的范围
   const handleResize = (delta: number) => {
-    const newMinWidth = Math.max(300, Math.min(800, minWidth + delta))
-    setWidth(newMinWidth)
+    const newWidth = Math.max(200, Math.min(1200, width + delta))
+    setWidth(newWidth)
   }
 
   return (
@@ -28,10 +35,10 @@ export function RightPanel({ children }: RightPanelProps) {
       {/* 拖拽手柄 */}
       <ResizeHandle direction="horizontal" position="left" onDrag={handleResize} />
 
-      {/* 面板容器 - 使用 flex-1 占满剩余空间,minWidth 保证最小宽度 */}
+      {/* 面板容器 - 使用固定宽度 */}
       <aside
-        className="flex flex-col bg-background-elevated border-l border-border shrink-0 flex-1"
-        style={{ minWidth: `${minWidth}px` }}
+        className="flex flex-col bg-background-elevated border-l border-border shrink-0"
+        style={{ width: `${width}px` }}
       >
         {/* 内容区域 */}
         {children}
