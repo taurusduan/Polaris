@@ -2,6 +2,9 @@
 
 > 多AI引擎支持的智能编程助手
 
+[![CI](https://github.com/misxzaiz/Polaris/actions/workflows/ci.yml/badge.svg)](https://github.com/misxzaiz/Polaris/actions/workflows/ci.yml)
+[![Dependabot](https://img.shields.io/badge/Dependabot-enabled-green)](https://github.com/misxzaiz/Polaris/security/dependabot)
+
 ## 简介
 
 [Claude Code](https://claude.ai/code) 是 Anthropic 官方推出的 AI 辅助编程命令行工具。**Polaris** 是一个支持多种 AI 引擎的智能编程助手，提供了更友好的图形界面，让你无需命令行也能享受 AI 带来的编程体验。
