@@ -1056,6 +1056,21 @@ export function TaskEditor({
           <div>
             <label className="block text-sm text-gray-400 mb-1">AI 引擎</label>
             <div className="space-y-2">
+              {/* 检测失效的 Provider */}
+              {(() => {
+                const { baseEngine, providerId } = parseEngineId(engineId);
+                if (baseEngine === 'openai' && providerId) {
+                  const providerExists = openaiProviders.some(p => p.id === providerId && p.enabled);
+                  if (!providerExists) {
+                    return (
+                      <div className="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-xs text-yellow-500 mb-2">
+                        ⚠️ 当前任务的 Provider 已失效或被禁用，请重新选择引擎
+                      </div>
+                    );
+                  }
+                }
+                return null;
+              })()}
               <select
                 value={parseEngineId(engineId).baseEngine}
                 onChange={(e) => {
@@ -1065,9 +1080,8 @@ export function TaskEditor({
                     const enabledProviders = openaiProviders.filter(p => p.enabled);
                     if (enabledProviders.length > 0) {
                       setEngineId(`provider-${enabledProviders[0].id}`);
-                    } else {
-                      setEngineId('openai'); // 没有配置 provider 时保持原值
                     }
+                    // 如果没有可用的 Provider，不修改 engineId，保持当前值
                   } else {
                     setEngineId(baseEngine);
                   }
@@ -1077,7 +1091,9 @@ export function TaskEditor({
                 <option value="claude">Claude Code</option>
                 <option value="iflow">IFlow</option>
                 <option value="codex">Codex</option>
-                <option value="openai">OpenAI Provider</option>
+                <option value="openai" disabled={openaiProviders.filter(p => p.enabled).length === 0}>
+                  OpenAI Provider {openaiProviders.filter(p => p.enabled).length === 0 ? '(未配置)' : ''}
+                </option>
               </select>
               
               {/* OpenAI Provider 二级选择 */}
@@ -1119,9 +1135,24 @@ export function TaskEditor({
                       })()}
                     </>
                   ) : (
-                    <p className="text-xs text-yellow-500">
-                      未配置 OpenAI Provider，请在设置中添加
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-xs text-yellow-500">
+                        未配置 OpenAI Provider
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // 触发导航到设置页面的 OpenAI Provider 标签
+                          window.dispatchEvent(new CustomEvent('navigate-to-settings', { 
+                            detail: { tab: 'openai-providers' } 
+                          }));
+                          onClose();
+                        }}
+                        className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                      >
+                        去配置 →
+                      </button>
+                    </div>
                   )}
                 </div>
               )}

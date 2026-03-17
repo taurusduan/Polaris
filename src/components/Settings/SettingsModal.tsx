@@ -24,6 +24,8 @@ import type { Config } from '../../types';
 
 interface SettingsModalProps {
   onClose: () => void;
+  /** 初始显示的标签页 */
+  initialTab?: SettingsTabId;
 }
 
 // Tab 标题映射
@@ -38,7 +40,7 @@ const TAB_TITLES: Record<SettingsTabId, string> = {
   'advanced': '高级',
 };
 
-export function SettingsModal({ onClose }: SettingsModalProps) {
+export function SettingsModal({ onClose, initialTab }: SettingsModalProps) {
   const { t } = useTranslation('settings');
   const { t: tCommon } = useTranslation('common');
 
@@ -47,7 +49,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
   const [localConfig, setLocalConfig] = useState<Config | null>(config);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<SettingsTabId>('general');
+  const [activeTab, setActiveTab] = useState<SettingsTabId>(initialTab || 'general');
   const [searchQuery, setSearchQuery] = useState('');
 
   // 同步远程配置到本地

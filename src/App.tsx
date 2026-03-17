@@ -8,6 +8,7 @@ import { ToolPanel } from './components/ToolPanel';
 import { TopMenuBar as TopMenuBarComponent } from './components/TopMenuBar';
 import { GitPanel } from './components/GitPanel';
 import { ActivityBar, LeftPanel, LeftPanelContent, CenterStage, RightPanel } from './components/Layout';
+import type { SettingsTabId } from './components/Settings/SettingsSidebar';
 import { SimpleTodoPanel } from './components/TodoPanel/SimpleTodoPanel';
 import { TranslatePanel, SelectionContextMenu } from './components/Translate';
 import { SchedulerPanel } from './components/Scheduler/SchedulerPanel';
@@ -59,6 +60,7 @@ function App() {
     });
   }, [workspaces, currentWorkspace]);
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [showEngineSwitchConfirm, setShowEngineSwitchConfirm] = useState(false);
   const [pendingEngineId, setPendingEngineId] = useState<EngineId | null>(null);
@@ -293,6 +295,17 @@ function App() {
     window.addEventListener('app:crash-save', handleCrashSave);
     return () => window.removeEventListener('app:crash-save', handleCrashSave);
   }, [saveToStorage]);
+
+  // 监听导航到设置页面事件
+  useEffect(() => {
+    const handleNavigateToSettings = (e: CustomEvent<{ tab?: string }>) => {
+      setSettingsInitialTab(e.detail?.tab);
+      setShowSettings(true);
+    };
+
+    window.addEventListener('navigate-to-settings', handleNavigateToSettings as EventListener);
+    return () => window.removeEventListener('navigate-to-settings', handleNavigateToSettings as EventListener);
+  }, []);
 
   // 监听恢复事件
   useEffect(() => {
@@ -595,7 +608,13 @@ function App() {
       {/* 设置模态框 */}
       {showSettings && (
         <Suspense fallback={<div className="flex items-center justify-center text-text-muted">{t('status.loading')}</div>}>
-          <SettingsModal onClose={() => setShowSettings(false)} />
+          <SettingsModal
+            initialTab={settingsInitialTab as SettingsTabId | undefined}
+            onClose={() => {
+              setShowSettings(false);
+              setSettingsInitialTab(undefined);
+            }}
+          />
         </Suspense>
       )}
 
