@@ -188,6 +188,8 @@ impl SchedulerDispatcher {
         // 克隆 app_handle 用于通知
         let app_handle_for_notify = self.app_handle.clone();
         let notify_on_complete = task.notify_on_complete;
+        // 获取超时配置（分钟转秒）
+        let timeout_secs = task.timeout_minutes.map(|m| m as u64 * 60);
 
         // 根据模式构建提示词
         let prompt = self.build_prompt(&task).await?;
@@ -232,6 +234,7 @@ impl SchedulerDispatcher {
             // 用于标记是否已更新完成状态
             let completed = Arc::new(AtomicBool::new(false));
             let completed_clone = completed.clone();
+            let completed_for_timeout = completed.clone();
 
             let output_clone = output.clone();
             let thinking_clone = thinking.clone();
@@ -250,6 +253,9 @@ impl SchedulerDispatcher {
             let tool_call_count_for_complete = tool_call_count.clone();
             let running_tasks_for_complete = running_tasks.clone();
             let task_for_complete = task_for_post.clone();
+            // 克隆 app_handle 给完成回调和超时监控分别使用
+            let app_handle_for_complete = app_handle_for_notify.clone();
+            let app_handle_for_timeout_main = app_handle_for_notify.clone();
 
             // 创建会话选项
             let options = SessionOptions::new(move |event: AIEvent| {
@@ -308,8 +314,8 @@ impl SchedulerDispatcher {
                 let task_mode_for_complete = task_for_complete.mode.clone();
                 let task_work_dir_for_complete = task_for_complete.work_dir.clone();
                 let task_task_path_for_complete = task_for_complete.task_path.clone();
-                // 克隆 app_handle 避免在 Fn 闭包中移动
-                let app_handle_for_task = app_handle_for_notify.clone();
+                // clone app_handle 以便在 async 块中使用
+                let app_handle_for_notify = app_handle_for_complete.clone();
 
                 tauri::async_runtime::spawn(async move {
                     let final_output = output.lock().await.clone();
@@ -403,7 +409,7 @@ impl SchedulerDispatcher {
 
                     // 发送桌面通知
                     if notify_on_complete {
-                        if let Some(ref app_handle) = app_handle_for_task {
+                        if let Some(ref app_handle) = app_handle_for_notify {
                             let (title, body) = if is_success {
                                 ("任务执行成功".to_string(), format!("「{}」已完成", task_name))
                             } else {
@@ -438,6 +444,86 @@ impl SchedulerDispatcher {
             match result {
                 Ok(session_id) => {
                     tracing::info!("[Scheduler] 会话已启动: {} (session: {})", task_name, session_id);
+                    
+                    // 如果设置了超时，启动超时监控任务
+                    if let Some(timeout) = timeout_secs {
+                        let session_id_for_timeout = session_id.clone();
+                        let completed_for_timeout = completed.clone();
+                        let task_store_for_timeout = task_store.clone();
+                        let log_store_for_timeout = log_store.clone();
+                        let log_id_for_timeout = log_id_clone.clone();
+                        let task_id_for_timeout = task_id.clone();
+                        let task_name_for_timeout = task_name.clone();
+                        let registry_for_timeout = engine_registry.clone();
+                        let running_tasks_for_timeout = running_tasks.clone();
+                        let app_handle_for_timeout = app_handle_for_timeout_main.clone();
+                        let notify_for_timeout = notify_on_complete;
+                        
+                        tokio::spawn(async move {
+                            tokio::time::sleep(tokio::time::Duration::from_secs(timeout)).await;
+                            
+                            // 检查是否已完成
+                            if completed_for_timeout.load(Ordering::SeqCst) {
+                                return;
+                            }
+                            
+                            tracing::warn!("[Scheduler] 任务 {} 执行超时 ({}秒)，正在终止...", task_name_for_timeout, timeout);
+                            
+                            // 标记为已完成（防止 on_complete 回调再次处理）
+                            completed_for_timeout.store(true, Ordering::SeqCst);
+                            
+                            // 终止会话进程
+                            {
+                                let mut registry = registry_for_timeout.lock().await;
+                                if !registry.try_interrupt_all(&session_id_for_timeout) {
+                                    tracing::warn!("[Scheduler] 未能终止会话 {}", session_id_for_timeout);
+                                }
+                            }
+                            
+                            // 更新日志和任务状态
+                            {
+                                let mut log_store = log_store_for_timeout.lock().await;
+                                let mut task_store = task_store_for_timeout.lock().await;
+                                
+                                let error_msg = format!("任务执行超时 ({}分钟)", timeout / 60);
+                                if let Err(e) = log_store.update_complete(
+                                    &log_id_for_timeout,
+                                    Some(session_id_for_timeout),
+                                    None,
+                                    Some(error_msg.clone()),
+                                    None,
+                                    0,
+                                    None,
+                                ) {
+                                    tracing::error!("[Scheduler] 更新日志失败: {:?}", e);
+                                }
+                                
+                                if let Err(e) = task_store.update_run_status(&task_id_for_timeout, TaskStatus::Failed) {
+                                    tracing::error!("[Scheduler] 更新任务状态失败: {:?}", e);
+                                }
+                            }
+                            
+                            // 发送桌面通知
+                            if notify_for_timeout {
+                                if let Some(ref app_handle) = app_handle_for_timeout {
+                                    if let Err(e) = app_handle.notification()
+                                        .builder()
+                                        .title("任务执行超时")
+                                        .body(&format!("「{}」执行超时已被终止", task_name_for_timeout))
+                                        .show()
+                                    {
+                                        tracing::warn!("[Scheduler] 发送超时通知失败: {:?}", e);
+                                    }
+                                }
+                            }
+                            
+                            // 从运行列表中移除
+                            {
+                                let mut running = running_tasks_for_timeout.lock().await;
+                                running.remove(&task_id_for_timeout);
+                            }
+                        });
+                    }
                 }
                 Err(e) => {
                     tracing::error!("[Scheduler] 启动会话失败: {} - {:?}", task_name, e);
@@ -535,6 +621,8 @@ impl SchedulerDispatcher {
         let task_name = task.name.clone();
         let engine_id = task.engine_id.clone();
         let work_dir = task.work_dir.clone();
+        // 获取超时配置（分钟转秒）
+        let timeout_secs = task.timeout_minutes.map(|m| m as u64 * 60);
 
         // 根据模式构建提示词
         let prompt = self.build_prompt(&task).await?;
@@ -838,6 +926,96 @@ impl SchedulerDispatcher {
             match result {
                 Ok(session_id) => {
                     tracing::info!("[Scheduler] 会话已启动（订阅模式）: {} (session: {})", task_name, session_id);
+                    
+                    // 如果设置了超时，启动超时监控任务
+                    if let Some(timeout) = timeout_secs {
+                        let session_id_for_timeout = session_id.clone();
+                        let completed_for_timeout = completed.clone();
+                        let task_store_for_timeout = task_store.clone();
+                        let log_store_for_timeout = log_store.clone();
+                        let log_id_for_timeout = log_id_clone.clone();
+                        let task_id_for_timeout = task_id.clone();
+                        let task_name_for_timeout = task_name.clone();
+                        let registry_for_timeout = engine_registry.clone();
+                        let running_tasks_for_timeout = running_tasks.clone();
+                        let window_for_timeout = window_clone.clone();
+                        let ctx_id_for_timeout = context_id_clone.clone();
+                        let notify_for_timeout = notify_on_complete;
+                        
+                        tokio::spawn(async move {
+                            tokio::time::sleep(tokio::time::Duration::from_secs(timeout)).await;
+                            
+                            // 检查是否已完成
+                            if completed_for_timeout.load(Ordering::SeqCst) {
+                                return;
+                            }
+                            
+                            tracing::warn!("[Scheduler] 任务 {} 执行超时 ({}秒)，正在终止...", task_name_for_timeout, timeout);
+                            
+                            // 标记为已完成（防止 on_complete 回调再次处理）
+                            completed_for_timeout.store(true, Ordering::SeqCst);
+                            
+                            // 终止会话进程
+                            {
+                                let mut registry = registry_for_timeout.lock().await;
+                                if !registry.try_interrupt_all(&session_id_for_timeout) {
+                                    tracing::warn!("[Scheduler] 未能终止会话 {}", session_id_for_timeout);
+                                }
+                            }
+                            
+                            // 更新日志和任务状态
+                            {
+                                let mut log_store = log_store_for_timeout.lock().await;
+                                let mut task_store = task_store_for_timeout.lock().await;
+                                
+                                let error_msg = format!("任务执行超时 ({}分钟)", timeout / 60);
+                                if let Err(e) = log_store.update_complete(
+                                    &log_id_for_timeout,
+                                    Some(session_id_for_timeout),
+                                    None,
+                                    Some(error_msg.clone()),
+                                    None,
+                                    0,
+                                    None,
+                                ) {
+                                    tracing::error!("[Scheduler] 更新日志失败: {:?}", e);
+                                }
+                                
+                                if let Err(e) = task_store.update_run_status(&task_id_for_timeout, TaskStatus::Failed) {
+                                    tracing::error!("[Scheduler] 更新任务状态失败: {:?}", e);
+                                }
+                            }
+                            
+                            // 发送超时事件到前端
+                            let _ = window_for_timeout.emit("scheduler-event", serde_json::json!({
+                                "contextId": ctx_id_for_timeout,
+                                "payload": {
+                                    "type": "task_timeout",
+                                    "taskId": task_id_for_timeout,
+                                    "taskName": task_name_for_timeout,
+                                    "logId": log_id_for_timeout,
+                                }
+                            }));
+                            
+                            // 发送桌面通知
+                            if notify_for_timeout {
+                                if let Err(e) = window_for_timeout.notification()
+                                    .builder()
+                                    .title("任务执行超时")
+                                    .body(&format!("「{}」执行超时已被终止", task_name_for_timeout))
+                                    .show()
+                                {
+                                    tracing::warn!("[Scheduler] 发送超时通知失败: {:?}", e);
+                                }
+                            }
+                            
+                            // 从运行列表中移除
+                            {
+                                let mut running = running_tasks_for_timeout.lock().await;
+                                running.remove(&task_id_for_timeout);
+                            }
+                        });
+                    }
                 }
                 Err(e) => {
                     tracing::error!("[Scheduler] 启动会话失败: {} - {:?}", task_name, e);

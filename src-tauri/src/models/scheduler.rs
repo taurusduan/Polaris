@@ -43,6 +43,8 @@ pub struct CreateTaskParams {
     /// 任务完成后是否发送桌面通知
     #[serde(default = "default_notify_on_complete")]
     pub notify_on_complete: bool,
+    /// 执行超时时间（分钟，None 或 0 表示不限）
+    pub timeout_minutes: Option<u32>,
 }
 
 fn default_notify_on_complete() -> bool {
@@ -135,6 +137,9 @@ pub struct ScheduledTask {
     /// 任务完成后是否发送桌面通知
     #[serde(default = "default_notify_on_complete")]
     pub notify_on_complete: bool,
+    /// 执行超时时间（分钟，None 或 0 表示不限）
+    #[serde(default)]
+    pub timeout_minutes: Option<u32>,
 }
 
 impl From<CreateTaskParams> for ScheduledTask {
@@ -166,6 +171,7 @@ impl From<CreateTaskParams> for ScheduledTask {
             retry_count: 0,
             retry_interval: params.retry_interval,
             notify_on_complete: params.notify_on_complete,
+            timeout_minutes: params.timeout_minutes,
         }
     }
 }

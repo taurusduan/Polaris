@@ -279,6 +279,10 @@ export function TaskEditor({
   // 任务完成通知
   const [notifyOnComplete, setNotifyOnComplete] = useState<boolean>(task?.notifyOnComplete ?? true);
 
+  // 执行超时配置
+  const [timeoutMinutes, setTimeoutMinutes] = useState<number | undefined>(task?.timeoutMinutes);
+  const [showTimeoutConfig, setShowTimeoutConfig] = useState(!!task?.timeoutMinutes);
+
   // 在终端中执行
   const [runInTerminal] = useState<boolean>(task?.runInTerminal || false);
 
@@ -447,6 +451,8 @@ export function TaskEditor({
       retryInterval: maxRetries && maxRetries > 0 ? `${retryIntervalNum}${retryIntervalUnit}` : undefined,
       // 通知配置
       notifyOnComplete,
+      // 超时配置
+      timeoutMinutes: timeoutMinutes && timeoutMinutes > 0 ? timeoutMinutes : undefined,
     });
   };
 
@@ -916,6 +922,68 @@ export function TaskEditor({
                       {task && task.retryCount > 0 && (
                         <p className="text-xs text-yellow-500">
                           当前已重试 {task.retryCount} 次
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 执行超时配置 */}
+          {fullMode && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowTimeoutConfig(!showTimeoutConfig)}
+                className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                <span className={`transform transition-transform ${showTimeoutConfig ? 'rotate-90' : ''}`}>▶</span>
+                <span>执行超时配置</span>
+                {timeoutMinutes && timeoutMinutes > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 rounded">
+                    已启用 ({timeoutMinutes} 分钟)
+                  </span>
+                )}
+              </button>
+              
+              {showTimeoutConfig && (
+                <div className="mt-2 p-3 bg-[#1a1a2e] rounded border border-[#2a2a4a] space-y-3">
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!timeoutMinutes && timeoutMinutes > 0}
+                        onChange={(e) => setTimeoutMinutes(e.target.checked ? 30 : undefined)}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-white text-sm">启用执行超时</span>
+                    </label>
+                  </div>
+                  
+                  {timeoutMinutes && timeoutMinutes > 0 && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-400 w-20">超时时间</label>
+                        <input
+                          type="number"
+                          value={timeoutMinutes}
+                          onChange={(e) => setTimeoutMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+                          min={1}
+                          max={1440}
+                          className="w-20 px-2 py-1 bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500 text-sm"
+                        />
+                        <span className="text-gray-500 text-xs">分钟</span>
+                      </div>
+                      
+                      <p className="text-xs text-gray-500">
+                        任务执行超过设定时间后将自动终止，防止长时间占用资源
+                      </p>
+                      
+                      {timeoutMinutes >= 60 && (
+                        <p className="text-xs text-blue-400">
+                          当前设置为 {Math.floor(timeoutMinutes / 60)} 小时 {timeoutMinutes % 60} 分钟
                         </p>
                       )}
                     </>

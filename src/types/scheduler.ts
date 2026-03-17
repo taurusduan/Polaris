@@ -65,6 +65,8 @@ export interface ScheduledTask {
   retryInterval?: string;
   /** 任务完成后是否发送桌面通知 */
   notifyOnComplete?: boolean;
+  /** 执行超时时间（分钟，undefined 或 0 表示不限） */
+  timeoutMinutes?: number;
 }
 
 /** 执行日志 */
@@ -130,6 +132,8 @@ export interface CreateTaskParams {
   retryInterval?: string;
   /** 任务完成后是否发送桌面通知 */
   notifyOnComplete?: boolean;
+  /** 执行超时时间（分钟，undefined 或 0 表示不限） */
+  timeoutMinutes?: number;
 }
 
 /** 协议任务目录结构 */
