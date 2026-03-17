@@ -20,7 +20,16 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.config.*',
         '**/types.ts',
+        'src-tauri/',
       ],
+      thresholds: {
+        lines: 50,
+        functions: 50,
+        branches: 40,
+        statements: 50,
+      },
+      // 只检查 eventChatStore 目录的覆盖率
+      include: ['src/stores/eventChatStore/**/*.ts'],
     },
   },
   resolve: {
