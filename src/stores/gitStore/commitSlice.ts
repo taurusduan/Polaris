@@ -1,0 +1,154 @@
+/**
+ * Commit 操作 Slice
+ *
+ * 负责提交和暂存操作：提交、暂存、取消暂存、丢弃变更
+ */
+
+import { invoke } from '@tauri-apps/api/core'
+import type { CommitSlice } from './types'
+import { parseGitError } from './types'
+import type { GitCommit, BatchStageResult } from '@/types/git'
+
+/**
+ * 创建 Commit 操作 Slice
+ */
+export const createCommitSlice: CommitSlice = (set, get) => ({
+  // ===== 状态 =====
+  commits: [],
+
+  // ===== 方法 =====
+
+  // 提交变更
+  async commitChanges(
+    workspacePath: string,
+    message: string,
+    stageAll = true,
+    selectedFiles?: string[]
+  ) {
+    set({ isLoading: true, error: null })
+
+    try {
+      const commit = await invoke<string>('git_commit_changes', {
+        workspacePath,
+        message,
+        stageAll,
+        selectedFiles: selectedFiles || null,
+      })
+
+      // 刷新状态
+      await get().refreshStatus(workspacePath)
+
+      // 清理选中状态
+      set({
+        selectedFilePath: null,
+        selectedDiff: null
+      })
+
+      set({ isLoading: false })
+      return commit
+    } catch (err) {
+      set({ error: parseGitError(err), isLoading: false })
+      throw err
+    }
+  },
+
+  // 暂存文件
+  async stageFile(workspacePath: string, filePath: string) {
+    console.log('[GitStore] stageFile 开始', { workspacePath, filePath })
+    set({ isLoading: true, error: null })
+
+    try {
+      const params = {
+        workspacePath,
+        filePath,
+      }
+      console.log('[GitStore] 调用 git_stage_file，参数:', params)
+      await invoke('git_stage_file', params)
+
+      // 刷新状态
+      await get().refreshStatus(workspacePath)
+
+      set({ isLoading: false })
+    } catch (err) {
+      set({ error: parseGitError(err), isLoading: false })
+      throw err
+    }
+  },
+
+  // 取消暂存
+  async unstageFile(workspacePath: string, filePath: string) {
+    set({ isLoading: true, error: null })
+
+    try {
+      await invoke('git_unstage_file', {
+        workspacePath,
+        filePath,
+      })
+
+      // 刷新状态
+      await get().refreshStatus(workspacePath)
+
+      set({ isLoading: false })
+    } catch (err) {
+      set({ error: parseGitError(err), isLoading: false })
+      throw err
+    }
+  },
+
+  // 丢弃变更
+  async discardChanges(workspacePath: string, filePath: string) {
+    set({ isLoading: true, error: null })
+
+    try {
+      await invoke('git_discard_changes', {
+        workspacePath,
+        filePath,
+      })
+
+      // 刷新状态
+      await get().refreshStatus(workspacePath)
+
+      set({ isLoading: false })
+    } catch (err) {
+      set({ error: parseGitError(err), isLoading: false })
+      throw err
+    }
+  },
+
+  // 批量暂存文件
+  async batchStage(workspacePath: string, filePaths: string[]) {
+    try {
+      const result = await invoke<BatchStageResult>('git_batch_stage', {
+        workspacePath,
+        filePaths,
+      })
+      await get().refreshStatus(workspacePath)
+      return result
+    } catch (err) {
+      set({ error: parseGitError(err) })
+      throw err
+    }
+  },
+
+  // 获取提交历史
+  async getLog(
+    workspacePath: string,
+    limit = 50,
+    skip = 0,
+    branch?: string
+  ) {
+    try {
+      const commits = await invoke<GitCommit[]>('git_get_log', {
+        workspacePath,
+        limit,
+        skip,
+        branch: branch || null,
+      })
+      set({ commits })
+      return commits
+    } catch (err) {
+      set({ error: parseGitError(err) })
+      return []
+    }
+  },
+})
