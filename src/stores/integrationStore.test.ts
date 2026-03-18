@@ -33,6 +33,17 @@ vi.mock('../services/tauri', () => ({
   disconnectIntegrationInstance: vi.fn(),
 }));
 
+// 导入 mock 函数以供使用
+import {
+  listIntegrationInstances,
+  listIntegrationInstancesByPlatform,
+  addIntegrationInstance,
+  updateIntegrationInstance,
+  removeIntegrationInstance,
+  switchIntegrationInstance,
+  disconnectIntegrationInstance,
+} from '../services/tauri';
+
 import { useIntegrationStore } from './integrationStore';
 
 describe('integrationStore', () => {
@@ -50,6 +61,7 @@ describe('integrationStore', () => {
       error: null,
       _qqbotConfig: null,
       _unlisten: null,
+      _initPromise: null,
       instances: [],
       activeInstances: {} as Record<string, string | null>,
     });
@@ -357,6 +369,314 @@ describe('integrationStore', () => {
       // currentUnlisten 应该还是 null（没有新的调用）
       expect(currentUnlisten).toBeNull();
       expect(useIntegrationStore.getState()._unlisten).toBe(firstUnlisten);
+    });
+  });
+
+  describe('实例管理', () => {
+    const mockInstance = {
+      id: 'instance-1',
+      name: 'Test QQ Bot',
+      platform: 'qqbot' as const,
+      config: {
+        type: 'qqbot' as const,
+        enabled: true,
+        appId: 'test-app-id',
+        clientSecret: 'test-secret',
+        sandbox: false,
+        displayMode: 'chat' as const,
+        autoConnect: false,
+      },
+      createdAt: '2026-03-18T00:00:00Z',
+      enabled: true,
+    };
+
+    describe('loadInstances', () => {
+      it('应成功加载实例列表', async () => {
+        vi.mocked(listIntegrationInstances).mockResolvedValueOnce([mockInstance]);
+
+        const { loadInstances } = useIntegrationStore.getState();
+        await loadInstances();
+
+        expect(useIntegrationStore.getState().instances).toHaveLength(1);
+        expect(useIntegrationStore.getState().instances[0].id).toBe('instance-1');
+      });
+
+      it('加载失败时应记录错误日志', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.mocked(listIntegrationInstances).mockRejectedValueOnce(new Error('加载失败'));
+
+        const { loadInstances } = useIntegrationStore.getState();
+        await loadInstances();
+
+        expect(consoleSpy).toHaveBeenCalled();
+        consoleSpy.mockRestore();
+      });
+    });
+
+    describe('loadInstancesByPlatform', () => {
+      it('应按平台加载实例并替换现有平台数据', async () => {
+        // 预设一个不同平台的实例
+        useIntegrationStore.setState({
+          instances: [{ ...mockInstance, id: 'instance-0', platform: 'wechat' }],
+        });
+
+        vi.mocked(listIntegrationInstancesByPlatform).mockResolvedValueOnce([mockInstance]);
+
+        const { loadInstancesByPlatform } = useIntegrationStore.getState();
+        await loadInstancesByPlatform('qqbot');
+
+        const instances = useIntegrationStore.getState().instances;
+        expect(instances).toHaveLength(2);
+        expect(instances.find((i) => i.platform === 'qqbot')?.id).toBe('instance-1');
+        expect(instances.find((i) => i.platform === 'wechat')?.id).toBe('instance-0');
+      });
+    });
+
+    describe('addInstance', () => {
+      it('应成功添加实例并返回 ID', async () => {
+        vi.mocked(addIntegrationInstance).mockResolvedValueOnce('new-instance-id');
+
+        const { addInstance } = useIntegrationStore.getState();
+        const newInstance = { ...mockInstance, id: undefined } as unknown as typeof mockInstance;
+        const id = await addInstance(newInstance);
+
+        expect(id).toBe('new-instance-id');
+        expect(useIntegrationStore.getState().instances).toHaveLength(1);
+        expect(useIntegrationStore.getState().instances[0].id).toBe('new-instance-id');
+      });
+
+      it('添加失败应设置错误信息', async () => {
+        vi.mocked(addIntegrationInstance).mockRejectedValueOnce(new Error('添加失败'));
+
+        const { addInstance } = useIntegrationStore.getState();
+        await expect(addInstance(mockInstance)).rejects.toThrow('添加失败');
+
+        expect(useIntegrationStore.getState().error).toBe('添加失败');
+      });
+    });
+
+    describe('updateInstance', () => {
+      it('应成功更新实例', async () => {
+        useIntegrationStore.setState({ instances: [mockInstance] });
+
+        vi.mocked(updateIntegrationInstance).mockResolvedValueOnce(undefined);
+
+        const { updateInstance } = useIntegrationStore.getState();
+        const updatedInstance = { ...mockInstance, name: 'Updated Name' };
+        await updateInstance(updatedInstance);
+
+        expect(useIntegrationStore.getState().instances[0].name).toBe('Updated Name');
+      });
+
+      it('更新失败应设置错误信息', async () => {
+        useIntegrationStore.setState({ instances: [mockInstance] });
+
+        vi.mocked(updateIntegrationInstance).mockRejectedValueOnce(new Error('更新失败'));
+
+        const { updateInstance } = useIntegrationStore.getState();
+        await expect(updateInstance(mockInstance)).rejects.toThrow('更新失败');
+
+        expect(useIntegrationStore.getState().error).toBe('更新失败');
+      });
+    });
+
+    describe('removeInstance', () => {
+      it('应成功移除实例', async () => {
+        useIntegrationStore.setState({ instances: [mockInstance] });
+
+        vi.mocked(removeIntegrationInstance).mockResolvedValueOnce(undefined);
+
+        const { removeInstance } = useIntegrationStore.getState();
+        await removeInstance('instance-1');
+
+        expect(useIntegrationStore.getState().instances).toHaveLength(0);
+      });
+
+      it('移除实例时应清除对应的激活状态', async () => {
+        useIntegrationStore.setState({
+          instances: [mockInstance],
+          activeInstances: { qqbot: 'instance-1' },
+        });
+
+        vi.mocked(removeIntegrationInstance).mockResolvedValueOnce(undefined);
+
+        const { removeInstance } = useIntegrationStore.getState();
+        await removeInstance('instance-1');
+
+        expect(useIntegrationStore.getState().activeInstances.qqbot).toBeNull();
+      });
+
+      it('移除失败应设置错误信息', async () => {
+        useIntegrationStore.setState({ instances: [mockInstance] });
+
+        vi.mocked(removeIntegrationInstance).mockRejectedValueOnce(new Error('移除失败'));
+
+        const { removeInstance } = useIntegrationStore.getState();
+        await expect(removeInstance('instance-1')).rejects.toThrow('移除失败');
+
+        expect(useIntegrationStore.getState().error).toBe('移除失败');
+      });
+    });
+
+    describe('switchInstance', () => {
+      beforeEach(() => {
+        useIntegrationStore.setState({ instances: [mockInstance] });
+        vi.mocked(switchIntegrationInstance).mockResolvedValue(undefined);
+        vi.mocked(getIntegrationStatus).mockResolvedValue({ connected: true });
+      });
+
+      it('应成功切换实例并更新激活状态', async () => {
+        const { switchInstance } = useIntegrationStore.getState();
+        await switchInstance('instance-1');
+
+        expect(useIntegrationStore.getState().activeInstances.qqbot).toBe('instance-1');
+      });
+
+      it('切换实例后应刷新平台状态', async () => {
+        const { switchInstance } = useIntegrationStore.getState();
+        await switchInstance('instance-1');
+
+        expect(getIntegrationStatus).toHaveBeenCalledWith('qqbot');
+      });
+
+      it('切换失败应设置错误信息', async () => {
+        vi.mocked(switchIntegrationInstance).mockRejectedValueOnce(new Error('切换失败'));
+
+        const { switchInstance } = useIntegrationStore.getState();
+        await expect(switchInstance('instance-1')).rejects.toThrow('切换失败');
+
+        expect(useIntegrationStore.getState().error).toBe('切换失败');
+      });
+    });
+
+    describe('disconnectInstance', () => {
+      beforeEach(() => {
+        vi.mocked(disconnectIntegrationInstance).mockResolvedValue(undefined);
+        vi.mocked(getIntegrationStatus).mockResolvedValue({ connected: false });
+      });
+
+      it('应成功断开实例并清除激活状态', async () => {
+        useIntegrationStore.setState({
+          activeInstances: { qqbot: 'instance-1' },
+        });
+
+        const { disconnectInstance } = useIntegrationStore.getState();
+        await disconnectInstance('qqbot');
+
+        expect(useIntegrationStore.getState().activeInstances.qqbot).toBeNull();
+      });
+
+      it('断开后应刷新平台状态', async () => {
+        const { disconnectInstance } = useIntegrationStore.getState();
+        await disconnectInstance('qqbot');
+
+        expect(getIntegrationStatus).toHaveBeenCalledWith('qqbot');
+      });
+    });
+
+    describe('getActiveInstance', () => {
+      it('应返回激活的实例', () => {
+        useIntegrationStore.setState({
+          instances: [mockInstance],
+          activeInstances: { qqbot: 'instance-1' },
+        });
+
+        const { getActiveInstance } = useIntegrationStore.getState();
+        const activeInstance = getActiveInstance('qqbot');
+
+        expect(activeInstance?.id).toBe('instance-1');
+      });
+
+      it('无激活实例时应返回 null', () => {
+        useIntegrationStore.setState({
+          instances: [mockInstance],
+          activeInstances: { qqbot: null },
+        });
+
+        const { getActiveInstance } = useIntegrationStore.getState();
+        const activeInstance = getActiveInstance('qqbot');
+
+        expect(activeInstance).toBeNull();
+      });
+
+      it('激活的实例 ID 不存在于列表中时应返回 null', () => {
+        useIntegrationStore.setState({
+          instances: [mockInstance],
+          activeInstances: { qqbot: 'non-existent-id' },
+        });
+
+        const { getActiveInstance } = useIntegrationStore.getState();
+        const activeInstance = getActiveInstance('qqbot');
+
+        expect(activeInstance).toBeNull();
+      });
+    });
+
+    describe('setActiveInstance', () => {
+      it('应设置激活的实例', () => {
+        const { setActiveInstance } = useIntegrationStore.getState();
+        setActiveInstance('qqbot', 'instance-1');
+
+        expect(useIntegrationStore.getState().activeInstances.qqbot).toBe('instance-1');
+      });
+
+      it('应能清除激活状态', () => {
+        useIntegrationStore.setState({
+          activeInstances: { qqbot: 'instance-1' },
+        });
+
+        const { setActiveInstance } = useIntegrationStore.getState();
+        setActiveInstance('qqbot', null);
+
+        expect(useIntegrationStore.getState().activeInstances.qqbot).toBeNull();
+      });
+    });
+  });
+
+  describe('并发初始化', () => {
+    it('并发调用 initialize 应只初始化一次', async () => {
+      const { initialize } = useIntegrationStore.getState();
+
+      // 并发调用 initialize
+      const promises = [
+        initialize(null),
+        initialize(null),
+        initialize(null),
+      ];
+
+      await Promise.all(promises);
+
+      // initIntegration 应只被调用一次
+      expect(initIntegration).toHaveBeenCalledTimes(1);
+      expect(onIntegrationMessage).toHaveBeenCalledTimes(1);
+      expect(useIntegrationStore.getState().initialized).toBe(true);
+    });
+
+    it('初始化进行中时后续调用应跳过', async () => {
+      // 创建一个延迟 resolve 的 mock
+      let resolveInit: () => void;
+      const initPromise = new Promise<void>((resolve) => {
+        resolveInit = resolve;
+      });
+      vi.mocked(initIntegration).mockImplementationOnce(() => initPromise);
+
+      const { initialize } = useIntegrationStore.getState();
+
+      // 第一次调用（正在进行中）
+      const firstCall = initialize(null);
+
+      // 状态应该是 loading
+      expect(useIntegrationStore.getState().loading).toBe(true);
+
+      // 第二次调用（应跳过）
+      const secondCall = initialize(null);
+
+      // 完成初始化
+      resolveInit!();
+      await Promise.all([firstCall, secondCall]);
+
+      // 应只初始化一次
+      expect(initIntegration).toHaveBeenCalledTimes(1);
     });
   });
 });

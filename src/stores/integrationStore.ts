@@ -48,6 +48,8 @@ interface IntegrationState {
   _qqbotConfig: QQBotConfig | null;
   // 存储 unlisten 函数以便清理
   _unlisten: (() => void) | null;
+  // 存储初始化 Promise 防止并发初始化
+  _initPromise: Promise<void> | null;
 
   // 实例管理状态
   instances: PlatformInstance[];
@@ -88,6 +90,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   error: null,
   _qqbotConfig: null,
   _unlisten: null,
+  _initPromise: null,
   // 实例管理初始状态
   instances: [],
   activeInstances: {} as Record<Platform, InstanceId | null>,
@@ -103,39 +106,54 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       return;
     }
 
-    set({ loading: true, error: null });
-
-    try {
-      // 初始化集成管理器
-      await initIntegration(qqbotConfig);
-
-      // 监听消息事件
-      const unlisten = await onIntegrationMessage((message) => {
-        get()._addMessage(message);
-      });
-
-      // 获取初始状态
-      const statuses = await getAllIntegrationStatus();
-      const platforms = Object.entries(statuses).reduce((acc, [key, value]) => {
-        acc[key as Platform] = value;
-        return acc;
-      }, {} as Record<Platform, IntegrationStatus>);
-
-      set({
-        platforms,
-        initialized: true,
-        loading: false,
-        _unlisten: unlisten,
-      });
-
-      console.log('[IntegrationStore] Initialized with config:', qqbotConfig ? 'provided' : 'null');
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : '初始化失败',
-        loading: false,
-      });
-      console.error('[IntegrationStore] Initialize error:', error);
+    // 如果初始化正在进行中，等待现有初始化完成
+    const existingPromise = get()._initPromise;
+    if (existingPromise) {
+      console.log('[IntegrationStore] Initialization in progress, waiting');
+      return existingPromise;
     }
+
+    // 开始初始化
+    const initPromise = (async () => {
+      set({ loading: true, error: null });
+
+      try {
+        // 初始化集成管理器
+        await initIntegration(qqbotConfig);
+
+        // 监听消息事件
+        const unlisten = await onIntegrationMessage((message) => {
+          get()._addMessage(message);
+        });
+
+        // 获取初始状态
+        const statuses = await getAllIntegrationStatus();
+        const platforms = Object.entries(statuses).reduce((acc, [key, value]) => {
+          acc[key as Platform] = value;
+          return acc;
+        }, {} as Record<Platform, IntegrationStatus>);
+
+        set({
+          platforms,
+          initialized: true,
+          loading: false,
+          _unlisten: unlisten,
+          _initPromise: null,
+        });
+
+        console.log('[IntegrationStore] Initialized with config:', qqbotConfig ? 'provided' : 'null');
+      } catch (error) {
+        set({
+          error: error instanceof Error ? error.message : '初始化失败',
+          loading: false,
+          _initPromise: null,
+        });
+        console.error('[IntegrationStore] Initialize error:', error);
+      }
+    })();
+
+    set({ _initPromise: initPromise });
+    return initPromise;
   },
 
   // 启动平台
@@ -257,7 +275,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
     const { _unlisten } = get();
     if (_unlisten) {
       _unlisten();
-      set({ _unlisten: null, initialized: false });
+      set({ _unlisten: null, initialized: false, _initPromise: null });
       console.log('[IntegrationStore] Cleaned up unlisten');
     }
   },
