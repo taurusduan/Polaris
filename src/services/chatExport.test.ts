@@ -1199,6 +1199,44 @@ describe('chatExport', () => {
         expect(parsed.messages).toHaveLength(1);
       });
     });
+
+    describe('工具消息类型处理', () => {
+      it('应跳过 tool 类型消息（非导出支持类型）', () => {
+        // chatExport 只处理 user, assistant, system 类型
+        // tool 类型消息不在 ChatMessage 类型中被导出处理
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'user',
+            content: 'Hello',
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as UserChatMessage,
+        ];
+
+        const mdResult = exportToMarkdown(messages);
+        const jsonResult = exportToJson(messages);
+        
+        expect(mdResult).toContain('Hello');
+        expect(mdResult).toContain('**消息数**: 1');
+        const parsed = JSON.parse(jsonResult);
+        expect(parsed.metadata.messageCount).toBe(1);
+      });
+
+      it('应跳过 tool_group 类型消息', () => {
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'user',
+            content: 'Run tests',
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as UserChatMessage,
+        ];
+
+        const mdResult = exportToMarkdown(messages);
+        
+        expect(mdResult).toContain('Run tests');
+      });
+    });
   });
 
   describe('一致性验证', () => {
