@@ -9,7 +9,8 @@
 
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useConfigStore, useEventChatStore, useWorkspaceStore } from '../../stores'
+import { Plus, Clock } from 'lucide-react'
+import { useConfigStore, useEventChatStore, useWorkspaceStore, useViewStore } from '../../stores'
 import { EnhancedChatMessages } from '../Chat'
 import { CompactChatInput } from './CompactChatInput'
 import type { EngineId } from '../../types'
@@ -26,8 +27,9 @@ interface CompactModeProps {
 export function CompactMode({ onSend, onInterrupt, disabled, isStreaming }: CompactModeProps) {
   const { t } = useTranslation('common')
   const { config, updateConfig } = useConfigStore()
-  const { error } = useEventChatStore()
+  const { error, clearMessages, messages } = useEventChatStore()
   const currentWorkspace = useWorkspaceStore(state => state.getCurrentWorkspace())
+  const { toggleSessionHistory } = useViewStore()
 
   // 引擎选项列表
   const engineOptions = useMemo(() => {
@@ -63,12 +65,19 @@ export function CompactMode({ onSend, onInterrupt, disabled, isStreaming }: Comp
     await updateConfig(nextConfig)
   }
 
+  // 新对话
+  const handleNewChat = () => {
+    if (messages.length > 0) {
+      clearMessages()
+    }
+  }
+
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* 极简顶部 - 仅引擎选择器 */}
-      <div className="flex items-center justify-between px-3 py-2 bg-background-elevated border-b border-border shrink-0">
+    <div className="flex flex-col h-full bg-background compact-mode-transition">
+      {/* 极简顶部 - 引擎选择器 + 快捷操作 */}
+      <div className="flex items-center justify-between px-2 py-1.5 bg-background-elevated border-b border-border shrink-0">
+        {/* 左侧：引擎选择 */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-text-primary">{t('labels.aiChat')}</span>
           <select
             className="bg-background-surface border border-border text-text-primary text-xs px-2 py-1 rounded-md hover:border-primary/50 transition-colors cursor-pointer"
             value={config?.defaultEngine || 'claude-code'}
@@ -81,17 +90,38 @@ export function CompactMode({ onSend, onInterrupt, disabled, isStreaming }: Comp
           </select>
         </div>
 
-        {/* 工作区名称 */}
-        {currentWorkspace && (
-          <span className="text-xs text-text-tertiary truncate max-w-[120px]">
-            {currentWorkspace.name}
-          </span>
-        )}
+        {/* 右侧：工作区 + 快捷操作 */}
+        <div className="flex items-center gap-1">
+          {currentWorkspace && (
+            <span className="text-xs text-text-tertiary truncate max-w-[80px] mr-1">
+              {currentWorkspace.name}
+            </span>
+          )}
+
+          {/* 新对话 */}
+          <button
+            onClick={handleNewChat}
+            disabled={isStreaming}
+            className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-background-hover transition-colors disabled:opacity-50"
+            title={t('menu.newChat')}
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+
+          {/* 会话历史 */}
+          <button
+            onClick={toggleSessionHistory}
+            className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-background-hover transition-colors"
+            title={t('menu.sessionHistory')}
+          >
+            <Clock className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* 错误提示 */}
       {error && (
-        <div className="mx-3 mt-3 p-2 bg-danger-faint border border-danger/30 rounded-lg text-danger text-xs shrink-0">
+        <div className="mx-2 mt-2 p-2 bg-danger-faint border border-danger/30 rounded-lg text-danger text-xs shrink-0">
           {error}
         </div>
       )}
