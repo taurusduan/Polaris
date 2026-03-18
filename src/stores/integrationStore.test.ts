@@ -36,6 +36,9 @@ vi.mock('../services/tauri', () => ({
 import { useIntegrationStore } from './integrationStore';
 
 describe('integrationStore', () => {
+  // 存储每个测试创建的 unlisten mock
+  let currentUnlisten: ReturnType<typeof vi.fn> | null = null;
+
   beforeEach(() => {
     // 重置 store 状态
     useIntegrationStore.setState({
@@ -53,7 +56,11 @@ describe('integrationStore', () => {
 
     // 设置默认 mock 返回值
     vi.mocked(initIntegration).mockResolvedValue(undefined);
-    vi.mocked(onIntegrationMessage).mockResolvedValue(vi.fn());
+    // 每次 onIntegrationMessage 被调用时，创建新的 mock 函数并存储
+    vi.mocked(onIntegrationMessage).mockImplementation(() => {
+      currentUnlisten = vi.fn();
+      return Promise.resolve(currentUnlisten);
+    });
     vi.mocked(getAllIntegrationStatus).mockResolvedValue({
       qqbot: { connected: false },
     });
@@ -64,6 +71,7 @@ describe('integrationStore', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    currentUnlisten = null;
   });
 
   describe('initialize', () => {
@@ -78,13 +86,12 @@ describe('integrationStore', () => {
     });
 
     it('应存储 unlisten 函数到 store 内部', async () => {
-      const mockUnlisten = vi.fn();
-      vi.mocked(onIntegrationMessage).mockResolvedValueOnce(mockUnlisten);
-
       const { initialize } = useIntegrationStore.getState();
       await initialize(null);
 
-      expect(useIntegrationStore.getState()._unlisten).toBe(mockUnlisten);
+      // currentUnlisten 应该被设置
+      expect(currentUnlisten).not.toBeNull();
+      expect(useIntegrationStore.getState()._unlisten).toBe(currentUnlisten);
     });
 
     it('重复初始化应跳过', async () => {
@@ -105,20 +112,18 @@ describe('integrationStore', () => {
 
   describe('cleanup', () => {
     it('应调用 unlisten 函数并重置状态', async () => {
-      const mockUnlisten = vi.fn();
-      vi.mocked(onIntegrationMessage).mockResolvedValueOnce(mockUnlisten);
-
       const { initialize } = useIntegrationStore.getState();
       await initialize(null);
 
-      expect(useIntegrationStore.getState()._unlisten).toBe(mockUnlisten);
+      // currentUnlisten 应该被设置
+      expect(currentUnlisten).not.toBeNull();
+      expect(useIntegrationStore.getState()._unlisten).toBe(currentUnlisten);
 
       const { cleanup } = useIntegrationStore.getState();
       cleanup();
 
-      expect(mockUnlisten).toHaveBeenCalled();
+      expect(currentUnlisten).toHaveBeenCalled();
       expect(useIntegrationStore.getState()._unlisten).toBeNull();
-      expect(useIntegrationStore.getState().initialized).toBe(false);
     });
 
     it('无 unlisten 时 cleanup 应安全处理', () => {
@@ -130,11 +135,10 @@ describe('integrationStore', () => {
     });
 
     it('多次调用 cleanup 应幂等', async () => {
-      const mockUnlisten = vi.fn();
-      vi.mocked(onIntegrationMessage).mockResolvedValueOnce(mockUnlisten);
-
       const { initialize } = useIntegrationStore.getState();
       await initialize(null);
+
+      expect(currentUnlisten).not.toBeNull();
 
       const { cleanup } = useIntegrationStore.getState();
       cleanup();
@@ -142,7 +146,7 @@ describe('integrationStore', () => {
       cleanup();
 
       // unlisten 只应被调用一次
-      expect(mockUnlisten).toHaveBeenCalledTimes(1);
+      expect(currentUnlisten).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -164,38 +168,34 @@ describe('integrationStore', () => {
 
   describe('startPlatform', () => {
     it('未初始化时应先初始化', async () => {
-      const mockUnlisten = vi.fn();
-      vi.mocked(onIntegrationMessage).mockResolvedValueOnce(mockUnlisten);
-
       const { startPlatform } = useIntegrationStore.getState();
 
       await startPlatform('qqbot', { appId: 'test', appSecret: 'test' });
 
       expect(useIntegrationStore.getState().initialized).toBe(true);
-      expect(useIntegrationStore.getState()._unlisten).toBe(mockUnlisten);
+      expect(currentUnlisten).not.toBeNull();
+      expect(useIntegrationStore.getState()._unlisten).toBe(currentUnlisten);
     });
 
     it('已初始化时不应重复设置 unlisten', async () => {
-      const mockUnlisten1 = vi.fn();
-      vi.mocked(onIntegrationMessage).mockResolvedValueOnce(mockUnlisten1);
-
       const { initialize } = useIntegrationStore.getState();
       await initialize(null);
 
-      expect(useIntegrationStore.getState()._unlisten).toBe(mockUnlisten1);
+      const firstUnlisten = currentUnlisten;
+      expect(firstUnlisten).not.toBeNull();
+      expect(useIntegrationStore.getState()._unlisten).toBe(firstUnlisten);
 
-      // 设置新的返回值
-      const mockUnlisten2 = vi.fn();
-      vi.mocked(onIntegrationMessage).mockResolvedValueOnce(mockUnlisten2);
+      // 重置 currentUnlisten 以跟踪新的调用
+      currentUnlisten = null;
 
       // 第二次 startPlatform - 已初始化，不应设置新的 unlisten
       const { startPlatform } = useIntegrationStore.getState();
       await startPlatform('qqbot', { appId: 'test', appSecret: 'test' });
 
+      // currentUnlisten 应该还是 null（没有新的调用）
+      expect(currentUnlisten).toBeNull();
       // unlisten 应保持为第一个
-      expect(useIntegrationStore.getState()._unlisten).toBe(mockUnlisten1);
-      // onIntegrationMessage 不应被调用（因为已初始化）
-      expect(onIntegrationMessage).toHaveBeenCalledTimes(1); // 只有 initialize 调用了一次
+      expect(useIntegrationStore.getState()._unlisten).toBe(firstUnlisten);
     });
   });
 
@@ -259,6 +259,104 @@ describe('integrationStore', () => {
 
       expect(useIntegrationStore.getState().error).toBe('初始化失败');
       expect(useIntegrationStore.getState().initialized).toBe(false);
+    });
+  });
+
+  describe('StrictMode 场景', () => {
+    it('多次初始化后 cleanup 应正确清理', async () => {
+      const { initialize } = useIntegrationStore.getState();
+
+      // 模拟 StrictMode 双重挂载：第一次初始化
+      await initialize(null);
+      expect(useIntegrationStore.getState().initialized).toBe(true);
+      expect(currentUnlisten).not.toBeNull();
+
+      const savedUnlisten = currentUnlisten;
+
+      // 第二次初始化应该跳过
+      await initialize(null);
+      expect(useIntegrationStore.getState().initialized).toBe(true);
+      // currentUnlisten 不应变化
+      expect(currentUnlisten).toBe(savedUnlisten);
+
+      // cleanup 应只调用一次 unlisten
+      const { cleanup } = useIntegrationStore.getState();
+      cleanup();
+      expect(savedUnlisten).toHaveBeenCalledTimes(1);
+      expect(useIntegrationStore.getState()._unlisten).toBeNull();
+    });
+
+    it('cleanup 后可重新初始化', async () => {
+      const { initialize } = useIntegrationStore.getState();
+      await initialize(null);
+
+      const firstUnlisten = currentUnlisten;
+      expect(firstUnlisten).not.toBeNull();
+      expect(useIntegrationStore.getState()._unlisten).toBe(firstUnlisten);
+
+      // 清理
+      const { cleanup } = useIntegrationStore.getState();
+      cleanup();
+      expect(useIntegrationStore.getState().initialized).toBe(false);
+      expect(useIntegrationStore.getState()._unlisten).toBeNull();
+
+      // 重置 currentUnlisten
+      currentUnlisten = null;
+
+      // 重新初始化
+      await initialize(null);
+      expect(useIntegrationStore.getState().initialized).toBe(true);
+      expect(currentUnlisten).not.toBeNull();
+      expect(currentUnlisten).not.toBe(firstUnlisten);
+    });
+
+    it('组件卸载场景应正确清理资源', async () => {
+      // 模拟组件挂载时初始化
+      const { initialize } = useIntegrationStore.getState();
+      await initialize(null);
+
+      expect(currentUnlisten).not.toBeNull();
+      expect(useIntegrationStore.getState()._unlisten).toBe(currentUnlisten);
+
+      // 模拟组件卸载时清理
+      const { cleanup } = useIntegrationStore.getState();
+      cleanup();
+
+      // 验证资源已清理
+      expect(currentUnlisten).toHaveBeenCalled();
+      expect(useIntegrationStore.getState()._unlisten).toBeNull();
+      expect(useIntegrationStore.getState().initialized).toBe(false);
+    });
+  });
+
+  describe('unlisten 存储安全性', () => {
+    it('startPlatform 未初始化时应设置 unlisten', async () => {
+      const { startPlatform } = useIntegrationStore.getState();
+
+      await startPlatform('qqbot', { appId: 'test', appSecret: 'test' });
+
+      expect(currentUnlisten).not.toBeNull();
+      expect(useIntegrationStore.getState()._unlisten).toBe(currentUnlisten);
+    });
+
+    it('startPlatform 已初始化时不应覆盖 unlisten', async () => {
+      const { initialize } = useIntegrationStore.getState();
+      await initialize(null);
+
+      const firstUnlisten = currentUnlisten;
+      expect(firstUnlisten).not.toBeNull();
+      expect(useIntegrationStore.getState()._unlisten).toBe(firstUnlisten);
+
+      // 重置 currentUnlisten
+      currentUnlisten = null;
+
+      // startPlatform 不应调用 onIntegrationMessage
+      const { startPlatform } = useIntegrationStore.getState();
+      await startPlatform('qqbot', { appId: 'test', appSecret: 'test' });
+
+      // currentUnlisten 应该还是 null（没有新的调用）
+      expect(currentUnlisten).toBeNull();
+      expect(useIntegrationStore.getState()._unlisten).toBe(firstUnlisten);
     });
   });
 });

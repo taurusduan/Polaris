@@ -220,6 +220,12 @@ function App() {
     };
 
     initializeApp();
+
+    // 组件卸载时清理 IntegrationStore 资源
+    return () => {
+      const { cleanup } = useIntegrationStore.getState();
+      cleanup();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
