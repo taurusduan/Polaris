@@ -18,7 +18,8 @@
         "height": 800,
         "decorations": false,
         "hiddenTitle": true,
-        "devtools": true
+        "devtools": true,
+        "transparent": true
       }
     ],
     "security": {

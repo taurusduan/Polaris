@@ -221,6 +221,12 @@ function App() {
           }
         }
 
+        // 恢复窗口透明度
+        if (config?.window?.opacity && config.window.opacity < 1.0) {
+          document.documentElement.style.setProperty('--window-opacity', String(config.window.opacity));
+          log.info(`窗口透明度已恢复: ${config.window.opacity}`);
+        }
+
         // 注意：会话状态由 zustand persist 中间件自动恢复，无需手动调用 restoreFromStorage
 
         // 初始化集成管理器并自动连接 QQ Bot（如果配置了）
@@ -320,6 +326,12 @@ function App() {
 
     syncWorkspace();
   }, [currentWorkspacePath]);
+
+  // 监听窗口透明度变化并应用
+  useEffect(() => {
+    const opacity = config?.window?.opacity ?? 1.0;
+    document.documentElement.style.setProperty('--window-opacity', String(opacity));
+  }, [config?.window?.opacity]);
 
   // 注意：崩溃保存和恢复功能已由 zustand persist 中间件自动处理
   // 不再需要手动监听 app:crash-save 和 app:recover 事件

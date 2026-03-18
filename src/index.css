@@ -5,6 +5,7 @@
 /* 全局样式 */
 :root {
   color-scheme: dark;
+  --window-opacity: 1.0;
 }
 
 * {
@@ -19,7 +20,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0F0F11;
+  background-color: rgba(15, 15, 17, var(--window-opacity));
   color: #F8F8F8;
 }
 
