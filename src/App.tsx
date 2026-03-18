@@ -339,21 +339,23 @@ function App() {
 
   // 初始化事件监听器（事件驱动架构核心）
   // 注意：store 内部已有 _eventListenersInitialized 状态防止重复初始化
+  // 使用 ref 存储 cleanup 函数，确保即使 Promise 后 resolve 也能正确清理
+  const eventListenerCleanupRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     let mounted = true;
-    let cleanupFn: (() => void) | null = null;
 
     initializeEventListeners().then((cleanup) => {
       if (mounted) {
-        cleanupFn = cleanup;
+        eventListenerCleanupRef.current = cleanup;
       }
     });
 
     return () => {
       mounted = false;
-      if (cleanupFn) {
-        cleanupFn();
-      }
+      // 使用 ref 确保总是能获取到最新的 cleanup 函数
+      eventListenerCleanupRef.current?.();
+      eventListenerCleanupRef.current = null;
     };
   }, [initializeEventListeners]);
 
