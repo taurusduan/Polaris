@@ -46,10 +46,11 @@
   },
   "window": {
     "title": "Window Settings",
-    "alwaysOnTop": "Always on Top",
-    "alwaysOnTopHint": "Keep the window always on top of all other windows",
-    "opacity": "Window Opacity",
-    "opacityHint": "Adjust window opacity (50% - 100%)"
+    "opacityTitle": "Window Opacity",
+    "normalOpacity": "Normal Mode Opacity",
+    "normalOpacityHint": "Opacity for normal window size",
+    "compactOpacity": "Compact Mode Opacity",
+    "compactOpacityHint": "Opacity for compact chat mode"
   },
   "baiduTranslate": {
     "title": "Baidu Translate",

@@ -71,10 +71,10 @@ export interface QQBotConfig {
 
 /** 窗口设置 */
 export interface WindowSettings {
-  /** 是否始终置顶 */
-  alwaysOnTop: boolean;
-  /** 窗口透明度 (0.5 - 1.0) */
-  opacity: number;
+  /** 大窗模式透明度 (0 - 100) */
+  normalOpacity: number;
+  /** 小屏模式透明度 (0 - 100) */
+  compactOpacity: number;
 }
 
 /** 应用配置 */

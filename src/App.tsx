@@ -232,21 +232,13 @@ function App() {
           },
         });
 
-        // 恢复窗口置顶状态
-        if (config?.window?.alwaysOnTop) {
-          try {
-            const { invoke } = await import('@tauri-apps/api/core');
-            await invoke('set_always_on_top', { alwaysOnTop: true });
-            log.info('窗口置顶状态已恢复');
-          } catch (error) {
-            log.warn('恢复窗口置顶状态失败', { error: String(error) });
+        // 恢复窗口透明度（初始使用大窗透明度，后续根据窗口尺寸自动切换）
+        if (config?.window) {
+          const initialOpacity = (config.window.normalOpacity ?? 100) / 100;
+          if (initialOpacity < 1.0) {
+            document.documentElement.style.setProperty('--window-opacity', String(initialOpacity));
+            log.info(`窗口透明度已恢复: ${initialOpacity}`);
           }
-        }
-
-        // 恢复窗口透明度
-        if (config?.window?.opacity && config.window.opacity < 1.0) {
-          document.documentElement.style.setProperty('--window-opacity', String(config.window.opacity));
-          log.info(`窗口透明度已恢复: ${config.window.opacity}`);
         }
 
         // 注意：会话状态由 zustand persist 中间件自动恢复，无需手动调用 restoreFromStorage
@@ -349,11 +341,18 @@ function App() {
     syncWorkspace();
   }, [currentWorkspacePath]);
 
-  // 监听窗口透明度变化并应用
+  // 监听窗口透明度变化并应用（根据当前模式选择对应透明度）
   useEffect(() => {
-    const opacity = config?.window?.opacity ?? 1.0;
-    document.documentElement.style.setProperty('--window-opacity', String(opacity));
-  }, [config?.window?.opacity]);
+    const windowSettings = config?.window;
+    if (!windowSettings) return;
+
+    // 根据当前模式选择透明度，转换为 0-1 范围
+    const opacityValue = isCompact
+      ? (windowSettings.compactOpacity ?? 100) / 100
+      : (windowSettings.normalOpacity ?? 100) / 100;
+
+    document.documentElement.style.setProperty('--window-opacity', String(opacityValue));
+  }, [config?.window, isCompact]);
 
   // 注意：崩溃保存和恢复功能已由 zustand persist 中间件自动处理
   // 不再需要手动监听 app:crash-save 和 app:recover 事件
