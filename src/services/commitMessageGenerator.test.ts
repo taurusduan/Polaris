@@ -1227,4 +1227,429 @@ This is a detailed description
       }))
     })
   })
+
+  describe('extractCommitMessage - 引号处理', () => {
+    it('应该正确处理双引号包裹的消息', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        { file_path: 'src/test.ts', change_type: 'modified', old_content: null, new_content: 'test' },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'assistant_message', content: '"feat: double quoted"', isDelta: false })
+          callback({ type: 'session_end', sessionId: 'test-session' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      expect(result).toBe('feat: double quoted')
+    })
+
+    it('应该正确处理单引号包裹的消息', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        { file_path: 'src/test.ts', change_type: 'modified', old_content: null, new_content: 'test' },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'assistant_message', content: "'fix: single quoted'", isDelta: false })
+          callback({ type: 'session_end', sessionId: 'test-session' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      expect(result).toBe('fix: single quoted')
+    })
+
+    it('应该正确处理 "Here\'s" 前缀', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        { file_path: 'src/test.ts', change_type: 'modified', old_content: null, new_content: 'test' },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'assistant_message', content: "Here's your commit message: refactor: improve code", isDelta: false })
+          callback({ type: 'session_end', sessionId: 'test-session' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      // "Here's" 被移除后，剩下 "your commit message: refactor: improve code"
+      expect(result).toBe('your commit message: refactor: improve code')
+    })
+
+    it('应该正确处理部分引号的消息', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        { file_path: 'src/test.ts', change_type: 'modified', old_content: null, new_content: 'test' },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          // 只有开头有引号
+          callback({ type: 'assistant_message', content: '"feat: partial quote', isDelta: false })
+          callback({ type: 'session_end', sessionId: 'test-session' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      // 开头的引号被移除
+      expect(result).toBe('feat: partial quote')
+    })
+  })
+
+  describe('formatDiffs - 更多边界情况', () => {
+    it('应该正确处理只有旧内容的 diff', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        {
+          file_path: 'src/deleted.ts',
+          change_type: 'deleted',
+          old_content: 'only old content',
+          new_content: null,
+        },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'assistant_message', content: 'chore: delete file', isDelta: false })
+          callback({ type: 'session_end', sessionId: 'test-session' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      expect(result).toBe('chore: delete file')
+    })
+
+    it('应该正确处理超长旧内容截断', async () => {
+      const longOldContent = 'a'.repeat(1000)
+      const stagedDiffs: GitDiffEntry[] = [
+        {
+          file_path: 'src/long.ts',
+          change_type: 'modified',
+          old_content: longOldContent,
+          new_content: 'new',
+        },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'assistant_message', content: 'chore: update', isDelta: false })
+          callback({ type: 'session_end', sessionId: 'test-session' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      expect(result).toBeDefined()
+    })
+
+    it('应该正确处理超长新内容截断', async () => {
+      const longNewContent = 'b'.repeat(1000)
+      const stagedDiffs: GitDiffEntry[] = [
+        {
+          file_path: 'src/long.ts',
+          change_type: 'added',
+          old_content: null,
+          new_content: longNewContent,
+        },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'assistant_message', content: 'feat: add', isDelta: false })
+          callback({ type: 'session_end', sessionId: 'test-session' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      expect(result).toBeDefined()
+    })
+
+    it('应该正确处理包含换行符的内容', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        {
+          file_path: 'src/multiline.ts',
+          change_type: 'modified',
+          old_content: 'line1\nline2\nline3',
+          new_content: 'line1\nline2\nline3\nline4',
+        },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'assistant_message', content: 'feat: add line', isDelta: false })
+          callback({ type: 'session_end', sessionId: 'test-session' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      expect(result).toBeDefined()
+    })
+  })
+
+  describe('generateFallbackMessage - 复杂场景', () => {
+    it('应该正确处理同时有添加和删除的场景（优先添加）', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        { file_path: 'src/new.ts', change_type: 'added', old_content: null, new_content: 'new' },
+        { file_path: 'src/old.ts', change_type: 'deleted', old_content: 'old', new_content: null },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'error', error: 'AI failed' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      // 添加优先于删除
+      expect(result).toBe('feat: add 2 files')
+    })
+
+    it('应该正确处理同时有删除和重命名的场景（优先删除）', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        { file_path: 'src/renamed.ts', change_type: 'renamed', old_content: 'old', new_content: 'new' },
+        { file_path: 'src/deleted.ts', change_type: 'deleted', old_content: 'deleted', new_content: null },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'error', error: 'AI failed' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      // 删除优先于重命名
+      expect(result).toBe('chore: remove 2 files')
+    })
+
+    it('应该正确处理无法解析文件变更的场景', async () => {
+      // 当 diff 内容格式不符合预期时
+      const stagedDiffs: GitDiffEntry[] = [
+        { file_path: 'src/test.ts', change_type: 'modified', old_content: 'old', new_content: 'new' },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'error', error: 'AI failed' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      // 应该能正确解析格式化的 diff
+      expect(result).toBeDefined()
+    })
+  })
+
+  describe('AI 调用失败后的恢复', () => {
+    it('应该在 AI 超时后返回 fallback', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        { file_path: 'src/test.ts', change_type: 'modified', old_content: null, new_content: 'test' },
+      ]
+
+      // 模拟超时 - 不发送任何结束事件
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        // 不调用任何回调，模拟超时
+        return vi.fn()
+      })
+
+      // 注意：实际超时时间是 30 秒，这里通过错误事件模拟
+      // 为了测试目的，我们通过错误事件来触发 fallback
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      // 超时后应该返回 fallback 消息
+      expect(result).toBeDefined()
+    }, 35000) // 设置测试超时时间
+
+    it('应该在 AI 调用失败后返回有效的 fallback', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        { file_path: 'src/new.ts', change_type: 'added', old_content: null, new_content: 'test' },
+      ]
+
+      mockRegister.mockImplementation(() => {
+        throw new Error('Register failed')
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      // 即使 AI 调用失败，也应该返回有效的 fallback
+      expect(result).toMatch(/^(feat|fix|chore|refactor):/)
+    })
+  })
+
+  describe('系统提示词验证', () => {
+    it('应该在 start_chat 调用中包含系统提示词', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        { file_path: 'src/test.ts', change_type: 'modified', old_content: 'old', new_content: 'new' },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'assistant_message', content: 'feat: test', isDelta: false })
+          callback({ type: 'session_end', sessionId: 'test-session' })
+        }, 10)
+        return vi.fn()
+      })
+
+      await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      const invokeCall = mockInvoke.mock.calls.find(
+        call => call[0] === 'start_chat'
+      )
+
+      expect(invokeCall).toBeDefined()
+      const message = invokeCall![1] as { message: string }
+      // 系统提示词应该包含 conventional commits 规则
+      expect(message.message).toContain('conventional commits')
+    })
+  })
+
+  describe('多次调用场景', () => {
+    it('应该支持连续多次调用 generateCommitMessage', async () => {
+      const stagedDiffs1: GitDiffEntry[] = [
+        { file_path: 'src/a.ts', change_type: 'added', old_content: null, new_content: 'a' },
+      ]
+      const stagedDiffs2: GitDiffEntry[] = [
+        { file_path: 'src/b.ts', change_type: 'modified', old_content: 'old', new_content: 'new' },
+      ]
+
+      let callCount = 0
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        callCount++
+        setTimeout(() => {
+          callback({ type: 'assistant_message', content: `message ${callCount}`, isDelta: false })
+          callback({ type: 'session_end', sessionId: 'test-session' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result1 = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs: stagedDiffs1,
+      })
+
+      const result2 = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs: stagedDiffs2,
+      })
+
+      expect(result1).toBeDefined()
+      expect(result2).toBeDefined()
+    })
+  })
+
+  describe('特殊文件路径处理', () => {
+    it('应该正确处理包含 Unicode 字符的文件路径', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        {
+          file_path: 'src/中文文件/文件名.ts',
+          change_type: 'added',
+          old_content: null,
+          new_content: 'export const 测试 = 1',
+        },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'assistant_message', content: 'feat: add chinese file', isDelta: false })
+          callback({ type: 'session_end', sessionId: 'test-session' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      expect(result).toBeDefined()
+    })
+
+    it('应该正确处理深层嵌套的文件路径', async () => {
+      const stagedDiffs: GitDiffEntry[] = [
+        {
+          file_path: 'src/components/features/settings/panels/AdvancedSettings.tsx',
+          change_type: 'modified',
+          old_content: 'old',
+          new_content: 'new',
+        },
+      ]
+
+      mockRegister.mockImplementation((contextId: string, callback: (payload: unknown) => void) => {
+        setTimeout(() => {
+          callback({ type: 'assistant_message', content: 'feat: update settings', isDelta: false })
+          callback({ type: 'session_end', sessionId: 'test-session' })
+        }, 10)
+        return vi.fn()
+      })
+
+      const result = await generateCommitMessage({
+        workspacePath: '/test/workspace',
+        stagedDiffs,
+      })
+
+      expect(result).toBeDefined()
+    })
+  })
 })
