@@ -43,6 +43,13 @@
     "current": "Current Language",
     "hint": "Switch interface display language"
   },
+  "window": {
+    "title": "Window Settings",
+    "alwaysOnTop": "Always on Top",
+    "alwaysOnTopHint": "Keep the window always on top of all other windows",
+    "opacity": "Window Opacity",
+    "opacityHint": "Adjust window opacity (50% - 100%)"
+  },
   "baiduTranslate": {
     "title": "Baidu Translate",
     "hint": "Configure Baidu Translate API to translate messages to English with one click",

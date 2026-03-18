@@ -43,6 +43,13 @@
     "current": "当前语言",
     "hint": "切换界面显示语言"
   },
+  "window": {
+    "title": "窗口设置",
+    "alwaysOnTop": "始终置顶",
+    "alwaysOnTopHint": "使窗口始终保持在所有窗口最前面",
+    "opacity": "窗口透明度",
+    "opacityHint": "调整窗口的不透明度 (50% - 100%)"
+  },
   "baiduTranslate": {
     "title": "百度翻译",
     "hint": "配置百度翻译 API 后，可在发送消息时一键翻译为英语",
