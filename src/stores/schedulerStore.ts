@@ -5,7 +5,6 @@
 import { create } from 'zustand';
 import type { ScheduledTask, TaskLog, TriggerType, CreateTaskParams, RunTaskResult, PaginatedLogs } from '../types/scheduler';
 import * as tauri from '../services/tauri';
-import { useEventChatStore } from './eventChatStore';
 
 /** 日志分页状态 */
 interface LogPagination {
@@ -62,7 +61,7 @@ interface SchedulerState {
   /** 清除订阅状态（任务完成时调用） */
   clearSubscription: () => void;
   /** 初始化监听 scheduler-event 事件 */
-  initSchedulerEventListener: () => () => void;
+  initSchedulerEventListener: (getCurrentContextId?: () => string | null | undefined) => () => void;
 }
 
 // 保存事件监听器清理函数
@@ -287,7 +286,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
     set({ subscribingTaskId: null, subscribingTaskName: null });
   },
 
-  initSchedulerEventListener: () => {
+  initSchedulerEventListener: (getCurrentContextId) => {
     // 防止重复监听
     if (schedulerEventCleanup) {
       return schedulerEventCleanup;
@@ -310,8 +309,8 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
 
           // 自动续订优化：更新订阅的 contextId 为当前活动会话
           // 这样下次定时触发时，事件会发送到用户当前查看的窗口
-          if (success) {
-            const currentContextId = useEventChatStore.getState().conversationId;
+          if (success && getCurrentContextId) {
+            const currentContextId = getCurrentContextId();
             if (currentContextId) {
               console.log('[SchedulerStore] 自动续订：更新 contextId 为当前会话', currentContextId);
               tauri.schedulerSubscribeTask(taskId, currentContextId).catch((e) => {

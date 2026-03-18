@@ -1030,7 +1030,8 @@ export function SchedulerPanel() {
 
   // 初始化事件监听
   useEffect(() => {
-    const cleanup = initSchedulerEventListener();
+    // 通过参数注入方式获取当前会话 ID，避免 schedulerStore 直接依赖 eventChatStore
+    const cleanup = initSchedulerEventListener(() => useEventChatStore.getState().conversationId);
     return () => {
       cleanup();
     };
