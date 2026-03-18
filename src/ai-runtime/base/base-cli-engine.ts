@@ -51,6 +51,7 @@ import type { AISession, AISessionConfig } from '../session'
 import type { AITask, AIEvent } from '../index'
 import { BaseSession } from './base-session'
 import { createEventIterable } from './base-session'
+import { validateCLIEngineConfig } from '../config-validator'
 
 /**
  * CLI Engine 配置接口
@@ -344,6 +345,21 @@ export abstract class BaseCLIEngine implements AIEngine {
   }
 
   /**
+   * 验证当前配置
+   *
+   * 子类可覆盖此方法实现特定的验证逻辑
+   */
+  protected validateConfig(): boolean {
+    const result = validateCLIEngineConfig(this.config)
+    if (!result.valid) {
+      const messages = result.errors.map((e) => `${e.field}: ${e.message}`)
+      console.warn(`[${this.id}] Configuration validation warnings:\n${messages.join('\n')}`)
+      return false
+    }
+    return true
+  }
+
+  /**
    * 创建新的会话
    */
   createSession(sessionConfig?: AISessionConfig): AISession {
@@ -374,6 +390,9 @@ export abstract class BaseCLIEngine implements AIEngine {
     if (this.isInitialized) {
       return true
     }
+
+    // 验证配置（非阻塞，仅警告）
+    this.validateConfig()
 
     try {
       const available = await this.isAvailable()
