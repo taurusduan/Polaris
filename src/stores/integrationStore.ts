@@ -46,6 +46,8 @@ interface IntegrationState {
   error: string | null;
   // 保存配置以便重新初始化
   _qqbotConfig: QQBotConfig | null;
+  // 存储 unlisten 函数以便清理
+  _unlisten: (() => void) | null;
 
   // 实例管理状态
   instances: PlatformInstance[];
@@ -60,6 +62,7 @@ interface IntegrationState {
   refreshAllStatus: () => Promise<void>;
   refreshSessions: () => Promise<void>;
   clearMessages: () => void;
+  cleanup: () => void;
   _addMessage: (message: IntegrationMessage) => void;
   _updateStatus: (platform: Platform, status: IntegrationStatus) => void;
 
@@ -84,6 +87,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   loading: false,
   error: null,
   _qqbotConfig: null,
+  _unlisten: null,
   // 实例管理初始状态
   instances: [],
   activeInstances: {} as Record<Platform, InstanceId | null>,
@@ -121,10 +125,8 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         platforms,
         initialized: true,
         loading: false,
+        _unlisten: unlisten,
       });
-
-      // 存储 unlisten 函数以便清理
-      (window as unknown as { __integrationUnlisten?: () => void }).__integrationUnlisten = unlisten;
 
       console.log('[IntegrationStore] Initialized with config:', qqbotConfig ? 'provided' : 'null');
     } catch (error) {
@@ -160,7 +162,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         const unlisten = await onIntegrationMessage((message) => {
           get()._addMessage(message);
         });
-        (window as unknown as { __integrationUnlisten?: () => void }).__integrationUnlisten = unlisten;
+        set({ _unlisten: unlisten });
       }
 
       await startIntegration(platform);
@@ -248,6 +250,16 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   // 清空消息
   clearMessages: () => {
     set({ messages: [] });
+  },
+
+  // 清理资源
+  cleanup: () => {
+    const { _unlisten } = get();
+    if (_unlisten) {
+      _unlisten();
+      set({ _unlisten: null, initialized: false });
+      console.log('[IntegrationStore] Cleaned up unlisten');
+    }
   },
 
   // 内部方法：添加消息
