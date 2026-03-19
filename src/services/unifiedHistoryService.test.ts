@@ -784,6 +784,340 @@ describe('UnifiedHistoryService', () => {
   })
 
   // ===========================================================================
+  // 边界值完整性测试
+  // ===========================================================================
+
+  describe('formatTime 边界值完整性', () => {
+    it('应正确处理未来日期', () => {
+      const futureDate = new Date(Date.now() + 3600000) // 1 小时后
+      const result = service.formatTime(futureDate.toISOString())
+      // 未来日期应该返回 "刚刚" 或负数分钟
+      expect(['刚刚', expect.stringMatching(/-\d+ 分钟前/)]).toContain(result)
+    })
+
+    it('应正确处理刚好 1 分钟边界', () => {
+      const date = new Date(Date.now() - 60000)
+      const result = service.formatTime(date.toISOString())
+      expect(result).toBe('1 分钟前')
+    })
+
+    it('应正确处理刚好 1 小时边界', () => {
+      const date = new Date(Date.now() - 3600000)
+      const result = service.formatTime(date.toISOString())
+      expect(result).toBe('1 小时前')
+    })
+
+    it('应正确处理刚好 24 小时边界', () => {
+      const date = new Date(Date.now() - 86400000)
+      const result = service.formatTime(date.toISOString())
+      expect(result).toBe('1 天前')
+    })
+
+    it('应正确处理刚好 7 天边界', () => {
+      const date = new Date(Date.now() - 7 * 86400000)
+      const result = service.formatTime(date.toISOString())
+      expect(result).toMatch(/\d+月\d+/)
+    })
+
+    it('应正确处理无效日期字符串', () => {
+      const result = service.formatTime('invalid-date')
+      // 无效日期应该返回某种合理值，不应崩溃
+      expect(typeof result).toBe('string')
+    })
+
+    it('应正确处理空字符串日期', () => {
+      const result = service.formatTime('')
+      expect(typeof result).toBe('string')
+    })
+  })
+
+  // ===========================================================================
+  // 搜索功能边界测试
+  // ===========================================================================
+
+  describe('searchSessions 边界情况', () => {
+    it('应正确处理空字符串搜索', async () => {
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: '1', firstPrompt: 'Test', messageCount: 1, fileSize: 100 },
+      ])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const result = await service.searchSessions('')
+
+      // 空字符串应该匹配所有会话
+      expect(result).toHaveLength(1)
+    })
+
+    it('应正确处理特殊字符搜索', async () => {
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: 'test-[1]', firstPrompt: 'Test (special)', messageCount: 1, fileSize: 100 },
+      ])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const result = await service.searchSessions('[1]')
+
+      expect(result).toHaveLength(1)
+    })
+
+    it('应正确处理 Unicode 字符搜索', async () => {
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: '1', firstPrompt: '测试中文搜索', messageCount: 1, fileSize: 100 },
+      ])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const result = await service.searchSessions('中文')
+
+      expect(result).toHaveLength(1)
+    })
+
+    it('应正确处理 emoji 搜索', async () => {
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: '1', firstPrompt: 'Hello 🚀 World', messageCount: 1, fileSize: 100 },
+      ])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const result = await service.searchSessions('🚀')
+
+      expect(result).toHaveLength(1)
+    })
+
+    it('应正确处理超长搜索字符串', async () => {
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: '1', firstPrompt: 'Test', messageCount: 1, fileSize: 100 },
+      ])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const longQuery = 'a'.repeat(10000)
+      const result = await service.searchSessions(longQuery)
+
+      expect(result).toHaveLength(0)
+    })
+  })
+
+  // ===========================================================================
+  // 错误恢复完整测试
+  // ===========================================================================
+
+  describe('错误恢复完整性', () => {
+    it('所有 Provider 失败时应返回空数组', async () => {
+      mockClaudeListSessions.mockRejectedValue(new Error('Claude error'))
+      mockIFlowListSessions.mockRejectedValue(new Error('IFlow error'))
+      mockCodexListSessions.mockRejectedValue(new Error('Codex error'))
+
+      const result = await service.listAllSessions()
+
+      expect(result).toEqual([])
+    })
+
+    it('getStats 应正确处理部分 Provider 失败', async () => {
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: 'cc-1', firstPrompt: 'A', messageCount: 5, fileSize: 1024 },
+      ])
+      mockIFlowListSessions.mockRejectedValue(new Error('IFlow error'))
+      mockCodexListSessions.mockResolvedValue([
+        { sessionId: 'cx-1', title: 'B', messageCount: 3, fileSize: 512, filePath: '/path' },
+      ])
+
+      const result = await service.getStats()
+
+      expect(result).toHaveLength(2)
+      const providers = result.map(s => s.provider)
+      expect(providers).toContain('claude-code')
+      expect(providers).toContain('codex')
+      expect(providers).not.toContain('iflow')
+    })
+
+    it('searchSessions 应正确处理部分 Provider 失败', async () => {
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: 'cc-react', firstPrompt: 'React', messageCount: 1, fileSize: 100 },
+      ])
+      mockIFlowListSessions.mockRejectedValue(new Error('IFlow error'))
+      mockCodexListSessions.mockResolvedValue([])
+
+      const result = await service.searchSessions('react')
+
+      expect(result).toHaveLength(1)
+    })
+
+    it('filterSessionsByTimeRange 应正确处理部分 Provider 失败', async () => {
+      mockClaudeListSessions.mockResolvedValue([])
+      mockIFlowListSessions.mockRejectedValue(new Error('IFlow error'))
+      mockCodexListSessions.mockResolvedValue([
+        { sessionId: 'cx-1', title: 'Test', messageCount: 1, fileSize: 100, createdAt: new Date().toISOString(), filePath: '/path' },
+      ])
+
+      const startDate = new Date(Date.now() - 86400000)
+      const endDate = new Date()
+      const result = await service.filterSessionsByTimeRange(startDate, endDate)
+
+      expect(result).toHaveLength(1)
+    })
+  })
+
+  // ===========================================================================
+  // 数据一致性测试
+  // ===========================================================================
+
+  describe('数据一致性', () => {
+    it('listAllSessions 和 listSessionsByProvider 数据格式一致', async () => {
+      const mockSession = {
+        sessionId: 'cc-1',
+        firstPrompt: 'Test',
+        messageCount: 5,
+        fileSize: 1024,
+        created: '2026-03-19T10:00:00Z',
+        modified: '2026-03-19T11:00:00Z',
+      }
+
+      mockClaudeListSessions.mockResolvedValue([mockSession])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const allResult = await service.listAllSessions()
+      const providerResult = await service.listSessionsByProvider('claude-code')
+
+      expect(allResult).toEqual(providerResult)
+    })
+
+    it('getStats 计算应与 listAllSessions 一致', async () => {
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: 'cc-1', firstPrompt: 'A', messageCount: 5, fileSize: 1000 },
+        { sessionId: 'cc-2', firstPrompt: 'B', messageCount: 3, fileSize: 500 },
+      ])
+      mockIFlowListSessions.mockResolvedValue([
+        { sessionId: 'if-1', title: 'C', messageCount: 10, fileSize: 2000 },
+      ])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const sessions = await service.listAllSessions()
+      const stats = await service.getStats()
+
+      const claudeStats = stats.find(s => s.provider === 'claude-code')
+      expect(claudeStats?.sessionCount).toBe(2)
+      expect(claudeStats?.totalMessages).toBe(8)
+      expect(claudeStats?.totalSize).toBe(1500)
+
+      const iflowStats = stats.find(s => s.provider === 'iflow')
+      expect(iflowStats?.sessionCount).toBe(1)
+      expect(iflowStats?.totalMessages).toBe(10)
+      expect(iflowStats?.totalSize).toBe(2000)
+
+      // 验证总数一致
+      const totalSessions = sessions.length
+      const statsTotalSessions = stats.reduce((sum, s) => sum + s.sessionCount, 0)
+      expect(totalSessions).toBe(statsTotalSessions)
+    })
+
+    it('messageCount 和 fileSize 应正确传递', async () => {
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: 'cc-1', firstPrompt: 'Test', messageCount: 42, fileSize: 12345 },
+      ])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const result = await service.listAllSessions()
+
+      expect(result[0].messageCount).toBe(42)
+      expect(result[0].fileSize).toBe(12345)
+    })
+  })
+
+  // ===========================================================================
+  // 时区处理测试
+  // ===========================================================================
+
+  describe('时区处理', () => {
+    it('应正确处理 UTC 时间字符串', async () => {
+      const utcTime = '2026-03-19T10:00:00Z'
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: '1', firstPrompt: 'Test', messageCount: 1, fileSize: 100, created: utcTime },
+      ])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const result = await service.listAllSessions()
+
+      expect(result[0].createdAt).toBe(utcTime)
+    })
+
+    it('应正确处理带时区的时间字符串', async () => {
+      const istTime = '2026-03-19T10:00:00+08:00'
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: '1', firstPrompt: 'Test', messageCount: 1, fileSize: 100, created: istTime },
+      ])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const result = await service.listAllSessions()
+
+      expect(result[0].createdAt).toBe(istTime)
+    })
+
+    it('filterSessionsByTimeRange 应正确处理不同时区的日期', async () => {
+      const utcTime = '2026-03-19T12:00:00Z'
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: '1', firstPrompt: 'Test', messageCount: 1, fileSize: 100, created: utcTime },
+      ])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const startDate = new Date('2026-03-19T00:00:00Z')
+      const endDate = new Date('2026-03-19T23:59:59Z')
+      const result = await service.filterSessionsByTimeRange(startDate, endDate)
+
+      expect(result).toHaveLength(1)
+    })
+  })
+
+  // ===========================================================================
+  // 空值处理测试
+  // ===========================================================================
+
+  describe('空值处理', () => {
+    it('应正确处理 messageCount 为 0', async () => {
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: 'cc-1', firstPrompt: 'Empty', messageCount: 0, fileSize: 0 },
+      ])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const result = await service.listAllSessions()
+
+      expect(result[0].messageCount).toBe(0)
+      expect(result[0].fileSize).toBe(0)
+    })
+
+    it('应正确处理 null firstPrompt', async () => {
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: 'cc-1', firstPrompt: null, messageCount: 1, fileSize: 100 },
+      ])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const result = await service.listAllSessions()
+
+      expect(result[0].title).toBe('Claude Code 对话')
+    })
+
+    it('应正确处理 undefined firstPrompt', async () => {
+      mockClaudeListSessions.mockResolvedValue([
+        { sessionId: 'cc-1', firstPrompt: undefined, messageCount: 1, fileSize: 100 },
+      ])
+      mockIFlowListSessions.mockResolvedValue([])
+      mockCodexListSessions.mockResolvedValue([])
+
+      const result = await service.listAllSessions()
+
+      expect(result[0].title).toBe('Claude Code 对话')
+    })
+  })
+
+  // ===========================================================================
   // 类型导出测试
   // ===========================================================================
 
