@@ -66,7 +66,7 @@ export class CodexHistoryService {
       const sessions = await invoke<CodexSessionMeta[]>('list_codex_sessions', {
         workDir,
       })
-      return sessions
+      return sessions ?? []
     } catch (e) {
       console.error('[CodexHistoryService] 列出会话失败:', e)
       return []
@@ -81,7 +81,7 @@ export class CodexHistoryService {
       const messages = await invoke<CodexHistoryMessage[]>('get_codex_session_history', {
         filePath,
       })
-      return messages
+      return messages ?? []
     } catch (e) {
       log.error('获取会话历史失败:', e instanceof Error ? e : new Error(String(e)))
       return []
