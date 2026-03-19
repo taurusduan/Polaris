@@ -4,6 +4,7 @@
  */
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 // ============================================================================
 // Git 文件状态
@@ -364,65 +365,39 @@ impl std::fmt::Display for GitError {
 impl std::error::Error for GitError {}
 
 /// Git 服务错误（内部使用）
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum GitServiceError {
-    GitError(git2::Error),
-    IoError(std::io::Error),
+    #[error("Git error: {0}")]
+    GitError(#[from] git2::Error),
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("Not a Git repository")]
     NotARepository,
+    #[error("Branch '{0}' not found")]
     BranchNotFound(String),
+    #[error("Commit '{0}' not found")]
     CommitNotFound(String),
+    #[error("Merge conflicts: {message}. Files: {conflicted_files:?}")]
     ConflictsDetected {
         message: String,
         conflicted_files: Vec<String>,
     },
+    #[error("Rebase is already in progress")]
     RebaseInProgress,
+    #[error("Cherry-pick is already in progress")]
     CherryPickInProgress,
+    #[error("Revert is already in progress")]
     RevertInProgress,
+    #[error("Merge is already in progress")]
     MergeInProgress,
+    #[error("Remote '{0}' not found")]
     RemoteNotFound(String),
+    #[error("Remote '{0}' already exists")]
     RemoteExists(String),
+    #[error("CLI tool '{0}' not found")]
     CLINotFound(String),
+    #[error("CLI error: {0}")]
     CLIError(String),
-}
-
-impl std::fmt::Display for GitServiceError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::GitError(e) => write!(f, "Git error: {}", e),
-            Self::IoError(e) => write!(f, "IO error: {}", e),
-            Self::NotARepository => write!(f, "Not a Git repository"),
-            Self::BranchNotFound(name) => write!(f, "Branch '{}' not found", name),
-            Self::CommitNotFound(sha) => write!(f, "Commit '{}' not found", sha),
-            Self::ConflictsDetected {
-                message,
-                conflicted_files,
-            } => {
-                write!(f, "Merge conflicts: {}. Files: {:?}", message, conflicted_files)
-            }
-            Self::RebaseInProgress => write!(f, "Rebase is already in progress"),
-            Self::CherryPickInProgress => write!(f, "Cherry-pick is already in progress"),
-            Self::RevertInProgress => write!(f, "Revert is already in progress"),
-            Self::MergeInProgress => write!(f, "Merge is already in progress"),
-            Self::RemoteNotFound(name) => write!(f, "Remote '{}' not found", name),
-            Self::RemoteExists(name) => write!(f, "Remote '{}' already exists", name),
-            Self::CLINotFound(cli) => write!(f, "CLI tool '{}' not found", cli),
-            Self::CLIError(err) => write!(f, "CLI error: {}", err),
-        }
-    }
-}
-
-impl std::error::Error for GitServiceError {}
-
-impl From<git2::Error> for GitServiceError {
-    fn from(err: git2::Error) -> Self {
-        Self::GitError(err)
-    }
-}
-
-impl From<std::io::Error> for GitServiceError {
-    fn from(err: std::io::Error) -> Self {
-        Self::IoError(err)
-    }
 }
 
 // ============================================================================
