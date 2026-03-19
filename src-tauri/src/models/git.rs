@@ -348,21 +348,15 @@ pub enum GitHostType {
 // ============================================================================
 
 /// Git 操作错误
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Git 操作错误（返回给前端）
+#[derive(Debug, Clone, Serialize, Deserialize, Error)]
+#[error("[{code}] {message}")]
 pub struct GitError {
     pub code: String,
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<String>,
 }
-
-impl std::fmt::Display for GitError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}] {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for GitError {}
 
 /// Git 服务错误（内部使用）
 #[derive(Debug, Error)]
