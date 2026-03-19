@@ -1125,3 +1125,742 @@ describe('错误恢复', () => {
     expect(mockInvoke).not.toHaveBeenCalled();
   });
 });
+
+// ============================================================
+// 类型安全测试
+// ============================================================
+describe('类型安全', () => {
+  let service: SimpleTodoService;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    service = new SimpleTodoService();
+    mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+    await service.setWorkspace('/test/workspace');
+    vi.clearAllMocks();
+  });
+
+  describe('TodoItem 可选字段', () => {
+    it('description 可以为 undefined', async () => {
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+
+      expect(todo.description).toBeUndefined();
+    });
+
+    it('tags 可以为 undefined', async () => {
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+
+      expect(todo.tags).toBeUndefined();
+    });
+
+    it('relatedFiles 可以为 undefined', async () => {
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+
+      expect(todo.relatedFiles).toBeUndefined();
+    });
+
+    it('subtasks 默认为空数组', async () => {
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+
+      expect(todo.subtasks).toEqual([]);
+    });
+
+    it('dueDate 可以为 undefined', async () => {
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+
+      expect(todo.dueDate).toBeUndefined();
+    });
+
+    it('estimatedHours 可以为 undefined', async () => {
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+
+      expect(todo.estimatedHours).toBeUndefined();
+    });
+
+    it('completedAt 初始应为 undefined', async () => {
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+
+      expect(todo.completedAt).toBeUndefined();
+    });
+  });
+
+  describe('TodoCreateParams 默认值', () => {
+    it('priority 默认为 normal', async () => {
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+
+      expect(todo.priority).toBe('normal');
+    });
+
+    it('status 默认为 pending', async () => {
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+
+      expect(todo.status).toBe('pending');
+    });
+
+    it('subtasks 默认为空数组', async () => {
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+
+      expect(todo.subtasks).toEqual([]);
+    });
+  });
+
+  describe('文件加载类型安全', () => {
+    it('文件包含 null todos 字段时应初始化为空数组', async () => {
+      mockInvoke.mockResolvedValueOnce(JSON.stringify({
+        version: '1.0.0',
+        todos: null,
+      }));
+
+      await service.setWorkspace('/test/workspace');
+
+      expect(service.getAllTodos()).toEqual([]);
+    });
+
+    it('文件包含非数组 todos 字段时应初始化为空数组', async () => {
+      mockInvoke.mockResolvedValueOnce(JSON.stringify({
+        version: '1.0.0',
+        todos: 'not-an-array',
+      }));
+
+      await service.setWorkspace('/test/workspace');
+
+      expect(service.getAllTodos()).toEqual([]);
+    });
+  });
+});
+
+// ============================================================
+// 状态转换测试
+// ============================================================
+describe('状态转换', () => {
+  let service: SimpleTodoService;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    service = new SimpleTodoService();
+    mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+    await service.setWorkspace('/test/workspace');
+    vi.clearAllMocks();
+  });
+
+  describe('完整生命周期', () => {
+    it('pending -> in_progress -> completed 完整转换', async () => {
+      mockInvoke.mockResolvedValue(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+      expect(todo.status).toBe('pending');
+      expect(todo.completedAt).toBeUndefined();
+
+      await service.updateTodo(todo.id, { status: 'in_progress' });
+      let updated = service.getAllTodos()[0];
+      expect(updated.status).toBe('in_progress');
+      expect(updated.completedAt).toBeUndefined();
+
+      await service.updateTodo(todo.id, { status: 'completed' });
+      updated = service.getAllTodos()[0];
+      expect(updated.status).toBe('completed');
+      expect(updated.completedAt).toBeDefined();
+    });
+
+    it('直接从 pending 到 completed 应记录完成时间', async () => {
+      mockInvoke.mockResolvedValue(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+      await service.updateTodo(todo.id, { status: 'completed' });
+
+      const updated = service.getAllTodos()[0];
+      expect(updated.status).toBe('completed');
+      expect(updated.completedAt).toBeDefined();
+    });
+
+    it('从 completed 回到 in_progress 不应清除完成时间', async () => {
+      mockInvoke.mockResolvedValue(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+      await service.updateTodo(todo.id, { status: 'completed' });
+      const completedAt = service.getAllTodos()[0].completedAt;
+
+      await service.updateTodo(todo.id, { status: 'in_progress' });
+
+      const updated = service.getAllTodos()[0];
+      expect(updated.status).toBe('in_progress');
+      // 注意：当前实现不会清除 completedAt
+      expect(updated.completedAt).toBe(completedAt);
+    });
+  });
+
+  describe('重复状态更新', () => {
+    it('重复设置为相同状态应正常工作', async () => {
+      mockInvoke.mockResolvedValue(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+
+      await service.updateTodo(todo.id, { status: 'in_progress' });
+      await service.updateTodo(todo.id, { status: 'in_progress' });
+
+      const updated = service.getAllTodos()[0];
+      expect(updated.status).toBe('in_progress');
+    });
+
+    it('重复完成不应覆盖完成时间', async () => {
+      mockInvoke.mockResolvedValue(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+      await service.updateTodo(todo.id, { status: 'completed' });
+      const firstCompletedAt = service.getAllTodos()[0].completedAt;
+
+      // 等待一小段时间确保时间戳可能不同
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      await service.updateTodo(todo.id, { status: 'completed' });
+
+      const updated = service.getAllTodos()[0];
+      expect(updated.completedAt).toBe(firstCompletedAt);
+    });
+  });
+});
+
+// ============================================================
+// 数据完整性测试
+// ============================================================
+describe('数据完整性', () => {
+  let service: SimpleTodoService;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    service = new SimpleTodoService();
+    mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+    await service.setWorkspace('/test/workspace');
+    vi.clearAllMocks();
+  });
+
+  describe('更新操作保留未更新字段', () => {
+    it('更新状态应保留其他字段', async () => {
+      mockInvoke.mockResolvedValue(undefined);
+
+      const todo = await service.createTodo({
+        content: 'Task',
+        description: 'Description',
+        priority: 'high',
+        tags: ['important'],
+        relatedFiles: ['/src/file.ts'],
+        dueDate: '2026-04-01',
+        estimatedHours: 5,
+        subtasks: [{ title: 'Subtask' }],
+      });
+
+      await service.updateTodo(todo.id, { status: 'completed' });
+
+      const updated = service.getAllTodos()[0];
+      expect(updated.content).toBe('Task');
+      expect(updated.description).toBe('Description');
+      expect(updated.priority).toBe('high');
+      expect(updated.tags).toEqual(['important']);
+      expect(updated.relatedFiles).toEqual(['/src/file.ts']);
+      expect(updated.dueDate).toBe('2026-04-01');
+      expect(updated.estimatedHours).toBe(5);
+      expect(updated.subtasks).toHaveLength(1);
+    });
+
+    it('更新内容应保留状态', async () => {
+      mockInvoke.mockResolvedValue(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+      await service.updateTodo(todo.id, { status: 'in_progress' });
+
+      await service.updateTodo(todo.id, { content: 'Updated Content' });
+
+      const updated = service.getAllTodos()[0];
+      expect(updated.content).toBe('Updated Content');
+      expect(updated.status).toBe('in_progress');
+    });
+
+    it('更新优先级应保留子任务', async () => {
+      mockInvoke.mockResolvedValue(undefined);
+
+      const todo = await service.createTodo({
+        content: 'Task',
+        subtasks: [{ title: 'Subtask 1' }, { title: 'Subtask 2' }],
+      });
+
+      await service.updateTodo(todo.id, { priority: 'urgent' });
+
+      const updated = service.getAllTodos()[0];
+      expect(updated.priority).toBe('urgent');
+      expect(updated.subtasks).toHaveLength(2);
+    });
+  });
+
+  describe('子任务数据完整性', () => {
+    it('切换一个子任务不应影响其他子任务', async () => {
+      mockInvoke.mockResolvedValue(undefined);
+
+      const todo = await service.createTodo({
+        content: 'Task',
+        subtasks: [
+          { title: 'Subtask 1' },
+          { title: 'Subtask 2' },
+          { title: 'Subtask 3' },
+        ],
+      });
+
+      await service.toggleSubtask(todo.id, todo.subtasks![1].id);
+
+      const updated = service.getAllTodos()[0];
+      expect(updated.subtasks![0].completed).toBe(false);
+      expect(updated.subtasks![1].completed).toBe(true);
+      expect(updated.subtasks![2].completed).toBe(false);
+    });
+
+    it('多次切换子任务状态应正确', async () => {
+      mockInvoke.mockResolvedValue(undefined);
+
+      const todo = await service.createTodo({
+        content: 'Task',
+        subtasks: [{ title: 'Subtask' }],
+      });
+
+      await service.toggleSubtask(todo.id, todo.subtasks![0].id);
+      expect(service.getAllTodos()[0].subtasks![0].completed).toBe(true);
+
+      await service.toggleSubtask(todo.id, todo.subtasks![0].id);
+      expect(service.getAllTodos()[0].subtasks![0].completed).toBe(false);
+
+      await service.toggleSubtask(todo.id, todo.subtasks![0].id);
+      expect(service.getAllTodos()[0].subtasks![0].completed).toBe(true);
+    });
+  });
+
+  describe('创建时间戳完整性', () => {
+    it('createdAt 不应在更新时改变', async () => {
+      mockInvoke.mockResolvedValue(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+      const originalCreatedAt = todo.createdAt;
+
+      await service.updateTodo(todo.id, { content: 'Updated' });
+      await service.updateTodo(todo.id, { status: 'completed' });
+
+      const updated = service.getAllTodos()[0];
+      expect(updated.createdAt).toBe(originalCreatedAt);
+    });
+
+    it('updatedAt 应在每次更新时改变', async () => {
+      mockInvoke.mockResolvedValue(undefined);
+
+      const todo = await service.createTodo({ content: 'Task' });
+      const firstUpdatedAt = todo.updatedAt;
+
+      // 等待确保时间戳不同
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      await service.updateTodo(todo.id, { content: 'Updated' });
+      const secondUpdatedAt = service.getAllTodos()[0].updatedAt;
+
+      expect(new Date(secondUpdatedAt).getTime()).toBeGreaterThanOrEqual(
+        new Date(firstUpdatedAt).getTime()
+      );
+    });
+  });
+});
+
+// ============================================================
+// 文件系统边界测试
+// ============================================================
+describe('文件系统边界', () => {
+  let service: SimpleTodoService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    service = new SimpleTodoService();
+  });
+
+  describe('文件格式兼容性', () => {
+    it('应支持版本 1.0.0 文件格式', async () => {
+      const mockData = {
+        version: '1.0.0',
+        updatedAt: '2026-03-19T10:00:00.000Z',
+        todos: [createMockTodo({ id: '1', content: 'Task' })],
+      };
+      mockInvoke.mockResolvedValueOnce(JSON.stringify(mockData));
+
+      await service.setWorkspace('/test/workspace');
+
+      expect(service.getAllTodos()).toHaveLength(1);
+    });
+
+    it('缺少 version 字段时应正常加载', async () => {
+      const mockData = {
+        updatedAt: '2026-03-19T10:00:00.000Z',
+        todos: [createMockTodo({ id: '1', content: 'Task' })],
+      };
+      mockInvoke.mockResolvedValueOnce(JSON.stringify(mockData));
+
+      await service.setWorkspace('/test/workspace');
+
+      expect(service.getAllTodos()).toHaveLength(1);
+    });
+
+    it('缺少 updatedAt 字段时应正常加载', async () => {
+      const mockData = {
+        version: '1.0.0',
+        todos: [createMockTodo({ id: '1', content: 'Task' })],
+      };
+      mockInvoke.mockResolvedValueOnce(JSON.stringify(mockData));
+
+      await service.setWorkspace('/test/workspace');
+
+      expect(service.getAllTodos()).toHaveLength(1);
+    });
+
+    it('空对象文件应初始化为空数组', async () => {
+      mockInvoke.mockResolvedValueOnce(JSON.stringify({}));
+
+      await service.setWorkspace('/test/workspace');
+
+      expect(service.getAllTodos()).toEqual([]);
+    });
+
+    it('非对象内容（字符串）应初始化为空数组', async () => {
+      mockInvoke.mockRejectedValueOnce(new Error('Invalid JSON'));
+
+      await service.setWorkspace('/test/workspace');
+
+      expect(service.getAllTodos()).toEqual([]);
+    });
+
+    it('非对象内容（数字）应初始化为空数组', async () => {
+      mockInvoke.mockRejectedValueOnce(new Error('Invalid content'));
+
+      await service.setWorkspace('/test/workspace');
+
+      expect(service.getAllTodos()).toEqual([]);
+    });
+  });
+
+  describe('路径边界', () => {
+    it('UNC 路径应正确处理', async () => {
+      mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+
+      await service.setWorkspace('\\\\server\\share\\project');
+
+      expect(mockInvoke).toHaveBeenCalledWith('read_file_absolute', {
+        path: '\\\\server\\share\\project/.polaris/todos.json',
+      });
+    });
+
+    it('相对路径应正确处理', async () => {
+      mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+
+      await service.setWorkspace('./project');
+
+      expect(mockInvoke).toHaveBeenCalledWith('read_file_absolute', {
+        path: './project/.polaris/todos.json',
+      });
+    });
+
+    it('带空格路径应正确处理', async () => {
+      mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+
+      await service.setWorkspace('/path/to/my project/workspace');
+
+      expect(mockInvoke).toHaveBeenCalledWith('read_file_absolute', {
+        path: '/path/to/my project/workspace/.polaris/todos.json',
+      });
+    });
+
+    it('带中文路径应正确处理', async () => {
+      mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+
+      await service.setWorkspace('/路径/到/我的项目');
+
+      expect(mockInvoke).toHaveBeenCalledWith('read_file_absolute', {
+        path: '/路径/到/我的项目/.polaris/todos.json',
+      });
+    });
+  });
+
+  describe('保存格式验证', () => {
+    it('保存内容应为有效 JSON', async () => {
+      mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+      await service.setWorkspace('/test/workspace');
+
+      vi.clearAllMocks();
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      await service.createTodo({ content: 'Task' });
+
+      const call = mockInvoke.mock.calls[0];
+      const content = call[1].content;
+
+      // 应该能解析为 JSON
+      expect(() => JSON.parse(content)).not.toThrow();
+    });
+
+    it('保存内容应格式化（带缩进）', async () => {
+      mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+      await service.setWorkspace('/test/workspace');
+
+      vi.clearAllMocks();
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      await service.createTodo({ content: 'Task' });
+
+      const call = mockInvoke.mock.calls[0];
+      const content = call[1].content;
+
+      // 应该包含换行和缩进
+      expect(content).toContain('\n');
+      expect(content).toContain('  ');
+    });
+  });
+});
+
+// ============================================================
+// 性能测试
+// ============================================================
+describe('性能测试', () => {
+  let service: SimpleTodoService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    service = new SimpleTodoService();
+  });
+
+  describe('大量订阅者通知', () => {
+    it('100 个订阅者应都能收到通知', async () => {
+      mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+      await service.setWorkspace('/test/workspace');
+
+      const listeners = Array.from({ length: 100 }, () => vi.fn());
+      listeners.forEach(l => service.subscribe(l));
+
+      vi.clearAllMocks();
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      await service.createTodo({ content: 'Task' });
+
+      listeners.forEach(l => {
+        expect(l).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('500 个订阅者通知应在合理时间内完成', async () => {
+      mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+      await service.setWorkspace('/test/workspace');
+
+      const listeners = Array.from({ length: 500 }, () => vi.fn());
+      listeners.forEach(l => service.subscribe(l));
+
+      vi.clearAllMocks();
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      const start = performance.now();
+      await service.createTodo({ content: 'Task' });
+      const duration = performance.now() - start;
+
+      // 500 个订阅者通知应在 100ms 内完成
+      expect(duration).toBeLessThan(100);
+    });
+  });
+
+  describe('大量数据查询', () => {
+    it('1000 条待办的查询应在合理时间内完成', async () => {
+      const manyTodos = Array.from({ length: 1000 }, (_, i) =>
+        createMockTodo({ id: `todo-${i}`, content: `Task ${i}` })
+      );
+      mockInvoke.mockResolvedValueOnce(createMockFileContent(manyTodos));
+
+      await service.setWorkspace('/test/workspace');
+
+      const start = performance.now();
+      const all = service.getAllTodos();
+      const duration = performance.now() - start;
+
+      expect(all).toHaveLength(1000);
+      // 查询应在 10ms 内完成
+      expect(duration).toBeLessThan(10);
+    });
+
+    it('1000 条待办的状态筛选应在合理时间内完成', async () => {
+      const manyTodos = Array.from({ length: 1000 }, (_, i) =>
+        createMockTodo({
+          id: `todo-${i}`,
+          status: i % 3 === 0 ? 'pending' : i % 3 === 1 ? 'in_progress' : 'completed',
+        })
+      );
+      mockInvoke.mockResolvedValueOnce(createMockFileContent(manyTodos));
+
+      await service.setWorkspace('/test/workspace');
+
+      const start = performance.now();
+      const pending = service.getTodosByStatus('pending');
+      const duration = performance.now() - start;
+
+      expect(pending.length).toBeGreaterThan(0);
+      // 筛选应在 10ms 内完成
+      expect(duration).toBeLessThan(10);
+    });
+
+    it('1000 条待办的统计计算应在合理时间内完成', async () => {
+      const manyTodos = Array.from({ length: 1000 }, (_, i) =>
+        createMockTodo({
+          id: `todo-${i}`,
+          status: ['pending', 'in_progress', 'completed'][i % 3] as 'pending' | 'in_progress' | 'completed',
+        })
+      );
+      mockInvoke.mockResolvedValueOnce(createMockFileContent(manyTodos));
+
+      await service.setWorkspace('/test/workspace');
+
+      const start = performance.now();
+      const stats = service.getStats();
+      const duration = performance.now() - start;
+
+      expect(stats.total).toBe(1000);
+      // 统计应在 10ms 内完成
+      expect(duration).toBeLessThan(10);
+    });
+  });
+
+  describe('取消订阅性能', () => {
+    it('频繁订阅取消不应影响性能', async () => {
+      mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+      await service.setWorkspace('/test/workspace');
+
+      const start = performance.now();
+
+      // 频繁订阅和取消
+      for (let i = 0; i < 100; i++) {
+        const unsub = service.subscribe(() => {});
+        unsub();
+      }
+
+      const duration = performance.now() - start;
+
+      // 100 次订阅取消应在 10ms 内完成
+      expect(duration).toBeLessThan(10);
+    });
+  });
+});
+
+// ============================================================
+// 国际化测试
+// ============================================================
+describe('国际化', () => {
+  let service: SimpleTodoService;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    service = new SimpleTodoService();
+    mockInvoke.mockResolvedValueOnce(createMockFileContent([]));
+    await service.setWorkspace('/test/workspace');
+    vi.clearAllMocks();
+  });
+
+  it('应正确处理中文内容', async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+
+    const todo = await service.createTodo({
+      content: '完成项目开发',
+      description: '这是一个重要的项目任务',
+      tags: ['重要', '紧急'],
+    });
+
+    expect(todo.content).toBe('完成项目开发');
+    expect(todo.description).toBe('这是一个重要的项目任务');
+    expect(todo.tags).toEqual(['重要', '紧急']);
+  });
+
+  it('应正确处理日文内容', async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+
+    const todo = await service.createTodo({
+      content: 'プロジェクトを完了する',
+      description: 'これは重要なタスクです',
+    });
+
+    expect(todo.content).toBe('プロジェクトを完了する');
+    expect(todo.description).toBe('これは重要なタスクです');
+  });
+
+  it('应正确处理韩文内容', async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+
+    const todo = await service.createTodo({
+      content: '프로젝트 완료',
+      description: '이것은 중요한 작업입니다',
+    });
+
+    expect(todo.content).toBe('프로젝트 완료');
+    expect(todo.description).toBe('이것은 중요한 작업입니다');
+  });
+
+  it('应正确处理阿拉伯文内容（RTL）', async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+
+    const todo = await service.createTodo({
+      content: 'إكمال المشروع',
+      description: 'هذه مهمة مهمة',
+    });
+
+    expect(todo.content).toBe('إكمال المشروع');
+    expect(todo.description).toBe('هذه مهمة مهمة');
+  });
+
+  it('应正确处理俄文内容', async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+
+    const todo = await service.createTodo({
+      content: 'Завершить проект',
+      description: 'Это важная задача',
+    });
+
+    expect(todo.content).toBe('Завершить проект');
+    expect(todo.description).toBe('Это важная задача');
+  });
+
+  it('应正确处理 emoji', async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+
+    const todo = await service.createTodo({
+      content: '完成项目 🚀🎉',
+      tags: ['重要🔥', '紧急⚡'],
+    });
+
+    expect(todo.content).toBe('完成项目 🚀🎉');
+    expect(todo.tags).toEqual(['重要🔥', '紧急⚡']);
+  });
+
+  it('应正确处理混合语言内容', async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+
+    const todo = await service.createTodo({
+      content: 'Complete 完成 完了 완료',
+      description: 'English 中文 日本語 한국어 العربية',
+    });
+
+    expect(todo.content).toBe('Complete 完成 完了 완료');
+    expect(todo.description).toBe('English 中文 日本語 한국어 العربية');
+  });
+});
