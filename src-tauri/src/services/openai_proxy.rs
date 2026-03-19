@@ -115,7 +115,8 @@ struct SSEEvent {
     choices: Vec<SSEChoice>,
 }
 
-/// SSE 选择项
+/// SSE 选择项 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct SSEChoice {
     index: u32,
@@ -125,7 +126,8 @@ struct SSEChoice {
     finish_reason: Option<String>,
 }
 
-/// SSE Delta
+/// SSE Delta (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct SSEDelta {
     #[serde(default)]
@@ -136,7 +138,8 @@ struct SSEDelta {
     tool_calls: Option<Vec<SSEToolCall>>,
 }
 
-/// SSE 工具调用
+/// SSE 工具调用 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct SSEToolCall {
     index: u32,
@@ -154,7 +157,8 @@ struct SSEFunctionCall {
     arguments: Option<String>,
 }
 
-/// 非流式响应
+/// 非流式响应 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct ChatResponse {
     #[serde(default)]
@@ -169,7 +173,8 @@ struct ChatResponse {
     choices: Vec<ChatResponseChoice>,
 }
 
-/// 非流式响应选择项
+/// 非流式响应选择项 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct ChatResponseChoice {
     index: u32,

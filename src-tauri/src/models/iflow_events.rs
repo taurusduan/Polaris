@@ -253,7 +253,8 @@ impl IFlowJsonlEvent {
         String::new()
     }
 
-    /// 是否为会话结束事件
+    /// 是否为会话结束事件（预留功能）
+    #[allow(dead_code)]
     pub fn is_session_end(&self) -> bool {
         // IFlow 没有明确的 session_end 事件
         // 我们通过检查是否有 stop_reason 来判断

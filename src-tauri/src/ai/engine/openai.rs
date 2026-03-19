@@ -41,7 +41,8 @@ fn default_max_tokens() -> u32 {
 /// 聊天消息（使用 openai_service 中的多模态支持）
 pub use crate::services::openai_service::{ChatMessage, MessageContent};
 
-/// 工具调用
+/// 工具调用 (serde 序列化结构，预留)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
     pub id: String,
@@ -50,14 +51,16 @@ pub struct ToolCall {
     pub function: FunctionCall,
 }
 
-/// 函数调用
+/// 函数调用 (serde 序列化结构，预留)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionCall {
     pub name: String,
     pub arguments: String,
 }
 
-/// OpenAI Chat 请求
+/// OpenAI Chat 请求 (serde 序列化结构，预留)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 pub struct ChatRequest {
     pub model: String,
@@ -70,14 +73,16 @@ pub struct ChatRequest {
     pub stream: Option<bool>,
 }
 
-/// OpenAI 流式响应
+/// OpenAI 流式响应 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct StreamResponse {
     pub id: Option<String>,
     pub choices: Vec<StreamChoice>,
 }
 
-/// 流式选择项
+/// 流式选择项 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct StreamChoice {
     pub index: u32,
@@ -132,7 +137,8 @@ impl OpenAIEngine {
         }
     }
 
-    /// 创建指定 Provider ID 的引擎实例
+    /// 创建指定 Provider ID 的引擎实例（预留 API）
+    #[allow(dead_code)]
     pub fn with_provider_id(provider_id: String) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(300))
@@ -150,7 +156,8 @@ impl OpenAIEngine {
         }
     }
 
-    /// 使用配置创建引擎
+    /// 使用配置创建引擎（预留 API）
+    #[allow(dead_code)]
     pub fn with_config(config: OpenAIProviderConfig) -> Self {
         let provider_id = config.provider_id.clone();
         let client = Client::builder()
@@ -186,7 +193,8 @@ impl OpenAIEngine {
         self.config = Some(config);
     }
 
-    /// 设置激活的 Provider ID
+    /// 设置激活的 Provider ID（预留 API）
+    #[allow(dead_code)]
     pub fn set_active_provider(&mut self, provider_id: Option<String>) {
         *self.active_provider_id.lock().unwrap() = provider_id;
     }

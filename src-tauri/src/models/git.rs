@@ -359,6 +359,7 @@ pub struct GitError {
 }
 
 /// Git 服务错误（内部使用）
+#[allow(dead_code)]
 #[derive(Debug, Error)]
 pub enum GitServiceError {
     #[error("Git error: {0}")]
@@ -398,7 +399,8 @@ pub enum GitServiceError {
 // 分支比较
 // ============================================================================
 
-/// 分支比较结果
+/// 分支比较结果（预留功能）
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BranchComparison {
     pub ahead: usize,
@@ -535,7 +537,8 @@ pub struct GitStashEntry {
 // 冲突文件
 // ============================================================================
 
-/// 冲突文件信息
+/// 冲突文件信息（预留功能）
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConflictedFile {
     pub path: String,

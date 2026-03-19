@@ -125,14 +125,16 @@ pub struct ChatRequest {
     pub tools: Option<Vec<ToolDefinition>>,
 }
 
-/// 非流式响应
+/// 非流式响应 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct ChatResponse {
     pub id: Option<String>,
     pub choices: Vec<ChatChoice>,
 }
 
-/// 选择项
+/// 选择项 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct ChatChoice {
     pub index: u32,
@@ -140,7 +142,8 @@ pub struct ChatChoice {
     pub finish_reason: Option<String>,
 }
 
-/// 响应消息
+/// 响应消息 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct ResponseMessage {
     pub role: String,
@@ -148,14 +151,16 @@ pub struct ResponseMessage {
     pub tool_calls: Option<Vec<ToolCall>>,
 }
 
-/// 流式响应
+/// 流式响应 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct StreamResponse {
     pub id: Option<String>,
     pub choices: Vec<StreamChoice>,
 }
 
-/// 流式选择项
+/// 流式选择项 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct StreamChoice {
     pub index: u32,
@@ -163,7 +168,8 @@ pub struct StreamChoice {
     pub finish_reason: Option<String>,
 }
 
-/// 增量内容
+/// 增量内容 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct Delta {
     pub role: Option<String>,
@@ -171,7 +177,8 @@ pub struct Delta {
     pub tool_calls: Option<Vec<ToolCallDelta>>,
 }
 
-/// 增量工具调用
+/// 增量工具调用 (serde 反序列化结构)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct ToolCallDelta {
     pub index: Option<u32>,
@@ -636,7 +643,8 @@ impl OpenAIService {
         }
     }
 
-    /// 获取 HTTP 客户端（供 openai_proxy 使用）
+    /// 获取 HTTP 客户端（预留功能）
+    #[allow(dead_code)]
     pub fn client(&self) -> &Client {
         &self.client
     }

@@ -69,7 +69,8 @@ impl ToolCallManager {
             .find(|tc| tc.name == tool_name && tc.status == ToolCallStatus::Running)
     }
 
-    /// 获取所有工具调用
+    /// 获取所有工具调用（预留功能）
+    #[allow(dead_code)]
     pub fn get_tool_calls(&self) -> Vec<ToolCallInfo> {
         self.tool_calls.values().cloned().collect()
     }

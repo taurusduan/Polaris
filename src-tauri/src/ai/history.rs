@@ -76,7 +76,8 @@ impl<T> PagedResult<T> {
         }
     }
 
-    /// 创建空结果
+    /// 创建空结果（预留功能）
+    #[allow(dead_code)]
     pub fn empty(page: usize, page_size: usize) -> Self {
         Self::new(vec![], 0, page, page_size)
     }

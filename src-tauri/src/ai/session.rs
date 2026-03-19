@@ -62,9 +62,10 @@ impl SessionManager {
         Ok(())
     }
 
-    /// 更新会话 ID（当引擎返回真实 session_id 时）
+    /// 更新会话 ID（当引擎返回真实 session_id 时）（预留功能）
     ///
     /// 保留旧 ID 作为别名，这样用临时 ID 也能找到会话
+    #[allow(dead_code)]
     pub fn update_session_id(&self, old_id: &str, new_id: &str) -> Result<()> {
         let mut sessions = self.sessions.lock()
             .map_err(|e| AppError::Unknown(format!("锁获取失败: {}", e)))?;
@@ -96,7 +97,8 @@ impl SessionManager {
         sessions.get(session_id).cloned()
     }
 
-    /// 获取会话 PID
+    /// 获取会话 PID（预留功能）
+    #[allow(dead_code)]
     pub fn get_pid(&self, session_id: &str) -> Option<u32> {
         let sessions = self.sessions.lock().ok()?;
         sessions.get(session_id).map(|info| info.pid)

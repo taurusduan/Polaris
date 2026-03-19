@@ -318,7 +318,8 @@ impl IFlowEngine {
         Ok(config_dir.join("projects").join(&encoded_path))
     }
 
-    /// 查找最新的会话文件
+    /// 查找最新的会话文件（预留功能）
+    #[allow(dead_code)]
     fn find_latest_session_file(&self, work_dir: &str) -> Result<PathBuf> {
         let session_dir = self.get_project_session_dir(work_dir)?;
 

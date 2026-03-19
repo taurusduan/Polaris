@@ -31,7 +31,8 @@ impl EngineStatus {
     }
 }
 
-/// 引擎描述信息
+/// 引擎描述信息（预留功能）
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineDescriptor {
     /// 引擎 ID
@@ -44,6 +45,7 @@ pub struct EngineDescriptor {
     pub available: bool,
 }
 
+#[allow(dead_code)]
 impl EngineDescriptor {
     /// 获取所有引擎描述
     pub fn all() -> Vec<Self> {

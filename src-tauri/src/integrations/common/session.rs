@@ -13,6 +13,7 @@ pub struct SessionManager {
     sessions: HashMap<String, IntegrationSession>,
 }
 
+#[allow(dead_code)]
 impl SessionManager {
     /// 创建新的会话管理器
     pub fn new() -> Self {

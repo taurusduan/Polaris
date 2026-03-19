@@ -17,6 +17,7 @@ pub struct ConversationStore {
     engine_last_conversation: HashMap<EngineId, String>,
 }
 
+#[allow(dead_code)]
 impl ConversationStore {
     /// 创建新的会话存储
     pub fn new() -> Self {
