@@ -12,6 +12,20 @@ use crate::models::git::{GitFileChange, GitFileStatus, GitRepositoryStatus};
 use super::executor::open_repository;
 use super::utils::{FileStatusFlags, FileStatusInfo};
 
+/// 文件状态集合
+///
+/// 用于封装仓库文件状态的分类结果
+pub struct FileStatuses {
+    /// 已暂存的文件变更
+    pub staged: Vec<GitFileChange>,
+    /// 未暂存的文件变更
+    pub unstaged: Vec<GitFileChange>,
+    /// 未跟踪的文件路径
+    pub untracked: Vec<String>,
+    /// 有冲突的文件路径
+    pub conflicted: Vec<String>,
+}
+
 /// 获取仓库状态
 pub fn get_status(path: &Path) -> Result<GitRepositoryStatus, crate::models::git::GitServiceError> {
     debug!("开始获取仓库状态，路径: {:?}", path);
@@ -78,7 +92,7 @@ pub fn get_status(path: &Path) -> Result<GitRepositoryStatus, crate::models::git
     };
 
     // 获取文件状态
-    let (staged, unstaged, untracked, conflicted) = parse_statuses(&repo)?;
+    let file_statuses = parse_statuses(&repo)?;
 
     Ok(GitRepositoryStatus {
         exists: true,
@@ -87,10 +101,10 @@ pub fn get_status(path: &Path) -> Result<GitRepositoryStatus, crate::models::git
         short_commit,
         ahead,
         behind,
-        staged,
-        unstaged,
-        untracked,
-        conflicted,
+        staged: file_statuses.staged,
+        unstaged: file_statuses.unstaged,
+        untracked: file_statuses.untracked,
+        conflicted: file_statuses.conflicted,
         is_empty,
     })
 }
@@ -98,10 +112,7 @@ pub fn get_status(path: &Path) -> Result<GitRepositoryStatus, crate::models::git
 /// 解析文件状态（重构版：合并多状态条目）
 fn parse_statuses(
     repo: &Repository,
-) -> Result<
-    (Vec<GitFileChange>, Vec<GitFileChange>, Vec<String>, Vec<String>),
-    crate::models::git::GitServiceError,
-> {
+) -> Result<FileStatuses, crate::models::git::GitServiceError> {
     let mut opts = StatusOptions::new();
     opts.include_untracked(true)
         .include_ignored(false)
@@ -283,7 +294,12 @@ fn parse_statuses(
     );
     debug!("  untracked paths: {:?}", untracked);
 
-    Ok((staged, unstaged, untracked, conflicted))
+    Ok(FileStatuses {
+        staged,
+        unstaged,
+        untracked,
+        conflicted,
+    })
 }
 
 /// 计算分支的领先/落后

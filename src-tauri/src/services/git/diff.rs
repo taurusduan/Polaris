@@ -13,6 +13,18 @@ use crate::models::git::{
 use super::executor::open_repository;
 use super::utils::{is_binary_by_extension, is_binary_bytes, MAX_INLINE_DIFF_BYTES};
 
+/// 文件 Diff 内容
+///
+/// 用于封装文件差异比较的结果，提高代码可读性
+pub struct FileDiffContent {
+    /// 旧文件内容（新增文件时为 None）
+    pub old_content: Option<String>,
+    /// 新文件内容（删除文件时为 None）
+    pub new_content: Option<String>,
+    /// 内容是否被省略（大文件或二进制文件时为 Some(true)）
+    pub content_omitted: Option<bool>,
+}
+
 /// 获取 Diff（HEAD vs 指定 commit）
 pub fn get_diff(path: &Path, base_commit: &str) -> Result<Vec<GitDiffEntry>, GitServiceError> {
     let repo = open_repository(path)?;
@@ -174,8 +186,12 @@ fn convert_diff(repo: &Repository, diff: &Diff) -> Result<Vec<GitDiffEntry>, Git
         let is_binary = delta.new_file().is_binary() || delta.old_file().is_binary();
 
         // 获取文件内容
-        let (old_content, new_content, content_omitted) = if is_binary {
-            (None, None, Some(true))
+        let file_diff = if is_binary {
+            FileDiffContent {
+                old_content: None,
+                new_content: None,
+                content_omitted: Some(true),
+            }
         } else {
             get_diff_content(repo, &delta, &change_type)?
         };
@@ -191,12 +207,12 @@ fn convert_diff(repo: &Repository, diff: &Diff) -> Result<Vec<GitDiffEntry>, Git
             file_path: file_path.clone(),
             old_file_path,
             change_type,
-            old_content,
-            new_content,
+            old_content: file_diff.old_content,
+            new_content: file_diff.new_content,
             additions: Some(additions),
             deletions: Some(deletions),
             is_binary,
-            content_omitted,
+            content_omitted: file_diff.content_omitted,
             status_hint,
         });
     }
@@ -215,7 +231,7 @@ fn get_diff_content(
     repo: &Repository,
     delta: &DiffDelta,
     change_type: &DiffChangeType,
-) -> Result<(Option<String>, Option<String>, Option<bool>), GitServiceError> {
+) -> Result<FileDiffContent, GitServiceError> {
     let old_content = if !matches!(change_type, DiffChangeType::Added) {
         let oid = delta.old_file().id();
         if !oid.is_zero() {
@@ -305,7 +321,11 @@ fn get_diff_content(
     let old = old_content.and_then(|o| o);
     let new = new_content.and_then(|n| n);
 
-    Ok((old, new, if content_omitted { Some(true) } else { None }))
+    Ok(FileDiffContent {
+        old_content: old,
+        new_content: new,
+        content_omitted: if content_omitted { Some(true) } else { None },
+    })
 }
 
 /// 直接比较 HEAD 和工作区（绕过暂存区）
