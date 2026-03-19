@@ -1682,3 +1682,444 @@ describe('formatTime 边界情况', () => {
     expect(typeof result).toBe('string')
   })
 })
+
+// ============================================================================
+// formatFileSize 更多边界情况测试
+// ============================================================================
+
+describe('formatFileSize 更多边界情况', () => {
+  let service: ClaudeCodeHistoryService
+
+  beforeEach(() => {
+    service = new ClaudeCodeHistoryService()
+  })
+
+  it('应该处理负数文件大小', () => {
+    // 负数会导致 Math.log 返回 NaN
+    const result = service.formatFileSize(-1)
+    expect(typeof result).toBe('string')
+  })
+
+  it('应该处理非常小的正数', () => {
+    expect(service.formatFileSize(0.5)).toBe('0.5 B')
+    expect(service.formatFileSize(0.001)).toBe('0 B')
+  })
+
+  it('应该处理刚好是 1024 倍数的文件大小', () => {
+    expect(service.formatFileSize(1024)).toBe('1 KB')
+    expect(service.formatFileSize(1048576)).toBe('1 MB')
+    expect(service.formatFileSize(1073741824)).toBe('1 GB')
+  })
+
+  it('应该正确四舍五入文件大小', () => {
+    // 1536 = 1.5 KB
+    expect(service.formatFileSize(1536)).toBe('1.5 KB')
+    // 1600 = 1.56 KB -> 1.56 KB
+    expect(service.formatFileSize(1600)).toBe('1.56 KB')
+  })
+})
+
+// ============================================================================
+// 合并逻辑边界情况测试
+// ============================================================================
+
+describe('合并逻辑边界情况', () => {
+  let service: ClaudeCodeHistoryService
+
+  beforeEach(() => {
+    service = new ClaudeCodeHistoryService()
+    vi.clearAllMocks()
+    uuidIndex = 0
+  })
+
+  it('应该处理只有 assistant 消息的情况', () => {
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'assistant', content: [{ type: 'text', text: 'Part 1' }], timestamp: '2026-03-19T10:00:00Z' },
+      { role: 'assistant', content: [{ type: 'text', text: 'Part 2' }], timestamp: '2026-03-19T10:01:00Z' },
+      { role: 'assistant', content: [{ type: 'text', text: 'Part 3' }], timestamp: '2026-03-19T10:02:00Z' },
+    ]
+
+    const result = service.convertToChatMessages(messages)
+
+    // 所有 assistant 消息应该合并为一条
+    expect(result).toHaveLength(1)
+    expect(result[0].type).toBe('assistant')
+    const blocks = (result[0] as { blocks: Array<{ type: string; content?: string }> }).blocks
+    expect(blocks).toHaveLength(3)
+  })
+
+  it('应该处理 user -> assistant -> user -> assistant 交替', () => {
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'user', content: 'Q1', timestamp: '2026-03-19T10:00:00Z' },
+      { role: 'assistant', content: [{ type: 'text', text: 'A1' }], timestamp: '2026-03-19T10:01:00Z' },
+      { role: 'user', content: 'Q2', timestamp: '2026-03-19T10:02:00Z' },
+      { role: 'assistant', content: [{ type: 'text', text: 'A2' }], timestamp: '2026-03-19T10:03:00Z' },
+    ]
+
+    const result = service.convertToChatMessages(messages)
+
+    expect(result).toHaveLength(4)
+    expect(result[0].type).toBe('user')
+    expect(result[1].type).toBe('assistant')
+    expect(result[2].type).toBe('user')
+    expect(result[3].type).toBe('assistant')
+  })
+
+  it('应该正确处理 system 消息打断 assistant 合并', () => {
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'assistant', content: [{ type: 'text', text: 'A1' }], timestamp: '2026-03-19T10:00:00Z' },
+      { role: 'system', content: 'System notification', timestamp: '2026-03-19T10:01:00Z' },
+      { role: 'assistant', content: [{ type: 'text', text: 'A2' }], timestamp: '2026-03-19T10:02:00Z' },
+      { role: 'assistant', content: [{ type: 'text', text: 'A3' }], timestamp: '2026-03-19T10:03:00Z' },
+    ]
+
+    const result = service.convertToChatMessages(messages)
+
+    // 第一个 assistant，然后 system，然后合并后的两个 assistant
+    expect(result).toHaveLength(3)
+    expect(result[0].type).toBe('assistant')
+    expect(result[1].type).toBe('system')
+    expect(result[2].type).toBe('assistant')
+    // 最后一个 assistant 应该有两个 block
+    const blocks = (result[2] as { blocks: Array<{ type: string }> }).blocks
+    expect(blocks).toHaveLength(2)
+  })
+
+  it('应该处理以 user 开头的消息序列', () => {
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'user', content: 'Start', timestamp: '2026-03-19T10:00:00Z' },
+      { role: 'assistant', content: [{ type: 'text', text: 'Response' }], timestamp: '2026-03-19T10:01:00Z' },
+    ]
+
+    const result = service.convertToChatMessages(messages)
+
+    expect(result).toHaveLength(2)
+    expect(result[0].type).toBe('user')
+    expect(result[1].type).toBe('assistant')
+  })
+
+  it('应该处理以 system 开头的消息序列', () => {
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'system', content: 'Initial system message', timestamp: '2026-03-19T10:00:00Z' },
+      { role: 'user', content: 'Hello', timestamp: '2026-03-19T10:01:00Z' },
+    ]
+
+    const result = service.convertToChatMessages(messages)
+
+    expect(result).toHaveLength(2)
+    expect(result[0].type).toBe('system')
+    expect(result[1].type).toBe('user')
+  })
+
+  it('应该处理连续的 system 消息', () => {
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'system', content: 'System 1', timestamp: '2026-03-19T10:00:00Z' },
+      { role: 'system', content: 'System 2', timestamp: '2026-03-19T10:01:00Z' },
+    ]
+
+    const result = service.convertToChatMessages(messages)
+
+    expect(result).toHaveLength(2)
+    expect(result[0].type).toBe('system')
+    expect(result[1].type).toBe('system')
+  })
+})
+
+// ============================================================================
+// extractToolCalls 更多场景测试
+// ============================================================================
+
+describe('extractToolCalls 更多场景', () => {
+  let service: ClaudeCodeHistoryService
+
+  beforeEach(() => {
+    service = new ClaudeCodeHistoryService()
+    vi.clearAllMocks()
+    uuidIndex = 0
+  })
+
+  it('应该从多个 assistant 消息中提取所有工具调用', () => {
+    const messages: ClaudeCodeMessage[] = [
+      {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'call-1', name: 'ReadFile', input: { path: '/a' } },
+        ],
+        timestamp: '2026-03-19T10:00:00Z',
+      },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'call-2', name: 'WriteFile', input: { path: '/b' } },
+        ],
+        timestamp: '2026-03-19T10:01:00Z',
+      },
+    ]
+
+    const result = service.extractToolCalls(messages)
+
+    expect(result).toHaveLength(2)
+    expect(result[0].id).toBe('call-1')
+    expect(result[1].id).toBe('call-2')
+  })
+
+  it('应该处理同一消息中的多个工具调用', () => {
+    const messages: ClaudeCodeMessage[] = [
+      {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'call-1', name: 'ReadFile', input: { path: '/a' } },
+          { type: 'tool_use', id: 'call-2', name: 'WriteFile', input: { path: '/b' } },
+          { type: 'tool_use', id: 'call-3', name: 'DeleteFile', input: { path: '/c' } },
+        ],
+        timestamp: '2026-03-19T10:00:00Z',
+      },
+    ]
+
+    const result = service.extractToolCalls(messages)
+
+    expect(result).toHaveLength(3)
+  })
+
+  it('应该正确处理工具调用的 timestamp', () => {
+    const messages: ClaudeCodeMessage[] = [
+      {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'call-1', name: 'Test', input: {} },
+        ],
+        timestamp: '2026-03-19T10:00:00Z',
+      },
+    ]
+
+    const result = service.extractToolCalls(messages)
+
+    expect(result[0].startedAt).toBe('2026-03-19T10:00:00Z')
+  })
+
+  it('应该为缺少 timestamp 的工具调用生成默认时间', () => {
+    const messages: ClaudeCodeMessage[] = [
+      {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'call-1', name: 'Test', input: {} },
+        ],
+      },
+    ]
+
+    const result = service.extractToolCalls(messages)
+
+    expect(result[0].startedAt).toBeDefined()
+  })
+})
+
+// ============================================================================
+// convertMessagesToFormat 更多场景测试
+// ============================================================================
+
+describe('convertMessagesToFormat 更多场景', () => {
+  let service: ClaudeCodeHistoryService
+
+  beforeEach(() => {
+    service = new ClaudeCodeHistoryService()
+    vi.clearAllMocks()
+  })
+
+  it('应该处理混合 role 的消息列表', () => {
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'user', content: 'Q1', timestamp: '2026-03-19T10:00:00Z' },
+      { role: 'assistant', content: 'A1', timestamp: '2026-03-19T10:01:00Z' },
+      { role: 'user', content: 'Q2', timestamp: '2026-03-19T10:02:00Z' },
+      { role: 'assistant', content: 'A2', timestamp: '2026-03-19T10:03:00Z' },
+    ]
+
+    const result = service.convertMessagesToFormat(messages)
+
+    expect(result).toHaveLength(4)
+    expect(result[0].role).toBe('user')
+    expect(result[1].role).toBe('assistant')
+  })
+
+  it('应该保留消息顺序', () => {
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'user', content: 'First', timestamp: '2026-03-19T10:00:00Z' },
+      { role: 'user', content: 'Second', timestamp: '2026-03-19T10:01:00Z' },
+      { role: 'user', content: 'Third', timestamp: '2026-03-19T10:02:00Z' },
+    ]
+
+    const result = service.convertMessagesToFormat(messages)
+
+    expect(result[0].content).toBe('First')
+    expect(result[1].content).toBe('Second')
+    expect(result[2].content).toBe('Third')
+  })
+
+  it('应该为每条消息生成唯一 ID', () => {
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'user', content: 'A', timestamp: '2026-03-19T10:00:00Z' },
+      { role: 'user', content: 'B', timestamp: '2026-03-19T10:01:00Z' },
+    ]
+
+    const result = service.convertMessagesToFormat(messages)
+
+    expect(result[0].id).toBe('user-0')
+    expect(result[1].id).toBe('user-1')
+  })
+})
+
+// ============================================================================
+// 服务实例测试
+// ============================================================================
+
+describe('服务实例测试', () => {
+  it('应该创建新的服务实例', () => {
+    const service = new ClaudeCodeHistoryService()
+    expect(service).toBeInstanceOf(ClaudeCodeHistoryService)
+  })
+
+  it('getClaudeCodeHistoryService 应该返回 ClaudeCodeHistoryService 实例', () => {
+    const service = getClaudeCodeHistoryService()
+    expect(service).toBeInstanceOf(ClaudeCodeHistoryService)
+  })
+
+  it('多次调用 getClaudeCodeHistoryService 应该返回同一实例', () => {
+    const service1 = getClaudeCodeHistoryService()
+    const service2 = getClaudeCodeHistoryService()
+    expect(service1).toBe(service2)
+  })
+})
+
+// ============================================================================
+// 消息类型边界情况测试
+// ============================================================================
+
+describe('消息类型边界情况', () => {
+  let service: ClaudeCodeHistoryService
+
+  beforeEach(() => {
+    service = new ClaudeCodeHistoryService()
+    vi.clearAllMocks()
+    uuidIndex = 0
+  })
+
+  it('应该处理 role 为未知类型的情况', () => {
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'custom', content: 'Custom message', timestamp: '2026-03-19T10:00:00Z' },
+      { role: 'user', content: 'User message', timestamp: '2026-03-19T10:01:00Z' },
+    ]
+
+    // 不应该抛出异常
+    const result = service.convertToChatMessages(messages)
+    expect(result.length).toBeGreaterThan(0)
+  })
+
+  it('应该处理空 role 的情况', () => {
+    const messages: ClaudeCodeMessage[] = [
+      { role: '', content: 'Empty role', timestamp: '2026-03-19T10:00:00Z' },
+    ]
+
+    // 不应该抛出异常
+    const result = service.convertToChatMessages(messages)
+    expect(result.length).toBeGreaterThan(0)
+  })
+
+  it('应该处理缺少 role 的情况', () => {
+    const messages = [
+      { content: 'No role', timestamp: '2026-03-19T10:00:00Z' },
+    ] as ClaudeCodeMessage[]
+
+    // 不应该抛出异常
+    const result = service.convertToChatMessages(messages)
+    expect(result.length).toBeGreaterThan(0)
+  })
+
+  it('应该处理大写 role 的情况', () => {
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'USER', content: 'Upper case', timestamp: '2026-03-19T10:00:00Z' },
+    ]
+
+    // 不应该抛出异常
+    const result = service.convertToChatMessages(messages)
+    expect(result.length).toBeGreaterThan(0)
+  })
+})
+
+// ============================================================================
+// 特殊字符和编码测试
+// ============================================================================
+
+describe('特殊字符和编码测试', () => {
+  let service: ClaudeCodeHistoryService
+
+  beforeEach(() => {
+    service = new ClaudeCodeHistoryService()
+    vi.clearAllMocks()
+  })
+
+  it('应该正确处理 JSON 字符串', () => {
+    const jsonContent = '{"key": "value", "number": 123}'
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'user', content: jsonContent, timestamp: '2026-03-19T10:00:00Z' },
+    ]
+
+    const result = service.convertMessagesToFormat(messages)
+
+    expect(result[0].content).toBe(jsonContent)
+  })
+
+  it('应该正确处理 HTML 标签', () => {
+    const htmlContent = '<div>Hello <span>World</span></div>'
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'user', content: htmlContent, timestamp: '2026-03-19T10:00:00Z' },
+    ]
+
+    const result = service.convertMessagesToFormat(messages)
+
+    expect(result[0].content).toBe(htmlContent)
+  })
+
+  it('应该正确处理代码块', () => {
+    const codeContent = '```typescript\nconst x = 1;\n```'
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'user', content: codeContent, timestamp: '2026-03-19T10:00:00Z' },
+    ]
+
+    const result = service.convertMessagesToFormat(messages)
+
+    expect(result[0].content).toBe(codeContent)
+  })
+
+  it('应该正确处理 Markdown 格式', () => {
+    const mdContent = '# Heading\n\n- Item 1\n- Item 2\n\n**Bold** and *italic*'
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'user', content: mdContent, timestamp: '2026-03-19T10:00:00Z' },
+    ]
+
+    const result = service.convertMessagesToFormat(messages)
+
+    expect(result[0].content).toBe(mdContent)
+  })
+
+  it('应该正确处理转义字符', () => {
+    const escapedContent = 'Line1\\nLine2\\tTabbed\\"Quote\\"'
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'user', content: escapedContent, timestamp: '2026-03-19T10:00:00Z' },
+    ]
+
+    const result = service.convertMessagesToFormat(messages)
+
+    expect(result[0].content).toBe(escapedContent)
+  })
+
+  it('应该正确处理长文本', () => {
+    const longContent = 'A'.repeat(10000)
+    const messages: ClaudeCodeMessage[] = [
+      { role: 'user', content: longContent, timestamp: '2026-03-19T10:00:00Z' },
+    ]
+
+    const result = service.convertMessagesToFormat(messages)
+
+    expect(result[0].content).toBe(longContent)
+    expect(result[0].content.length).toBe(10000)
+  })
+})

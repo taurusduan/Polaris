@@ -401,7 +401,8 @@ export class ClaudeCodeHistoryService {
     if (bytes === 0) return '0 B'
     const k = 1024
     const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    // 使用 Math.max(0, ...) 确保索引不为负数（当 bytes < 1 时 Math.log 返回负数）
+    const i = Math.max(0, Math.floor(Math.log(bytes) / Math.log(k)))
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
   }
 
