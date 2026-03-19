@@ -17,57 +17,55 @@ pub fn get_tags(path: &Path) -> Result<Vec<GitTag>, GitServiceError> {
     // 获取所有标签
     let tag_names = repo.tag_names(None)?;
 
-    for tag_name_opt in tag_names.iter() {
-        if let Some(tag_name) = tag_name_opt {
-            // 查找标签引用
-            let ref_name = format!("refs/tags/{}", tag_name);
-            let reference = match repo.find_reference(&ref_name) {
-                Ok(r) => r,
-                Err(_) => continue,
-            };
+    for tag_name in tag_names.iter().flatten() {
+        // 查找标签引用
+        let ref_name = format!("refs/tags/{}", tag_name);
+        let reference = match repo.find_reference(&ref_name) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
 
-            // 获取标签指向的目标
-            let target = match reference.target() {
-                Some(t) => t,
-                None => continue,
-            };
+        // 获取标签指向的目标
+        let target = match reference.target() {
+            Some(t) => t,
+            None => continue,
+        };
 
-            // 检查是否为 annotated 标签或 lightweight 标签
-            let (commit_sha, is_annotated, message, tagger, timestamp) =
-                if let Ok(tag_obj) = repo.find_tag(target) {
-                    // Annotated 标签
-                    let commit_oid = tag_obj.target_id();
-                    let message = tag_obj.message().map(|s| s.to_string());
-                    let tagger = tag_obj
-                        .tagger()
-                        .and_then(|s| s.name().map(|n| n.to_string()));
-                    let timestamp = tag_obj.tagger().and_then(|s| {
-                        let time = s.when();
-                        Some(time.seconds())
-                    });
-                    (commit_oid.to_string(), true, message, tagger, timestamp)
-                } else {
-                    // Lightweight 标签
-                    (target.to_string(), false, None, None, None)
-                };
-
-            // 生成短 SHA
-            let short_sha = if commit_sha.len() >= 8 {
-                commit_sha[..8].to_string()
+        // 检查是否为 annotated 标签或 lightweight 标签
+        let (commit_sha, is_annotated, message, tagger, timestamp) =
+            if let Ok(tag_obj) = repo.find_tag(target) {
+                // Annotated 标签
+                let commit_oid = tag_obj.target_id();
+                let message = tag_obj.message().map(|s| s.to_string());
+                let tagger = tag_obj
+                    .tagger()
+                    .and_then(|s| s.name().map(|n| n.to_string()));
+                let timestamp = tag_obj.tagger().map(|s| {
+                    let time = s.when();
+                    time.seconds()
+                });
+                (commit_oid.to_string(), true, message, tagger, timestamp)
             } else {
-                commit_sha.clone()
+                // Lightweight 标签
+                (target.to_string(), false, None, None, None)
             };
 
-            tags.push(GitTag {
-                name: tag_name.to_string(),
-                is_annotated,
-                commit_sha,
-                short_sha,
-                message,
-                tagger,
-                timestamp,
-            });
-        }
+        // 生成短 SHA
+        let short_sha = if commit_sha.len() >= 8 {
+            commit_sha[..8].to_string()
+        } else {
+            commit_sha.clone()
+        };
+
+        tags.push(GitTag {
+            name: tag_name.to_string(),
+            is_annotated,
+            commit_sha,
+            short_sha,
+            message,
+            tagger,
+            timestamp,
+        });
     }
 
     // 按时间倒序排序

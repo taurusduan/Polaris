@@ -147,15 +147,14 @@ impl SessionManager {
     ) {
         if let Ok(mut s) = sessions.lock() {
             // 创建新的 SessionInfo，将 old_id 作为别名
-            let mut aliases = Vec::new();
-            aliases.push(old_id.to_string());
+            let aliases = vec![old_id.to_string()];
 
             let info = SessionInfo {
                 id: new_id.to_string(),
                 pid,
                 engine_id: engine_id.to_string(),
                 created_at: chrono::Utc::now().timestamp(),
-                aliases: aliases.clone(),
+                aliases,
             };
 
             // 插入新 ID 映射

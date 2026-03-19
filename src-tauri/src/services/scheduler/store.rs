@@ -600,7 +600,7 @@ impl LogStoreService {
         page_size: u32,
     ) -> PaginatedLogs {
         let page = page.max(1);
-        let page_size = page_size.max(1).min(100) as usize;
+        let page_size = page_size.clamp(1, 100) as usize;
 
         // 获取要分页的日志
         let logs_to_page: Vec<&TaskLog> = if let Some(tid) = task_id {

@@ -541,7 +541,6 @@ pub async fn get_iflow_token_stats(
 // Claude Code 会话历史（旧接口，保留向后兼容）
 // ============================================================================
 
-use std::process::Command;
 use std::io::{BufRead, BufReader};
 
 /// Claude Code 会话元数据
