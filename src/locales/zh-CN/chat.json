@@ -117,7 +117,13 @@
     "stagePending": "待开始",
     "stageInProgress": "进行中",
     "stageCompleted": "已完成",
-    "stageFailed": "失败"
+    "stageFailed": "失败",
+    "planModeAriaLabel": "计划: {{title}}",
+    "feedbackLabel": "拒绝原因或修改建议",
+    "approvalButtonsLabel": "审批操作",
+    "approveAriaLabel": "批准此计划",
+    "rejectAriaLabel": "拒绝此计划",
+    "stageAriaLabel": "阶段: {{name}}, 进度 {{completed}}/{{total}}"
   },
   "agent": {
     "toolCount": "{{count}} 个工具调用",

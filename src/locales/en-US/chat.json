@@ -117,7 +117,13 @@
     "stagePending": "Pending",
     "stageInProgress": "In Progress",
     "stageCompleted": "Completed",
-    "stageFailed": "Failed"
+    "stageFailed": "Failed",
+    "planModeAriaLabel": "Plan: {{title}}",
+    "feedbackLabel": "Rejection reason or modification suggestions",
+    "approvalButtonsLabel": "Approval actions",
+    "approveAriaLabel": "Approve this plan",
+    "rejectAriaLabel": "Reject this plan",
+    "stageAriaLabel": "Stage: {{name}}, progress {{completed}}/{{total}}"
   },
   "agent": {
     "toolCount": "{{count}} tool calls",

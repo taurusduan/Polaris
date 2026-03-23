@@ -1547,6 +1547,7 @@ const PlanStageRenderer = memo(function PlanStageRenderer({
   isExpanded?: boolean;
   onToggle?: () => void;
 }) {
+  const { t } = useTranslation('chat');
   const statusConfig = PLAN_TASK_STATUS_CONFIG[stage.status];
   const StatusIcon = statusConfig.icon;
 
@@ -1555,13 +1556,27 @@ const PlanStageRenderer = memo(function PlanStageRenderer({
   const completedTasks = stage.tasks.filter(task => task.status === 'completed').length;
   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  // 键盘支持：Enter/Space 展开/折叠
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onToggle?.();
+    }
+  }, [onToggle]);
+
   return (
     <div className="border border-border-subtle rounded-lg overflow-hidden">
       {/* 阶段头部 */}
       <div
         onClick={onToggle}
+        onKeyDown={handleKeyDown}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        aria-label={t('plan.stageAriaLabel', { name: stage.name, completed: completedTasks, total: totalTasks })}
         className={clsx(
           'flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-background-hover transition-colors',
+          'focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-1',
           stage.status === 'in_progress' && 'bg-violet-500/5'
         )}
       >
@@ -1626,6 +1641,10 @@ const PlanModeBlockRenderer = memo(function PlanModeBlockRenderer({ block }: { b
   const [rejectFeedback, setRejectFeedback] = useState('');
   const [showFeedbackInput, setShowFeedbackInput] = useState(false);
 
+  // 无障碍支持
+  const containerRef = useRef<HTMLDivElement>(null);
+  const feedbackInputRef = useRef<HTMLInputElement>(null);
+
   const conversationId = useEventChatStore(state => state.conversationId);
   const continueChat = useEventChatStore(state => state.continueChat);
 
@@ -1634,6 +1653,24 @@ const PlanModeBlockRenderer = memo(function PlanModeBlockRenderer({ block }: { b
 
   // 是否可交互
   const isInteractive = block.status === 'pending_approval' && block.isActive;
+
+  // 键盘导航支持
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      if (showFeedbackInput) {
+        setShowFeedbackInput(false);
+        setRejectFeedback('');
+        e.preventDefault();
+      }
+    }
+  }, [showFeedbackInput]);
+
+  // 焦点管理：反馈输入框显示时自动聚焦
+  useEffect(() => {
+    if (showFeedbackInput && feedbackInputRef.current) {
+      feedbackInputRef.current.focus();
+    }
+  }, [showFeedbackInput]);
 
   // 切换阶段展开状态
   const toggleStage = useCallback((stageId: string) => {
@@ -1724,12 +1761,18 @@ const PlanModeBlockRenderer = memo(function PlanModeBlockRenderer({ block }: { b
   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   return (
-    <div className={clsx(
-      'my-2 rounded-lg border overflow-hidden',
-      block.isActive
-        ? 'bg-violet-500/5 border-violet-500/30'
-        : 'bg-background-surface border-border'
-    )}>
+    <div
+      ref={containerRef}
+      role="region"
+      aria-label={t('plan.planModeAriaLabel', { title: block.title || t('plan.defaultTitle') })}
+      onKeyDown={handleKeyDown}
+      className={clsx(
+        'my-2 rounded-lg border overflow-hidden',
+        block.isActive
+          ? 'bg-violet-500/5 border-violet-500/30'
+          : 'bg-background-surface border-border'
+      )}
+    >
       {/* 头部 */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-inherit bg-inherit/50">
         <div className={clsx('p-1.5 rounded', statusConfig.bg)}>
@@ -1781,14 +1824,20 @@ const PlanModeBlockRenderer = memo(function PlanModeBlockRenderer({ block }: { b
       {/* 反馈输入框 */}
       {isInteractive && showFeedbackInput && (
         <div className="px-3 py-2 border-t border-inherit bg-inherit/30">
+          <label className="sr-only" htmlFor="plan-feedback-input">
+            {t('plan.feedbackLabel')}
+          </label>
           <input
+            id="plan-feedback-input"
+            ref={feedbackInputRef}
             type="text"
             value={rejectFeedback}
             onChange={(e) => setRejectFeedback(e.target.value)}
             placeholder={t('plan.feedbackPlaceholder')}
+            aria-label={t('plan.feedbackLabel')}
             disabled={isSubmitting}
             className="w-full px-3 py-2 rounded-md text-sm bg-bg-secondary border border-border
-                       focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none
+                       focus:border-violet-500 focus:ring-2 focus:ring-violet-500 outline-none
                        placeholder:text-text-tertiary disabled:opacity-50"
           />
           <div className="flex items-center gap-2 mt-2">
@@ -1821,12 +1870,17 @@ const PlanModeBlockRenderer = memo(function PlanModeBlockRenderer({ block }: { b
 
       {/* 审批按钮 */}
       {isInteractive && !showFeedbackInput && (
-        <div className="flex items-center gap-2 px-3 py-2 border-t border-inherit bg-inherit/30">
+        <div
+          role="group"
+          aria-label={t('plan.approvalButtonsLabel')}
+          className="flex items-center gap-2 px-3 py-2 border-t border-inherit bg-inherit/30"
+        >
           <Button
             variant="primary"
             size="sm"
             onClick={handleApprove}
             disabled={isSubmitting}
+            aria-label={t('plan.approveAriaLabel')}
             className="flex-1"
           >
             {isSubmitting ? (
@@ -1841,6 +1895,7 @@ const PlanModeBlockRenderer = memo(function PlanModeBlockRenderer({ block }: { b
             size="sm"
             onClick={() => setShowFeedbackInput(true)}
             disabled={isSubmitting}
+            aria-label={t('plan.rejectAriaLabel')}
             className="flex-1"
           >
             <ThumbsDown className="w-3 h-3 mr-1" />
