@@ -1173,17 +1173,25 @@ function renderContentBlock(
  * 简化版工具调用渲染器 - 用于归档层
  */
 const SimplifiedToolCallRenderer = memo(function SimplifiedToolCallRenderer({ block }: { block: ToolCallBlock }) {
+  const { t } = useTranslation('chat');
   const toolConfig = getToolConfig(block.name);
   const ToolIcon = toolConfig.icon;
 
+  const statusText = block.status === 'completed' ? t('status.completed') :
+                     block.status === 'failed' ? t('status.failed') :
+                     t('status.running');
+
   return (
-    <div className="my-1 flex items-center gap-2 text-xs text-text-tertiary">
-      <ToolIcon className={clsx('w-3 h-3', toolConfig.color)} />
+    <div
+      className="my-1 flex items-center gap-2 text-xs text-text-tertiary"
+      aria-label={`${toolConfig.label}: ${statusText}`}
+    >
+      <ToolIcon className={clsx('w-3 h-3', toolConfig.color)} aria-hidden="true" />
       <span>{toolConfig.label}</span>
       {block.status === 'completed' ? (
-        <Check className="w-3 h-3 text-success" />
+        <Check className="w-3 h-3 text-success" aria-hidden="true" />
       ) : block.status === 'failed' ? (
-        <XCircle className="w-3 h-3 text-error" />
+        <XCircle className="w-3 h-3 text-error" aria-hidden="true" />
       ) : null}
     </div>
   );
@@ -1496,12 +1504,17 @@ const QuestionBlockRenderer = memo(function QuestionBlockRenderer({ block }: { b
 
 /** 简化版问题渲染器 - 用于归档层 */
 const SimplifiedQuestionRenderer = memo(function SimplifiedQuestionRenderer({ block }: { block: QuestionBlock }) {
+  const { t } = useTranslation('chat');
+
   return (
-    <div className="my-1 flex items-center gap-2 text-xs text-text-tertiary">
+    <div
+      className="my-1 flex items-center gap-2 text-xs text-text-tertiary"
+      aria-label={block.status === 'answered' ? t('question.answered') : t('question.pendingAnswer')}
+    >
       {block.status === 'answered' ? (
-        <CheckCircle className="w-3 h-3 text-success" />
+        <CheckCircle className="w-3 h-3 text-success" aria-hidden="true" />
       ) : (
-        <HelpCircle className="w-3 h-3 text-accent" />
+        <HelpCircle className="w-3 h-3 text-accent" aria-hidden="true" />
       )}
       <span className="truncate">{block.header}</span>
       {block.answer && (
@@ -1924,9 +1937,12 @@ const SimplifiedPlanModeRenderer = memo(function SimplifiedPlanModeRenderer({ bl
   const completedTasks = block.stages.reduce((sum, s) => sum + s.tasks.filter(t => t.status === 'completed').length, 0);
 
   return (
-    <div className="my-1 flex items-center gap-2 text-xs text-text-tertiary">
-      <StatusIcon className={clsx('w-3 h-3', statusConfig.color)} />
-      <ClipboardList className="w-3 h-3 text-violet-500" />
+    <div
+      className="my-1 flex items-center gap-2 text-xs text-text-tertiary"
+      aria-label={t('plan.planModeAriaLabel', { title: block.title || t('plan.defaultTitle') })}
+    >
+      <StatusIcon className={clsx('w-3 h-3', statusConfig.color)} aria-hidden="true" />
+      <ClipboardList className="w-3 h-3 text-violet-500" aria-hidden="true" />
       <span className="truncate">{block.title || t('plan.defaultTitle')}</span>
       {totalTasks > 0 && (
         <span className="text-text-secondary">{completedTasks}/{totalTasks}</span>
@@ -2141,13 +2157,17 @@ const AgentRunBlockRenderer = memo(function AgentRunBlockRenderer({ block }: { b
 
 /** 简化版 AgentRun 渲染器 - 用于归档层 */
 const SimplifiedAgentRunRenderer = memo(function SimplifiedAgentRunRenderer({ block }: { block: AgentRunBlock }) {
+  const { t } = useTranslation('chat');
   const statusConfig = AGENT_STATUS_CONFIG[block.status];
   const StatusIcon = statusConfig.icon;
 
   return (
-    <div className="my-1 flex items-center gap-2 text-xs text-text-tertiary">
-      <StatusIcon className={clsx('w-3 h-3', statusConfig.className)} />
-      <Play className="w-3 h-3 text-primary" />
+    <div
+      className="my-1 flex items-center gap-2 text-xs text-text-tertiary"
+      aria-label={t('agent.agentRunAriaLabel', { type: block.agentType })}
+    >
+      <StatusIcon className={clsx('w-3 h-3', statusConfig.className)} aria-hidden="true" />
+      <Play className="w-3 h-3 text-primary" aria-hidden="true" />
       <span className="truncate">{block.agentType}</span>
       {block.toolCalls.length > 0 && (
         <span className="text-text-secondary">{block.toolCalls.length}</span>
