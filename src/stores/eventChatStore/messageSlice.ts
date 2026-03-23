@@ -27,6 +27,8 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
   questionBlockMap: new Map(),
   planBlockMap: new Map(),
   activePlanId: null,
+  agentRunBlockMap: new Map(),
+  activeTaskId: null,
   streamingUpdateCounter: 0,
 
   // ===== 方法 =====
@@ -92,6 +94,8 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
       questionBlockMap: new Map(),
       planBlockMap: new Map(),
       activePlanId: null,
+      agentRunBlockMap: new Map(),
+      activeTaskId: null,
       providerSessionCache: null,
       // 不重置事件监听器状态，保持其在应用生命周期内活跃
     })
@@ -685,5 +689,190 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
    */
   setActivePlan: (planId) => {
     set({ activePlanId: planId })
+  },
+
+  // ========================================
+  // AgentRun 方法
+  // ========================================
+
+  /**
+   * 添加 Agent 运行块
+   */
+  appendAgentRunBlock: (taskId, agentType, capabilities) => {
+    const { currentMessage } = get()
+
+    const agentBlock: import('../../types/chat').AgentRunBlock = {
+      type: 'agent_run',
+      id: taskId,
+      agentType,
+      capabilities,
+      status: 'running',
+      toolCalls: [],
+      startedAt: new Date().toISOString(),
+    }
+
+    // 如果没有当前消息，创建一个新的
+    if (!currentMessage) {
+      const newMessage: CurrentAssistantMessage = {
+        id: crypto.randomUUID(),
+        blocks: [agentBlock],
+        isStreaming: true,
+      }
+      set({
+        currentMessage: newMessage,
+        isStreaming: true,
+        agentRunBlockMap: new Map([[taskId, 0]]),
+        activeTaskId: taskId,
+      })
+      return
+    }
+
+    // 添加 Agent 块
+    const updatedBlocks: ContentBlock[] = [...currentMessage.blocks, agentBlock]
+    const blockIndex = updatedBlocks.length - 1
+
+    // 更新 agentRunBlockMap
+    const existingMap = get().agentRunBlockMap
+    existingMap.set(taskId, blockIndex)
+
+    set((state) => ({
+      currentMessage: state.currentMessage
+        ? { ...state.currentMessage, blocks: updatedBlocks }
+        : null,
+      agentRunBlockMap: existingMap,
+      activeTaskId: taskId,
+    }))
+
+    // 更新消息列表中的消息
+    get().updateCurrentAssistantMessage(updatedBlocks)
+  },
+
+  /**
+   * 更新 Agent 运行块
+   */
+  updateAgentRunBlock: (taskId, updates) => {
+    const { currentMessage, agentRunBlockMap } = get()
+    const blockIndex = agentRunBlockMap.get(taskId)
+
+    if (!currentMessage || blockIndex === undefined) {
+      console.warn('[EventChatStore] AgentRun block not found:', taskId)
+      return
+    }
+
+    const block = currentMessage.blocks[blockIndex]
+    if (!block || block.type !== 'agent_run') {
+      console.warn('[EventChatStore] Invalid agent_run block at index:', blockIndex)
+      return
+    }
+
+    // 更新 Agent 块
+    const updatedBlock: import('../../types/chat').AgentRunBlock = {
+      ...block,
+      ...updates,
+    }
+
+    const updatedBlocks = [...currentMessage.blocks]
+    updatedBlocks[blockIndex] = updatedBlock
+
+    set((state) => ({
+      currentMessage: state.currentMessage
+        ? { ...state.currentMessage, blocks: updatedBlocks }
+        : null,
+    }))
+
+    // 更新消息列表中的消息
+    get().updateCurrentAssistantMessage(updatedBlocks)
+  },
+
+  /**
+   * 添加嵌套工具调用到 AgentRun
+   */
+  appendAgentToolCall: (taskId, toolId, toolName) => {
+    const { currentMessage, agentRunBlockMap } = get()
+    const blockIndex = agentRunBlockMap.get(taskId)
+
+    if (!currentMessage || blockIndex === undefined) {
+      console.warn('[EventChatStore] AgentRun block not found for tool call:', taskId)
+      return
+    }
+
+    const block = currentMessage.blocks[blockIndex]
+    if (!block || block.type !== 'agent_run') {
+      console.warn('[EventChatStore] Invalid agent_run block at index:', blockIndex)
+      return
+    }
+
+    // 添加新的嵌套工具调用
+    const newToolCall: import('../../types/chat').AgentNestedToolCall = {
+      id: toolId,
+      name: toolName,
+      status: 'pending',
+    }
+
+    const updatedBlock: import('../../types/chat').AgentRunBlock = {
+      ...block,
+      toolCalls: [...block.toolCalls, newToolCall],
+    }
+
+    const updatedBlocks = [...currentMessage.blocks]
+    updatedBlocks[blockIndex] = updatedBlock
+
+    set((state) => ({
+      currentMessage: state.currentMessage
+        ? { ...state.currentMessage, blocks: updatedBlocks }
+        : null,
+    }))
+
+    get().updateCurrentAssistantMessage(updatedBlocks)
+  },
+
+  /**
+   * 更新嵌套工具调用状态
+   */
+  updateAgentToolCallStatus: (taskId, toolId, status, summary) => {
+    const { currentMessage, agentRunBlockMap } = get()
+    const blockIndex = agentRunBlockMap.get(taskId)
+
+    if (!currentMessage || blockIndex === undefined) {
+      console.warn('[EventChatStore] AgentRun block not found:', taskId)
+      return
+    }
+
+    const block = currentMessage.blocks[blockIndex]
+    if (!block || block.type !== 'agent_run') {
+      console.warn('[EventChatStore] Invalid agent_run block at index:', blockIndex)
+      return
+    }
+
+    // 更新嵌套工具调用状态
+    const updatedToolCalls = block.toolCalls.map((tc) => {
+      if (tc.id === toolId) {
+        return { ...tc, status, summary }
+      }
+      return tc
+    })
+
+    const updatedBlock: import('../../types/chat').AgentRunBlock = {
+      ...block,
+      toolCalls: updatedToolCalls,
+    }
+
+    const updatedBlocks = [...currentMessage.blocks]
+    updatedBlocks[blockIndex] = updatedBlock
+
+    set((state) => ({
+      currentMessage: state.currentMessage
+        ? { ...state.currentMessage, blocks: updatedBlocks }
+        : null,
+    }))
+
+    get().updateCurrentAssistantMessage(updatedBlocks)
+  },
+
+  /**
+   * 设置活跃任务
+   */
+  setActiveTask: (taskId) => {
+    set({ activeTaskId: taskId })
   },
 })

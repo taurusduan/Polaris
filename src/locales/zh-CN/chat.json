@@ -113,5 +113,11 @@
     "stageInProgress": "进行中",
     "stageCompleted": "已完成",
     "stageFailed": "失败"
+  },
+  "agent": {
+    "toolCount": "{{count}} 个工具调用",
+    "completed": "完成",
+    "toolCalls": "工具调用",
+    "output": "输出"
   }
 }

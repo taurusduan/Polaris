@@ -445,6 +445,94 @@ export function handleAIEvent(
       break
     }
 
+    // ========================================
+    // AgentRun (Task) 事件处理
+    // ========================================
+
+    case 'task_metadata': {
+      // 任务元数据：创建 AgentRunBlock
+      const taskEvent = event as {
+        taskId: string
+        status: string
+        startTime?: number
+        endTime?: number
+        duration?: number
+        error?: string
+      }
+
+      // 只在任务开始时创建 AgentRunBlock
+      if (taskEvent.status === 'pending' || taskEvent.status === 'running') {
+        state.appendAgentRunBlock(
+          taskEvent.taskId,
+          'Agent', // 默认 Agent 类型
+          undefined
+        )
+        console.log('[EventChatStore] AgentRun started:', taskEvent.taskId)
+      }
+      break
+    }
+
+    case 'task_progress': {
+      // 任务进度：更新 AgentRunBlock 的进度信息
+      const taskEvent = event as {
+        taskId: string
+        message?: string
+        percent?: number
+      }
+
+      state.updateAgentRunBlock(taskEvent.taskId, {
+        progressMessage: taskEvent.message,
+        progressPercent: taskEvent.percent,
+      })
+      break
+    }
+
+    case 'task_completed': {
+      // 任务完成：更新 AgentRunBlock 状态
+      const taskEvent = event as {
+        taskId: string
+        status: 'success' | 'error' | 'canceled'
+        duration?: number
+        error?: string
+      }
+
+      state.updateAgentRunBlock(taskEvent.taskId, {
+        status: taskEvent.status === 'success' ? 'success' :
+                taskEvent.status === 'error' ? 'error' : 'canceled',
+        duration: taskEvent.duration,
+        error: taskEvent.error,
+        completedAt: new Date().toISOString(),
+      })
+
+      // 清除活跃任务
+      if (storeGet().activeTaskId === taskEvent.taskId) {
+        storeSet({ activeTaskId: null })
+      }
+      console.log('[EventChatStore] AgentRun completed:', taskEvent.taskId, 'status:', taskEvent.status)
+      break
+    }
+
+    case 'task_canceled': {
+      // 任务取消：更新 AgentRunBlock 状态
+      const taskEvent = event as {
+        taskId: string
+        reason?: string
+      }
+
+      state.updateAgentRunBlock(taskEvent.taskId, {
+        status: 'canceled',
+        error: taskEvent.reason,
+        completedAt: new Date().toISOString(),
+      })
+
+      // 清除活跃任务
+      if (storeGet().activeTaskId === taskEvent.taskId) {
+        storeSet({ activeTaskId: null })
+      }
+      console.log('[EventChatStore] AgentRun canceled:', taskEvent.taskId)
+      break
+    }
+
     default:
       console.log('[EventChatStore] 未处理的 AIEvent 类型:', (event as { type: string }).type)
   }

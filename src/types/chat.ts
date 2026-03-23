@@ -63,7 +63,7 @@ export interface PermissionRequest {
  */
 
 /** 内容块类型 - 用于 Assistant 消息的内容分段 */
-export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock | QuestionBlock | PlanModeBlock;
+export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock | QuestionBlock | PlanModeBlock | AgentRunBlock;
 
 /** 文本内容块 */
 export interface TextBlock {
@@ -202,6 +202,59 @@ export interface PlanModeBlock {
   feedback?: string;
   /** 是否激活（正在编辑/审批中） */
   isActive?: boolean;
+}
+
+/** ========================================
+ * AgentRun 相关类型
+ * ======================================== */
+
+/** Agent 运行状态 */
+export type AgentRunStatus = 
+  | 'pending'    // 等待开始
+  | 'running'    // 运行中
+  | 'success'    // 成功完成
+  | 'error'      // 出错
+  | 'canceled';  // 已取消
+
+/** 嵌套工具调用（AgentRun 内部） */
+export interface AgentNestedToolCall {
+  /** 工具调用 ID */
+  id: string;
+  /** 工具名称 */
+  name: string;
+  /** 工具状态 */
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  /** 简短描述 */
+  summary?: string;
+}
+
+/** Agent 运行内容块 - 用于 Agent 任务聚合展示 */
+export interface AgentRunBlock {
+  type: 'agent_run';
+  /** 任务 ID */
+  id: string;
+  /** Agent 类型/名称 */
+  agentType: string;
+  /** Agent 能力描述 */
+  capabilities?: string[];
+  /** 运行状态 */
+  status: AgentRunStatus;
+  /** 进度消息 */
+  progressMessage?: string;
+  /** 进度百分比 0-100 */
+  progressPercent?: number;
+  /** 输出内容（流式） */
+  output?: string;
+  /** 嵌套的工具调用列表 */
+  toolCalls: AgentNestedToolCall[];
+  /** 执行时长（毫秒） */
+  duration?: number;
+  /** 错误信息 */
+  error?: string;
+  /** 开始时间 */
+  startedAt: string;
+  /** 完成时间 */
+  completedAt?: string;
 }
 
 /** 聊天消息类型标识符 */
@@ -355,4 +408,9 @@ export function isQuestionBlock(block: ContentBlock): block is QuestionBlock {
 /** 类型守卫：判断是否为计划模式块 */
 export function isPlanModeBlock(block: ContentBlock): block is PlanModeBlock {
   return block.type === 'plan_mode';
+}
+
+/** 类型守卫：判断是否为 Agent 运行块 */
+export function isAgentRunBlock(block: ContentBlock): block is AgentRunBlock {
+  return block.type === 'agent_run';
 }

@@ -113,5 +113,11 @@
     "stageInProgress": "In Progress",
     "stageCompleted": "Completed",
     "stageFailed": "Failed"
+  },
+  "agent": {
+    "toolCount": "{{count}} tool calls",
+    "completed": "completed",
+    "toolCalls": "Tool Calls",
+    "output": "Output"
   }
 }

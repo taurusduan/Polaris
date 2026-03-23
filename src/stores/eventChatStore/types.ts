@@ -168,6 +168,10 @@ export interface MessageState {
   planBlockMap: Map<string, number>
   /** 当前活跃的计划 ID（用于追踪正在编辑/审批的计划） */
   activePlanId: string | null
+  /** AgentRun 块映射 (taskId -> blockIndex) */
+  agentRunBlockMap: Map<string, number>
+  /** 当前活跃的任务 ID（用于追踪正在运行的 Agent） */
+  activeTaskId: string | null
   /** 流式更新计数器 - 用于强制触发React重新渲染 */
   streamingUpdateCounter: number
 }
@@ -265,6 +269,17 @@ export interface MessageActions {
   updatePlanStageStatus: (planId: string, stageId: string, status: 'pending' | 'in_progress' | 'completed' | 'failed', tasks?: import('../../types/chat').PlanTaskBlock[]) => void
   /** 设置活跃计划 */
   setActivePlan: (planId: string | null) => void
+
+  /** 添加 Agent 运行块 */
+  appendAgentRunBlock: (taskId: string, agentType: string, capabilities?: string[]) => void
+  /** 更新 Agent 运行块 */
+  updateAgentRunBlock: (taskId: string, updates: Partial<import('../../types/chat').AgentRunBlock>) => void
+  /** 添加嵌套工具调用到 AgentRun */
+  appendAgentToolCall: (taskId: string, toolId: string, toolName: string) => void
+  /** 更新嵌套工具调用状态 */
+  updateAgentToolCallStatus: (taskId: string, toolId: string, status: 'pending' | 'running' | 'completed' | 'failed', summary?: string) => void
+  /** 设置活跃任务 */
+  setActiveTask: (taskId: string | null) => void
 }
 
 /**
