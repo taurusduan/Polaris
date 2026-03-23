@@ -138,6 +138,8 @@
     "completed": "completed",
     "running": "running",
     "failed": "failed",
-    "showAll": "Show all {{count}} tools"
+    "showAll": "Show all {{count}} tools",
+    "ariaLabel": "Tool group, {{count}} tools",
+    "toggleLabel": "Expand or collapse tool list"
   }
 }

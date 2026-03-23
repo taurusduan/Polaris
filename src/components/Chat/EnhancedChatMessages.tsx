@@ -2341,6 +2341,15 @@ const ToolGroupRenderer = memo(function ToolGroupRenderer({
 }) {
   const { t } = useTranslation('chat')
   const [isExpanded, setIsExpanded] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // 键盘事件处理
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      setIsExpanded(prev => !prev)
+    }
+  }, [])
 
   // 计算组状态
   const groupStatus = useMemo(() => {
@@ -2414,14 +2423,25 @@ const ToolGroupRenderer = memo(function ToolGroupRenderer({
   const hasMoreTools = tools.length > 3
 
   return (
-    <div className="my-2">
+    <div
+      ref={containerRef}
+      className="my-2"
+      role="region"
+      aria-label={t('toolGroup.ariaLabel', { count: tools.length })}
+    >
       {/* 工具组摘要 */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        aria-label={t('toolGroup.toggleLabel')}
         className={clsx(
           'flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all hover:shadow-medium',
+          'focus:ring-2 focus:ring-primary focus:outline-none',
           statusConfig.bgClass
         )}
         onClick={() => setIsExpanded(!isExpanded)}
+        onKeyDown={handleKeyDown}
       >
         {/* 状态图标 */}
         <StatusIcon className={clsx('w-4 h-4 shrink-0', statusConfig.className)} />

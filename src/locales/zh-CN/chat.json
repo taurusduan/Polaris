@@ -138,6 +138,8 @@
     "completed": "完成",
     "running": "进行中",
     "failed": "失败",
-    "showAll": "查看全部 {{count}} 个工具"
+    "showAll": "查看全部 {{count}} 个工具",
+    "ariaLabel": "工具组，共 {{count}} 个工具",
+    "toggleLabel": "展开或折叠工具列表"
   }
 }
