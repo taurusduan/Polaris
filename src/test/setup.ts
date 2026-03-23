@@ -93,6 +93,64 @@ vi.mock('@tauri-apps/api/window', () => ({
 // Browser API Polyfills
 // ============================================================
 
+// ============================================================
+// i18n Mocks
+// ============================================================
+
+/**
+ * Mock react-i18next
+ *
+ * 用于测试使用 useTranslation hook 的组件。
+ * 返回简单的翻译函数，支持 key 和 options 参数。
+ */
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, options?: Record<string, unknown>) => {
+      // 简单翻译：返回 key 或替换占位符
+      if (options) {
+        return Object.entries(options).reduce(
+          (str, [k, v]) => str.replace(`{{${k}}}`, String(v)),
+          key
+        );
+      }
+      return key;
+    },
+    i18n: {
+      language: 'zh-CN',
+      changeLanguage: vi.fn(),
+    },
+  }),
+  initReactI18next: {
+    type: '3rdParty',
+    init: vi.fn(),
+  },
+}));
+
+/**
+ * Mock i18n 模块
+ *
+ * 用于测试直接导入 i18n 的模块（如 toolSummary.ts）。
+ */
+vi.mock('../i18n', () => ({
+  default: {
+    t: (key: string, options?: Record<string, unknown>) => {
+      if (options) {
+        return Object.entries(options).reduce(
+          (str, [k, v]) => str.replace(`{{${k}}}`, String(v)),
+          key
+        );
+      }
+      return key;
+    },
+    language: 'zh-CN',
+    changeLanguage: vi.fn(),
+  },
+}));
+
+// ============================================================
+// Browser API Polyfills
+// ============================================================
+
 /**
  * Polyfill window.matchMedia
  *
