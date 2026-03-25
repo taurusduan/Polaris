@@ -32,7 +32,7 @@ import {
   type GrepMatch,
   type GrepOutputData
 } from '../../utils/toolSummary';
-import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, Circle, FileSearch, FolderOpen, Code, FileDiff, RotateCcw, Copy, GitPullRequest, Brain } from 'lucide-react';
+import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, Circle, FileSearch, FolderOpen, Code, FileDiff, RotateCcw, Copy, GitPullRequest, Brain, ListOrdered } from 'lucide-react';
 import { ChatNavigator } from './ChatNavigator';
 import { QuestionBlockRenderer, SimplifiedQuestionRenderer } from './QuestionBlockRenderer';
 import { PlanModeBlockRenderer, SimplifiedPlanModeRenderer } from './PlanModeBlockRenderer';
@@ -51,6 +51,84 @@ import { calculateRenderMode, type MessageRenderMode, DEFAULT_LAYER_CONFIG } fro
 /** Markdown 渲染器（使用缓存优化） */
 function formatContent(content: string): string {
   return markdownCache.render(content);
+}
+
+// ========================================
+// 思考内容步骤提取
+// ========================================
+
+/** 思考步骤提取结果 */
+interface ThinkingStep {
+  text: string;
+  index: number;
+}
+
+/**
+ * 从思考内容中提取关键步骤
+ * 支持多种格式的步骤标记
+ */
+function extractThinkingSteps(content: string): ThinkingStep[] {
+  if (!content || content.length < 50) return [];
+
+  const lines = content.split('\n');
+  const steps: ThinkingStep[] = [];
+  let stepIndex = 0;
+
+  // 步骤匹配模式
+  const patterns = [
+    // 数字编号: 1. xxx, 1) xxx, 1、xxx
+    /^(\d+)[\.\)、]\s*(.+)$/,
+    // 中文步骤词: 首先, 其次, 然后, 最后
+    /^(首先|其次|然后|接着|最后)[：:\s]+(.+)$/,
+    // 步骤标记: 第一步, 第二步, etc.
+    /^(第[一二三四五六七八九十]+步)[：:\s]*(.*)$/,
+    // 英文步骤: First, Second, Then, Finally
+    /^(First|Second|Third|Then|Next|Finally)[,:]\s*(.+)$/i,
+    // 破折号列表: - xxx, • xxx
+    /^[-•]\s*(.+)$/,
+    // 星号列表: * xxx
+    /^\*\s*(.+)$/,
+  ];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.length < 5) continue;
+
+    for (const pattern of patterns) {
+      const match = trimmed.match(pattern);
+      if (match) {
+        // 数字编号模式
+        if (match[1] && /^\d+$/.test(match[1])) {
+          const num = parseInt(match[1], 10);
+          // 只提取前10个步骤，避免提取代码行号
+          if (num <= 10 && num > 0) {
+            steps.push({
+              text: match[2].trim(),
+              index: stepIndex++
+            });
+          }
+        } else if (match[2]) {
+          // 其他模式
+          steps.push({
+            text: match[2].trim(),
+            index: stepIndex++
+          });
+        } else if (match[1] && !/^\d+$/.test(match[1])) {
+          // 破折号/星号列表
+          steps.push({
+            text: match[1].trim(),
+            index: stepIndex++
+          });
+        }
+        break;
+      }
+    }
+
+    // 最多提取8个步骤
+    if (steps.length >= 8) break;
+  }
+
+  return steps;
 }
 
 /** 用户消息组件 */
@@ -570,10 +648,20 @@ const ThinkingBlockRenderer = memo(function ThinkingBlockRenderer({
   // 计算字数统计
   const charCount = block.content.length;
 
-  // 生成预览文本（折叠时显示前80字）
-  const previewText = block.content.length > 80
-    ? block.content.slice(0, 80) + '...'
-    : block.content;
+  // 提取思考步骤
+  const steps = useMemo(() => extractThinkingSteps(block.content), [block.content]);
+
+  // 生成预览文本（折叠时显示前80字或步骤摘要）
+  const previewText = useMemo(() => {
+    if (steps.length >= 2) {
+      // 有步骤时显示步骤数量和第一个步骤
+      return `${steps.length} 个步骤: ${steps[0].text.slice(0, 40)}${steps[0].text.length > 40 ? '...' : ''}`;
+    }
+    // 无步骤时显示前80字
+    return block.content.length > 80
+      ? block.content.slice(0, 80) + '...'
+      : block.content;
+  }, [block.content, steps]);
 
   // 同步流式状态：当开始流式时展开，停止流式时折叠
   const prevStreamingRef = useRef(isStreaming);
@@ -602,6 +690,14 @@ const ThinkingBlockRenderer = memo(function ThinkingBlockRenderer({
         <span className="text-xs text-text-tertiary ml-2">
           {charCount > 1000 ? `${(charCount / 1000).toFixed(1)}k` : charCount} 字
         </span>
+
+        {/* 步骤数量徽章 */}
+        {steps.length >= 2 && (
+          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-xs">
+            <ListOrdered className="w-3 h-3" />
+            {steps.length} 步骤
+          </span>
+        )}
 
         {/* 流式指示器 */}
         {isStreaming && (
@@ -633,6 +729,29 @@ const ThinkingBlockRenderer = memo(function ThinkingBlockRenderer({
       {/* 展开时显示完整内容 */}
       {!isCollapsed && (
         <div className="px-3 py-2 border-t border-primary/10 bg-background-surface/30">
+          {/* 步骤摘要区域 */}
+          {steps.length >= 2 && (
+            <div className="mb-3 pb-3 border-b border-primary/10">
+              <div className="flex items-center gap-1.5 mb-2">
+                <ListOrdered className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs font-medium text-primary">思考步骤</span>
+              </div>
+              <div className="space-y-1">
+                {steps.map((step, idx) => (
+                  <div key={idx} className="flex items-start gap-2 text-xs">
+                    <span className="shrink-0 w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-medium">
+                      {idx + 1}
+                    </span>
+                    <span className="text-text-secondary line-clamp-1">
+                      {step.text.length > 60 ? step.text.slice(0, 60) + '...' : step.text}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 完整思考内容 */}
           <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
             {block.content}
           </div>
