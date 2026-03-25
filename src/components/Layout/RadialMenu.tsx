@@ -214,7 +214,7 @@ export function RadialMenu({
           width: radius + 60,
           height: radius * 2 + 60,
           // 容器中心对齐触发器中心
-          marginTop: -radius - 30,
+          marginTop: -radius - 10,
         }}
       >
         {menuItems.map((item, index) => {
