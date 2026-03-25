@@ -33,7 +33,8 @@
     "sendFailed": "Failed to send",
     "translateFailed": "Translation failed",
     "apiKeyNotSet": "Please configure Baidu Translate API in settings first",
-    "connectionFailed": "Connection failed"
+    "connectionFailed": "Connection failed",
+    "regenerateFailed": "Failed to regenerate"
   },
   "context": {
     "fileTooLarge": "File too large, content omitted",

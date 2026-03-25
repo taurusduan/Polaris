@@ -1551,11 +1551,13 @@ const AssistantBubble = memo(function AssistantBubble({
   const { t } = useTranslation('chat');
   const toast = useToastStore();
   const deleteMessage = useEventChatStore((state) => state.deleteMessage);
+  const regenerateResponse = useEventChatStore((state) => state.regenerateResponse);
+  const isStreaming = useEventChatStore((state) => state.isStreaming);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number }>({ visible: false, x: 0, y: 0 });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const hasBlocks = message.blocks && message.blocks.length > 0;
-  const isStreaming = message.isStreaming;
+  const messageIsStreaming = message.isStreaming;
 
   // 提取助手消息的纯文本内容
   const getTextContent = useCallback((): string => {
@@ -1573,10 +1575,10 @@ const AssistantBubble = memo(function AssistantBubble({
 
   // 处理右键菜单（流式响应时禁用）
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    if (isStreaming) return;
+    if (messageIsStreaming || isStreaming) return;
     e.preventDefault();
     setContextMenu({ visible: true, x: e.clientX, y: e.clientY });
-  }, [isStreaming]);
+  }, [messageIsStreaming, isStreaming]);
 
   // 关闭菜单
   const closeContextMenu = useCallback(() => {
@@ -1614,6 +1616,17 @@ const AssistantBubble = memo(function AssistantBubble({
     setShowDeleteConfirm(false);
   }, []);
 
+  // 重新生成回复
+  const handleRegenerate = useCallback(async () => {
+    closeContextMenu();
+    try {
+      await regenerateResponse(message.id);
+    } catch (error) {
+      console.error('[AssistantBubble] 重新生成失败:', error);
+      toast.error(t('error.regenerateFailed') || '重新生成失败');
+    }
+  }, [closeContextMenu, regenerateResponse, message.id, toast, t]);
+
   // 菜单项
   const contextMenuItems: ContextMenuItem[] = [
     {
@@ -1621,6 +1634,12 @@ const AssistantBubble = memo(function AssistantBubble({
       label: t('message.copy'),
       icon: <Copy className="w-4 h-4" />,
       action: handleCopy,
+    },
+    {
+      id: 'regenerate',
+      label: t('message.regenerate') || '重新生成',
+      icon: <RotateCcw className="w-4 h-4" />,
+      action: handleRegenerate,
     },
     {
       id: 'delete',
@@ -1677,7 +1696,7 @@ const AssistantBubble = memo(function AssistantBubble({
           )}
         </div>
       </div>
-      {!isStreaming && (
+      {!messageIsStreaming && !isStreaming && (
         <ContextMenu
           visible={contextMenu.visible}
           x={contextMenu.x}

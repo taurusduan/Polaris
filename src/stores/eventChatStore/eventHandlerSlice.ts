@@ -12,6 +12,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { EventHandlerSlice } from './types'
 import type { AISession } from '../../ai-runtime'
+import type { UserChatMessage } from '../../types/chat'
 import { handleAIEvent } from './utils'
 import { getEventBus, isAIEvent } from '../../ai-runtime'
 import { getEventRouter } from '../../services/eventRouter'
@@ -473,6 +474,195 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
       get().finishMessage()
     } catch (e) {
       log.error('Interrupt failed', e as Error)
+    }
+  },
+
+  /**
+   * 重新生成助手回复
+   * 找到对应的用户消息，删除原回复，重新发送
+   */
+  regenerateResponse: async (assistantMessageId: string) => {
+    const { messages } = get()
+
+    // 找到助手消息的索引
+    const assistantIndex = messages.findIndex(m => m.id === assistantMessageId)
+    if (assistantIndex === -1) {
+      log.warn('[EventChatStore] 未找到助手消息', { assistantMessageId })
+      return
+    }
+
+    const assistantMessage = messages[assistantIndex]
+    if (assistantMessage.type !== 'assistant') {
+      log.warn('[EventChatStore] 指定消息不是助手消息', { assistantMessageId })
+      return
+    }
+
+    // 找到对应的用户消息（助手消息之前的最近一条用户消息）
+    let userMessage: UserChatMessage | null = null
+    for (let i = assistantIndex - 1; i >= 0; i--) {
+      if (messages[i].type === 'user') {
+        userMessage = messages[i] as UserChatMessage
+        break
+      }
+    }
+
+    if (!userMessage) {
+      log.warn('[EventChatStore] 未找到对应的用户消息', { assistantMessageId })
+      return
+    }
+
+    // 检查是否正在流式响应
+    if (get().isStreaming) {
+      log.warn('[EventChatStore] 正在流式响应中，无法重新生成')
+      return
+    }
+
+    log.info('[EventChatStore] 重新生成回复', {
+      userId: userMessage.id,
+      assistantId: assistantMessageId,
+      userContent: userMessage.content.substring(0, 50)
+    })
+
+    // 删除助手消息（保留用户消息）
+    set((state) => ({
+      messages: state.messages.filter(m => m.id !== assistantMessageId)
+    }))
+
+    // 保存用户消息内容和附件
+    const userContent = userMessage.content
+    const userAttachments = userMessage.attachments
+
+    // 构建新的用户消息并添加到列表
+    const newUserMessage: UserChatMessage = {
+      id: crypto.randomUUID(),
+      type: 'user',
+      content: userContent,
+      timestamp: new Date().toISOString(),
+      attachments: userAttachments,
+    }
+    get().addMessage(newUserMessage)
+
+    set({
+      isStreaming: true,
+      error: null,
+      currentMessage: null,
+      toolBlockMap: new Map(),
+    })
+
+    // 清理工具面板
+    const toolPanelActions = get().getToolPanelActions()
+    toolPanelActions?.clearTools()
+
+    try {
+      const configActions = get().getConfigActions()
+      const config = configActions?.getConfig()
+      const currentEngine = config?.defaultEngine || 'claude-code'
+
+      const workspaceActions = get().getWorkspaceActions()
+      const currentWorkspace = workspaceActions?.getCurrentWorkspace()
+      const actualWorkspaceDir = currentWorkspace?.path
+
+      // 构建系统提示
+      const systemPrompt = buildSystemPrompt(
+        workspaceActions?.getWorkspaces() || [],
+        workspaceActions?.getContextWorkspaces() || [],
+        workspaceActions?.getCurrentWorkspaceId() || null
+      )
+
+      const normalizedSystemPrompt = systemPrompt
+        .replace(/\r\n/g, '\\n')
+        .replace(/\r/g, '\\n')
+        .replace(/\n/g, '\\n')
+        .trim()
+
+      // 处理附件
+      const attachmentsForBackend = userAttachments?.map((a: { type: string; fileName: string; mimeType?: string; content?: string }) => ({
+        type: a.type,
+        fileName: a.fileName,
+        mimeType: a.mimeType,
+        content: a.content,
+      }))
+
+      // 检查是否是 Provider 引擎
+      if (currentEngine.startsWith('provider-')) {
+        await get().sendMessageToFrontendEngine(
+          userContent,
+          actualWorkspaceDir,
+          systemPrompt,
+          userAttachments?.map((a: { id: string; type: string; fileName: string; fileSize: number; preview?: string }) => ({
+            id: a.id,
+            type: a.type,
+            fileName: a.fileName,
+            fileSize: a.fileSize,
+            preview: a.preview,
+          })) as import('../../types/attachment').Attachment[]
+        )
+      } else {
+        // CLI 引擎
+        let messageWithAttachments = userContent
+          .replace(/\r\n/g, '\\n')
+          .replace(/\r/g, '\\n')
+          .replace(/\n/g, '\\n')
+          .trim()
+
+        if (userAttachments && userAttachments.length > 0) {
+          const nonImageAttachments = userAttachments.filter((a: { type: string }) => a.type !== 'image')
+          if (nonImageAttachments.length > 0) {
+            const attachmentParts = nonImageAttachments.map((a: { type: string; fileName: string; mimeType?: string; content?: string }) => {
+              const isText = a.mimeType?.startsWith('text/') ||
+                             a.fileName.endsWith('.txt') ||
+                             a.fileName.endsWith('.md') ||
+                             a.fileName.endsWith('.json')
+              if (isText && a.content) {
+                try {
+                  const commaIndex = a.content.indexOf(',')
+                  const base64Content = commaIndex !== -1 ? a.content.slice(commaIndex + 1) : a.content
+                  const binaryString = atob(base64Content)
+                  const bytes = new Uint8Array(binaryString.length)
+                  for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i)
+                  }
+                  const decodedContent = new TextDecoder('utf-8').decode(bytes)
+                  return `\n--- 文件: ${a.fileName} ---\n${decodedContent}\n--- 文件结束 ---`
+                } catch {
+                  return `[文件: ${a.fileName}]`
+                }
+              } else {
+                return `[文件: ${a.fileName}]`
+              }
+            })
+            messageWithAttachments = `${attachmentParts.join('\n')}\n\n${messageWithAttachments}`
+          }
+        }
+
+        const { conversationId } = get()
+        if (conversationId) {
+          await invoke('continue_chat', {
+            sessionId: conversationId,
+            message: messageWithAttachments,
+            options: {
+              systemPrompt: normalizedSystemPrompt,
+              workDir: actualWorkspaceDir,
+              contextId: 'main',
+              engineId: currentEngine,
+              attachments: attachmentsForBackend,
+            },
+          })
+        }
+      }
+    } catch (e) {
+      const appError = toAppError(e, {
+        source: ErrorSource.AI,
+        context: { action: 'regenerate' }
+      })
+      errorLogger.log(appError)
+
+      set({
+        error: appError.getUserMessage(),
+        isStreaming: false,
+        currentMessage: null,
+        progressMessage: null,
+      })
     }
   },
 })

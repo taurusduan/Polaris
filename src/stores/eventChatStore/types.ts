@@ -366,6 +366,8 @@ export interface EventHandlerActions {
   continueChat: (prompt?: string) => Promise<void>
   /** 中断会话 */
   interruptChat: () => Promise<void>
+  /** 重新生成助手回复 */
+  regenerateResponse: (assistantMessageId: string) => Promise<void>
 }
 
 /**
