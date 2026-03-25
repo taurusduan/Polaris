@@ -238,8 +238,8 @@ export function RadialMenu({
               `}
               style={{
                 // 位置相对于容器中心
-                left: radius + 30 + x - 22, // 中心偏移 + x坐标 - 按钮宽度一半
-                top: radius + 30 + y - 22, // 中心偏移 + y坐标 - 按钮高度一半
+                left: radius - 80 + x - 22, // 中心偏移 + x坐标 - 按钮宽度一半
+                top: radius + 10 + y - 22, // 中心偏移 + y坐标 - 按钮高度一半
                 animationDelay: `${index * 20}ms`
               }}
               title={item.label}
