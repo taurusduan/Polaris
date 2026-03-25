@@ -1,0 +1,22 @@
+{
+  "list": {
+    "title": "Available Commands",
+    "builtin": "Built-in Commands",
+    "custom": "Custom Commands",
+    "usage": "Use `/command_name args` to execute a command."
+  },
+  "help": {
+    "title": "Help",
+    "slashCommands": "Slash Commands",
+    "slashCommandsHint": "Type `/` to quickly access commands",
+    "commandsCmd": "`/commands` - List all available commands",
+    "helpCmd": "`/help` - Show this help message",
+    "fileReferences": "File References",
+    "fileReferencesHint": "Use `@filename` to reference files in your workspace",
+    "fileReferencesExample": "Example: `@README.md explain this project` will include the file content",
+    "examples": "Examples",
+    "exampleHelp": "`/help` - Show help",
+    "exampleCommands": "`/commands` - List commands",
+    "exampleFileRef": "`@README.md explain this project` - Reference file and ask question"
+  }
+}

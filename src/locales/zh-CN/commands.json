@@ -1,0 +1,22 @@
+{
+  "list": {
+    "title": "可用命令",
+    "builtin": "内置命令",
+    "custom": "自定义命令",
+    "usage": "使用 `/命令名 参数` 来执行命令。"
+  },
+  "help": {
+    "title": "帮助",
+    "slashCommands": "斜杠命令",
+    "slashCommandsHint": "输入 `/` 可以快速访问命令",
+    "commandsCmd": "`/commands` - 列出所有可用命令",
+    "helpCmd": "`/help` - 显示此帮助信息",
+    "fileReferences": "文件引用",
+    "fileReferencesHint": "使用 `@文件名` 可以引用工作区中的文件",
+    "fileReferencesExample": "例如: `@README.md 请解释这个项目` 会引用该文件内容",
+    "examples": "示例",
+    "exampleHelp": "`/help` - 显示帮助",
+    "exampleCommands": "`/commands` - 列出所有命令",
+    "exampleFileRef": "`@README.md 请解释这个项目` - 引用文件并提问"
+  }
+}

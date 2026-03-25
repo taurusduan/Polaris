@@ -15,6 +15,7 @@ import zhCNSystemPrompt from '../locales/zh-CN/systemPrompt.json';
 import zhCNTools from '../locales/zh-CN/tools.json';
 import zhCNDeveloper from '../locales/zh-CN/developer.json';
 import zhCNScheduler from '../locales/zh-CN/scheduler.json';
+import zhCNCommands from '../locales/zh-CN/commands.json';
 
 import enUSCommon from '../locales/en-US/common.json';
 import enUSSettings from '../locales/en-US/settings.json';
@@ -30,6 +31,7 @@ import enUSSystemPrompt from '../locales/en-US/systemPrompt.json';
 import enUSTools from '../locales/en-US/tools.json';
 import enUSDeveloper from '../locales/en-US/developer.json';
 import enUSScheduler from '../locales/en-US/scheduler.json';
+import enUSCommands from '../locales/en-US/commands.json';
 
 export const resources = {
   'zh-CN': {
@@ -47,6 +49,7 @@ export const resources = {
     tools: zhCNTools,
     developer: zhCNDeveloper,
     scheduler: zhCNScheduler,
+    commands: zhCNCommands,
   },
   'en-US': {
     common: enUSCommon,
@@ -63,6 +66,7 @@ export const resources = {
     tools: enUSTools,
     developer: enUSDeveloper,
     scheduler: enUSScheduler,
+    commands: enUSCommands,
   },
 };
 

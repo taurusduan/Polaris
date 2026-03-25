@@ -2,6 +2,7 @@
  * 命令服务 - 处理命令解析和参数替换
  */
 
+import i18n from '../i18n';
 import type { Command, CommandResult, ParsedCommand } from '../types/command';
 
 /**
@@ -391,10 +392,10 @@ export function generateCommandsListMessage(commands: Command[]): string {
   const builtin = commands.filter(c => c.type === 'builtin');
   const custom = commands.filter(c => c.type === 'custom');
 
-  let message = '## 可用命令\n\n';
+  let message = `## ${i18n.t('commands:list.title')}\n\n`;
 
   if (builtin.length > 0) {
-    message += '### 内置命令\n\n';
+    message += `### ${i18n.t('commands:list.builtin')}\n\n`;
     builtin.forEach(cmd => {
       message += `- **/${cmd.name}** - ${cmd.description}\n`;
     });
@@ -402,7 +403,7 @@ export function generateCommandsListMessage(commands: Command[]): string {
   }
 
   if (custom.length > 0) {
-    message += '### 自定义命令\n\n';
+    message += `### ${i18n.t('commands:list.custom')}\n\n`;
     custom.forEach(cmd => {
       message += `- **/${cmd.name}** - ${cmd.description}`;
       if (cmd.params && cmd.params.length > 0) {
@@ -413,7 +414,7 @@ export function generateCommandsListMessage(commands: Command[]): string {
     });
   }
 
-  message += '\n使用 `/命令名 参数` 来执行命令。';
+  message += `\n${i18n.t('commands:list.usage')}`;
 
   return message;
 }
@@ -422,20 +423,20 @@ export function generateCommandsListMessage(commands: Command[]): string {
  * 生成帮助消息
  */
 export function generateHelpMessage(): string {
-  return `## 帮助
+  return `## ${i18n.t('commands:help.title')}
 
-### 斜杠命令
-- 输入 \`/\` 可以快速访问命令
-- \`/commands\` - 列出所有可用命令
-- \`/help\` - 显示此帮助信息
+### ${i18n.t('commands:help.slashCommands')}
+- ${i18n.t('commands:help.slashCommandsHint')}
+- ${i18n.t('commands:help.commandsCmd')}
+- ${i18n.t('commands:help.helpCmd')}
 
-### 文件引用
-- 使用 \`@文件名\` 可以引用工作区中的文件
-- 例如: \`@src/main.ts\` 会引用该文件内容
+### ${i18n.t('commands:help.fileReferences')}
+- ${i18n.t('commands:help.fileReferencesHint')}
+- ${i18n.t('commands:help.fileReferencesExample')}
 
-### 示例
-- \`/help\` - 显示帮助
-- \`/commands\` - 列出所有命令
-- \`@README.md 请解释这个项目\` - 引用文件并提问
+### ${i18n.t('commands:help.examples')}
+- ${i18n.t('commands:help.exampleHelp')}
+- ${i18n.t('commands:help.exampleCommands')}
+- ${i18n.t('commands:help.exampleFileRef')}
 `;
 }
