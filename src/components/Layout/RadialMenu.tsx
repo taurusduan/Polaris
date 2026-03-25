@@ -172,10 +172,14 @@ export function RadialMenu({
 
   // 扇形菜单项的位置计算
   // 从悬浮球位置（左边垂直居中）向右展开扇形
-  // 使用 90°-270° 范围，从正上方到正下方（半圆在右侧）
+  // 在 CSS 坐标系中（x 向右，y 向下）：
+  // - 顶部菜单项角度接近 -90° (或 270°)
+  // - 底部菜单项角度接近 90°
+  // - 右侧中间菜单项角度接近 0°
+  // 使用 270° 到 90° 的范围，确保所有菜单项在右侧
   const itemCount = menuItems.length
-  const startAngle = 90 // 从正上方开始
-  const endAngle = 270 // 展开到正下方
+  const startAngle = -90 // 从正上方开始（CSS 坐标系）
+  const endAngle = 90 // 展开到正下方
   const angleRange = endAngle - startAngle
   const radius = 100 // 半径（像素）
 
@@ -183,8 +187,9 @@ export function RadialMenu({
   const getMenuPosition = (index: number) => {
     const angle = startAngle + (angleRange / (itemCount - 1)) * index
     const radian = (angle * Math.PI) / 180
-    const x = Math.cos(radian) * radius
-    const y = Math.sin(radian) * radius
+    // CSS 坐标系：x 向右，y 向下
+    const x = Math.cos(radian) * radius // cos(-90)=0, cos(0)=1, cos(90)=0
+    const y = Math.sin(radian) * radius // sin(-90)=-1(顶部), sin(0)=0, sin(90)=1(底部)
     return { x, y }
   }
 

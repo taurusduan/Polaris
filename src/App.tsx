@@ -20,7 +20,6 @@ import { TerminalPanel } from './components/Terminal/TerminalPanel';
 const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then(m => ({ default: m.SettingsModal })));
 const DeveloperPanel = lazy(() => import('./components/Developer/DeveloperPanel').then(m => ({ default: m.DeveloperPanel })));
 const CreateWorkspaceModal = lazy(() => import('./components/Workspace/CreateWorkspaceModal').then(m => ({ default: m.CreateWorkspaceModal })));
-import { SessionHistoryTrigger } from './components/Chat/SessionHistoryTrigger';
 import { useConfigStore, useEventChatStore, useViewStore, useWorkspaceStore, useTabStore, useIntegrationStore, useToolPanelStore, useGitStore } from './stores';
 import { useWindowSize } from './hooks';
 import * as tauri from './services/tauri';
@@ -617,9 +616,6 @@ function App() {
           }}
         />
       )}
-
-      {/* 会话历史悬浮触发器 - 右侧边缘半圆 */}
-      <SessionHistoryTrigger />
 
       {/* 全局右键菜单 */}
       <SelectionContextMenu />
