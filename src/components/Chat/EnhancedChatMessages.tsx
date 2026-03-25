@@ -32,7 +32,7 @@ import {
   type GrepMatch,
   type GrepOutputData
 } from '../../utils/toolSummary';
-import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, Circle, FileSearch, FolderOpen, Code, FileDiff, RotateCcw, Copy, GitPullRequest, Brain, ListOrdered } from 'lucide-react';
+import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, Circle, FileSearch, FolderOpen, Code, FileDiff, RotateCcw, Copy, GitPullRequest, Brain, ListOrdered, Trash2 } from 'lucide-react';
 import { ChatNavigator } from './ChatNavigator';
 import { QuestionBlockRenderer, SimplifiedQuestionRenderer } from './QuestionBlockRenderer';
 import { PlanModeBlockRenderer, SimplifiedPlanModeRenderer } from './PlanModeBlockRenderer';
@@ -136,7 +136,9 @@ function extractThinkingSteps(content: string): ThinkingStep[] {
 const UserBubble = memo(function UserBubble({ message }: { message: UserChatMessage }) {
   const { t } = useTranslation('chat');
   const toast = useToastStore();
+  const deleteMessage = useEventChatStore((state) => state.deleteMessage);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number }>({ visible: false, x: 0, y: 0 });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // 处理右键菜单
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -160,6 +162,24 @@ const UserBubble = memo(function UserBubble({ message }: { message: UserChatMess
     }
   }, [message.content, toast, t]);
 
+  // 删除消息
+  const handleDelete = useCallback(() => {
+    closeContextMenu();
+    setShowDeleteConfirm(true);
+  }, [closeContextMenu]);
+
+  // 确认删除
+  const confirmDelete = useCallback(() => {
+    deleteMessage(message.id);
+    setShowDeleteConfirm(false);
+    toast.success(t('message.deleted') || '消息已删除');
+  }, [deleteMessage, message.id, toast, t]);
+
+  // 取消删除
+  const cancelDelete = useCallback(() => {
+    setShowDeleteConfirm(false);
+  }, []);
+
   // 菜单项
   const contextMenuItems: ContextMenuItem[] = [
     {
@@ -167,6 +187,12 @@ const UserBubble = memo(function UserBubble({ message }: { message: UserChatMess
       label: t('message.copy'),
       icon: <Copy className="w-4 h-4" />,
       action: handleCopy,
+    },
+    {
+      id: 'delete',
+      label: t('message.delete'),
+      icon: <Trash2 className="w-4 h-4" />,
+      action: handleDelete,
     },
   ];
 
@@ -191,6 +217,31 @@ const UserBubble = memo(function UserBubble({ message }: { message: UserChatMess
         items={contextMenuItems}
         onClose={closeContextMenu}
       />
+      {/* 删除确认对话框 */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={cancelDelete}>
+          <div
+            className="bg-background-surface border border-border rounded-lg shadow-lg p-4 max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <Trash2 className="w-5 h-5 text-error" />
+              <span className="text-text-primary font-medium">{t('message.deleteConfirmTitle') || '删除消息'}</span>
+            </div>
+            <p className="text-text-secondary text-sm mb-4">
+              {t('message.deleteConfirmText') || '确定要删除这条消息吗？删除后无法恢复。'}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={cancelDelete}>
+                {t('message.cancel') || '取消'}
+              </Button>
+              <Button variant="danger" size="sm" onClick={confirmDelete}>
+                {t('message.delete') || '删除'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 });
@@ -1499,7 +1550,9 @@ const AssistantBubble = memo(function AssistantBubble({
 }) {
   const { t } = useTranslation('chat');
   const toast = useToastStore();
+  const deleteMessage = useEventChatStore((state) => state.deleteMessage);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number }>({ visible: false, x: 0, y: 0 });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const hasBlocks = message.blocks && message.blocks.length > 0;
   const isStreaming = message.isStreaming;
@@ -1543,6 +1596,24 @@ const AssistantBubble = memo(function AssistantBubble({
     }
   }, [getTextContent, toast, t]);
 
+  // 删除消息
+  const handleDelete = useCallback(() => {
+    closeContextMenu();
+    setShowDeleteConfirm(true);
+  }, [closeContextMenu]);
+
+  // 确认删除
+  const confirmDelete = useCallback(() => {
+    deleteMessage(message.id);
+    setShowDeleteConfirm(false);
+    toast.success(t('message.deleted') || '消息已删除');
+  }, [deleteMessage, message.id, toast, t]);
+
+  // 取消删除
+  const cancelDelete = useCallback(() => {
+    setShowDeleteConfirm(false);
+  }, []);
+
   // 菜单项
   const contextMenuItems: ContextMenuItem[] = [
     {
@@ -1550,6 +1621,12 @@ const AssistantBubble = memo(function AssistantBubble({
       label: t('message.copy'),
       icon: <Copy className="w-4 h-4" />,
       action: handleCopy,
+    },
+    {
+      id: 'delete',
+      label: t('message.delete'),
+      icon: <Trash2 className="w-4 h-4" />,
+      action: handleDelete,
     },
   ];
 
@@ -1608,6 +1685,31 @@ const AssistantBubble = memo(function AssistantBubble({
           items={contextMenuItems}
           onClose={closeContextMenu}
         />
+      )}
+      {/* 删除确认对话框 */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={cancelDelete}>
+          <div
+            className="bg-background-surface border border-border rounded-lg shadow-lg p-4 max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <Trash2 className="w-5 h-5 text-error" />
+              <span className="text-text-primary font-medium">{t('message.deleteConfirmTitle') || '删除消息'}</span>
+            </div>
+            <p className="text-text-secondary text-sm mb-4">
+              {t('message.deleteConfirmText') || '确定要删除这条消息吗？删除后无法恢复。'}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={cancelDelete}>
+                {t('message.cancel') || '取消'}
+              </Button>
+              <Button variant="danger" size="sm" onClick={confirmDelete}>
+                {t('message.delete') || '删除'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

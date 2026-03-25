@@ -62,6 +62,32 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
     // conversationId 会自动持久化，消息数据需手动保存到历史
   },
 
+  deleteMessage: (messageId) => {
+    set((state) => {
+      const messageIndex = state.messages.findIndex(m => m.id === messageId)
+
+      if (messageIndex === -1) {
+        console.warn('[EventChatStore] 消息不存在:', messageId)
+        return state
+      }
+
+      const deletedMessage = state.messages[messageIndex]
+      const newMessages = state.messages.filter(m => m.id !== messageId)
+
+      // 如果删除的是用户消息，检查是否需要同时删除后续的助手消息
+      // 用户消息和助手消息通常成对出现，删除用户消息时自动删除紧随的助手消息
+      if (deletedMessage.type === 'user') {
+        const nextMessage = newMessages[messageIndex]
+        if (nextMessage && nextMessage.type === 'assistant') {
+          // 删除紧随的助手消息
+          newMessages.splice(messageIndex, 1)
+        }
+      }
+
+      return { messages: newMessages }
+    })
+  },
+
   clearMessages: () => {
     // 清理 Provider Session
     const { providerSessionCache } = get()

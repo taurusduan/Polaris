@@ -269,6 +269,8 @@ export interface HistoryState {
 export interface MessageActions {
   /** 添加消息 */
   addMessage: (message: ChatMessage) => void
+  /** 删除消息（根据消息 ID） */
+  deleteMessage: (messageId: string) => void
   /** 清空消息 */
   clearMessages: () => void
   /** 完成当前消息 */

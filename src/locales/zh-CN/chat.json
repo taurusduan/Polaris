@@ -23,7 +23,11 @@
     "copied": "已复制",
     "regenerate": "重新生成",
     "delete": "删除",
-    "edit": "编辑"
+    "edit": "编辑",
+    "deleteConfirmTitle": "删除消息",
+    "deleteConfirmText": "确定要删除这条消息吗？删除后无法恢复。",
+    "deleted": "消息已删除",
+    "cancel": "取消"
   },
   "error": {
     "sendFailed": "发送失败",
