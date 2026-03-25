@@ -13,6 +13,7 @@
  */
 
 import { memo, useEffect, useRef, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getMermaidConfig } from '../../utils/mermaid-config';
 
 interface MermaidDiagramProps {
@@ -96,6 +97,7 @@ function saveDiagramState(id: string, state: DiagramState) {
  * ```
  */
 export const MermaidDiagram = memo(function MermaidDiagram({ code, id }: MermaidDiagramProps) {
+  const { t } = useTranslation('chat');
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [renderState, setRenderState] = useState<RenderState>('idle');
@@ -327,7 +329,7 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, id }: Mermaid
               }`}
               onClick={() => handleToggleView('chart')}
             >
-              图表
+              {t('mermaid.chart')}
             </button>
             <button
               className={`px-3 py-1 text-xs rounded-md transition-all ${
@@ -337,7 +339,7 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, id }: Mermaid
               }`}
               onClick={() => handleToggleView('source')}
             >
-              源码
+              {t('mermaid.source')}
             </button>
           </div>
 
@@ -352,7 +354,7 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, id }: Mermaid
                 className="p-1.5 rounded-md hover:bg-background-hover text-text-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleZoomOut}
                 disabled={diagramState.scale <= SCALE_CONFIG.min}
-                title="缩小 (Ctrl + 滚轮)"
+                title={t('mermaid.zoomOut')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
@@ -369,7 +371,7 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, id }: Mermaid
                 className="p-1.5 rounded-md hover:bg-background-hover text-text-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleZoomIn}
                 disabled={diagramState.scale >= SCALE_CONFIG.max}
-                title="放大 (Ctrl + 滚轮)"
+                title={t('mermaid.zoomIn')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -384,9 +386,9 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, id }: Mermaid
                 className="px-2 py-1 text-xs rounded-md hover:bg-background-hover text-text-tertiary transition-colors"
                 onClick={handleReset}
                 disabled={diagramState.scale === SCALE_CONFIG.default}
-                title="重置缩放"
+                title={t('mermaid.resetZoom')}
               >
-                重置
+                {t('mermaid.reset')}
               </button>
             </>
           )}
@@ -400,21 +402,21 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, id }: Mermaid
                   : 'hover:bg-background-hover text-text-tertiary'
               }`}
               onClick={handleCopySource}
-              title="复制源码"
+              title={t('mermaid.copySource')}
             >
               {copySuccess ? (
                 <>
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  已复制
+                  {t('mermaid.copied')}
                 </>
               ) : (
                 <>
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                  复制
+                  {t('mermaid.copy')}
                 </>
               )}
             </button>

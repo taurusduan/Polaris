@@ -244,5 +244,16 @@
     "copy": "Copy",
     "lineNumbers": "Lines",
     "lines": "lines"
+  },
+  "mermaid": {
+    "chart": "Chart",
+    "source": "Source",
+    "zoomOut": "Zoom out (Ctrl + scroll)",
+    "zoomIn": "Zoom in (Ctrl + scroll)",
+    "resetZoom": "Reset zoom",
+    "reset": "Reset",
+    "copySource": "Copy source",
+    "copied": "Copied",
+    "copy": "Copy"
   }
 }
