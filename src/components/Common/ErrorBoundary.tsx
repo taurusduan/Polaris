@@ -3,6 +3,7 @@
  */
 
 import { Component, ReactNode, useEffect } from 'react';
+import i18n from 'i18next';
 import { createLogger } from '../../utils/logger';
 
 const log = createLogger('ErrorBoundary');
@@ -165,19 +166,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
             {/* 标题 */}
             <h2 className="text-xl font-semibold text-text-primary mb-2">
-              应用遇到错误
+              {i18n.t('errorBoundary.title')}
             </h2>
 
             {/* 描述 */}
             <p className="text-text-secondary mb-6">
-              正在自动恢复...如果没有响应，请点击下方按钮
+              {i18n.t('errorBoundary.description')}
             </p>
 
             {/* 错误信息（开发模式） */}
             {import.meta.env.DEV && this.state.error && (
               <details className="mb-6 text-left">
                 <summary className="cursor-pointer text-xs text-text-tertiary mb-2">
-                  错误详情
+                  {i18n.t('errorBoundary.errorDetails')}
                 </summary>
                 <pre className="text-xs text-text-muted bg-background-surface rounded p-3 overflow-auto max-h-40">
                   {this.state.error.message}
@@ -191,19 +192,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 onClick={this.handleRetry}
                 className="w-full px-4 py-3 bg-primary hover:bg-primary-hover text-white rounded-xl font-medium transition-colors"
               >
-                自动恢复中...
+                {i18n.t('errorBoundary.recovering')}
               </button>
               <button
                 onClick={this.handleReload}
                 className="w-full px-4 py-3 bg-background-surface hover:bg-background-hover border border-border rounded-xl font-medium transition-colors text-text-primary"
               >
-                刷新页面
+                {i18n.t('errorBoundary.refreshPage')}
               </button>
             </div>
 
             {/* 提示 */}
             <p className="text-xs text-text-tertiary mt-6">
-              您的聊天内容已自动保存
+              {i18n.t('errorBoundary.contentSaved')}
             </p>
           </div>
         </div>

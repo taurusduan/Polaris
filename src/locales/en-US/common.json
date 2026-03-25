@@ -125,5 +125,13 @@
     "setClaudePath": "Set Claude Path",
     "pathSelectorHint": "Select or enter Claude CLI path",
     "saveAndRetry": "Save & Retry"
+  },
+  "errorBoundary": {
+    "title": "Application Error",
+    "description": "Recovering automatically... If not responding, please click the button below",
+    "errorDetails": "Error Details",
+    "recovering": "Recovering...",
+    "refreshPage": "Refresh Page",
+    "contentSaved": "Your chat content has been saved automatically"
   }
 }

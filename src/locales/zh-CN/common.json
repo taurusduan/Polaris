@@ -126,5 +126,13 @@
     "setClaudePath": "设置 Claude 路径",
     "pathSelectorHint": "选择或输入 Claude CLI 的路径",
     "saveAndRetry": "保存并重试"
+  },
+  "errorBoundary": {
+    "title": "应用遇到错误",
+    "description": "正在自动恢复...如果没有响应，请点击下方按钮",
+    "errorDetails": "错误详情",
+    "recovering": "自动恢复中...",
+    "refreshPage": "刷新页面",
+    "contentSaved": "您的聊天内容已自动保存"
   }
 }
