@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSchedulerStore, useToastStore, useEventChatStore } from '../../stores';
 import type { TaskLog, CreateTaskParams, LockStatus } from '../../types/scheduler';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
@@ -21,25 +22,26 @@ const log = createLogger('SchedulerPanel');
 /** 格式化时间戳 */
 function formatTime(timestamp: number | undefined): string {
   if (!timestamp) return '--';
-  return new Date(timestamp * 1000).toLocaleString('zh-CN');
+  return new Date(timestamp * 1000).toLocaleString();
 }
 
 /** 格式化相对时间 */
-function formatRelativeTime(timestamp: number | undefined): string {
+function formatRelativeTime(timestamp: number | undefined, t: (key: string, options?: Record<string, unknown>) => string): string {
   if (!timestamp) return '--';
   const now = Date.now() / 1000;
   const diff = timestamp - now;
 
-  if (diff < 0) return '已过期';
-  if (diff < 60) return `${Math.floor(diff)} 秒后`;
-  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟后`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时后`;
-  return `${Math.floor(diff / 86400)} 天后`;
+  if (diff < 0) return t('time.expired');
+  if (diff < 60) return t('time.secondsLater', { count: Math.floor(diff) });
+  if (diff < 3600) return t('time.minutesLater', { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t('time.hoursLater', { count: Math.floor(diff / 3600) });
+  return t('time.daysLater', { count: Math.floor(diff / 86400) });
 }
 
 /** 状态徽章 */
 function StatusBadge({ status }: { status?: 'running' | 'success' | 'failed' }) {
-  if (!status) return <span className="text-gray-400">未执行</span>;
+  const { t } = useTranslation('scheduler');
+  if (!status) return <span className="text-gray-400">{t('status.notExecuted')}</span>;
 
   const styles = {
     running: 'bg-blue-500/20 text-blue-400',
@@ -48,9 +50,9 @@ function StatusBadge({ status }: { status?: 'running' | 'success' | 'failed' }) 
   };
 
   const labels = {
-    running: '执行中',
-    success: '成功',
-    failed: '失败',
+    running: t('status.running'),
+    success: t('status.success'),
+    failed: t('status.failed'),
   };
 
   return (
@@ -104,21 +106,23 @@ function TaskCard({
   /** 是否紧凑模式 */
   isCompact?: boolean;
 }) {
+  const { t } = useTranslation('scheduler');
+
   // 构建操作菜单项
   const actionMenuItems: DropdownMenuItem[] = [];
 
   // 协议模式添加文档菜单项
   if (task.mode === 'protocol' && onViewDocs) {
-    actionMenuItems.push({ key: 'docs', label: '文档', onClick: onViewDocs });
+    actionMenuItems.push({ key: 'docs', label: t('task.docs'), onClick: onViewDocs });
   }
 
   // 通用操作菜单项
   actionMenuItems.push(
-    { key: 'run', label: '执行', onClick: onRun },
-    { key: 'toggle', label: task.enabled ? '禁用' : '启用', onClick: onToggle },
-    { key: 'edit', label: '编辑', onClick: onEdit },
-    { key: 'copy', label: '复制', onClick: onCopy },
-    { key: 'delete', label: '删除', variant: 'danger', onClick: onDelete }
+    { key: 'run', label: t('task.run'), onClick: onRun },
+    { key: 'toggle', label: task.enabled ? t('task.disabled') : t('task.enabled'), onClick: onToggle },
+    { key: 'edit', label: t('task.edit'), onClick: onEdit },
+    { key: 'copy', label: t('task.copy'), onClick: onCopy },
+    { key: 'delete', label: t('task.delete'), variant: 'danger', onClick: onDelete }
   );
 
   // 紧凑模式：使用下拉菜单
@@ -151,7 +155,7 @@ function TaskCard({
             <div className="mt-1 text-xs text-gray-400 flex items-center gap-2 flex-wrap">
               <StatusBadge status={task.lastRunStatus} />
               {task.enabled && task.nextRunAt && (
-                <span>{formatRelativeTime(task.nextRunAt)}</span>
+                <span>{formatRelativeTime(task.nextRunAt, t)}</span>
               )}
             </div>
           </div>
@@ -162,7 +166,7 @@ function TaskCard({
               <button
                 onClick={onCancelSubscription}
                 className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
-                title="停止"
+                title={t('task.stopSubscription')}
               >
                 ⏹
               </button>
@@ -172,7 +176,7 @@ function TaskCard({
               <button
                 onClick={onSubscribe}
                 className="p-1.5 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 rounded transition-colors"
-                title="订阅执行"
+                title={t('task.subscribeHint')}
               >
                 👁
               </button>
@@ -181,7 +185,7 @@ function TaskCard({
             <button
               onClick={onRun}
               className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-              title="执行"
+              title={t('task.runInBackground')}
             >
               ▶
             </button>
@@ -238,28 +242,28 @@ function TaskCard({
 
           <div className="mt-2 text-sm text-gray-400 space-y-1">
             <p>
-              <span className="text-gray-500">触发: </span>
+              <span className="text-gray-500">{t('task.trigger')}: </span>
               {TriggerTypeLabels[task.triggerType]} - {task.triggerValue}
             </p>
             <p>
-              <span className="text-gray-500">引擎: </span>
+              <span className="text-gray-500">{t('task.engine')}: </span>
               {task.engineId}
             </p>
             <div className="flex items-center gap-4">
               <span>
-                <span className="text-gray-500">状态: </span>
+                <span className="text-gray-500">{t('log.stats', { defaultValue: '状态' })}: </span>
                 <StatusBadge status={task.lastRunStatus} />
               </span>
               {task.enabled && task.nextRunAt && (
                 <span>
-                  <span className="text-gray-500">下次: </span>
-                  {formatRelativeTime(task.nextRunAt)}
+                  <span className="text-gray-500">{t('task.nextRun')}: </span>
+                  {formatRelativeTime(task.nextRunAt, t)}
                 </span>
               )}
               {/* 执行轮次显示 */}
               {task.maxRuns !== undefined && task.maxRuns !== null && (
                 <span>
-                  <span className="text-gray-500">轮次: </span>
+                  <span className="text-gray-500">{t('task.rounds')}: </span>
                   <span className={task.currentRuns >= task.maxRuns ? 'text-yellow-400' : 'text-gray-300'}>
                     {task.currentRuns}/{task.maxRuns}
                   </span>
@@ -286,22 +290,22 @@ function TaskCard({
             <button
               onClick={onCancelSubscription}
               className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex items-center gap-1"
-              title="取消订阅并中断任务"
+              title={t('task.stopSubscription')}
             >
-              ⏹ 停止
+              ⏹ {t('task.stopSubscription')}
             </button>
           ) : isSubscribed ? (
             // 已订阅等待触发 - 显示订阅状态和取消订阅按钮
             <div className="flex items-center gap-1">
               <span className="px-2 py-1 text-xs bg-cyan-600/30 text-cyan-400 rounded flex items-center gap-1">
-                🔔 已订阅
+                🔔 {t('task.subscribed')}
               </span>
               <button
                 onClick={onUnsubscribe}
                 className="px-2 py-1 text-xs bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
-                title="取消订阅"
+                title={t('task.unsubscribe')}
               >
-                取消
+                {t('task.unsubscribe')}
               </button>
             </div>
           ) : (
@@ -309,17 +313,17 @@ function TaskCard({
             <button
               onClick={onSubscribe}
               className="px-3 py-1 text-sm bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 rounded transition-colors flex items-center gap-1"
-              title="订阅执行 - 在 AI 对话窗口查看执行过程"
+              title={t('task.subscribeHint')}
             >
-              👁 订阅
+              👁 {t('task.subscribe')}
             </button>
           )}
           <button
             onClick={onRun}
             className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-            title="立即执行（后台）"
+            title={t('task.runInBackground')}
           >
-            执行
+            {t('task.run')}
           </button>
           <button
             onClick={onToggle}
@@ -329,26 +333,26 @@ function TaskCard({
                 : 'bg-green-600/20 text-green-400 hover:bg-green-600/30'
             }`}
           >
-            {task.enabled ? '禁用' : '启用'}
+            {task.enabled ? t('task.disabled') : t('task.enabled')}
           </button>
           <button
             onClick={onEdit}
             className="px-3 py-1 text-sm bg-gray-600/20 text-gray-300 hover:bg-gray-600/30 rounded transition-colors"
           >
-            编辑
+            {t('task.edit')}
           </button>
           <button
             onClick={onCopy}
             className="px-3 py-1 text-sm bg-teal-600/20 text-teal-400 hover:bg-teal-600/30 rounded transition-colors"
-            title="复制任务"
+            title={t('task.copy')}
           >
-            复制
+            {t('task.copy')}
           </button>
           <button
             onClick={onDelete}
             className="px-3 py-1 text-sm bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded transition-colors"
           >
-            删除
+            {t('task.delete')}
           </button>
         </div>
       </div>
@@ -368,6 +372,7 @@ function CollapsibleContent({
   maxHeight?: number;
   className?: string;
 }) {
+  const { t } = useTranslation('scheduler');
   const [expanded, setExpanded] = useState(false);
   const needsExpand = content.length > 200 || content.split('\n').length > 5;
 
@@ -380,7 +385,7 @@ function CollapsibleContent({
         <span>{label}</span>
         {needsExpand && (
           <span className="text-xs text-blue-400">
-            {expanded ? '收起' : '展开全部'}
+            {expanded ? t('log.collapseAll') : t('log.expandAll')}
           </span>
         )}
       </div>
@@ -413,6 +418,7 @@ function LogList({
   onFilterChange: (filter: LogFilterState) => void;
   onPageChange: (page: number) => void;
 }) {
+  const { t } = useTranslation('scheduler');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // 获取任务选项用于筛选下拉
@@ -425,7 +431,7 @@ function LogList({
         {/* 搜索框 */}
         <input
           type="text"
-          placeholder="搜索任务名称..."
+          placeholder={t('log.searchPlaceholder')}
           value={filter.search}
           onChange={(e) => onFilterChange({ ...filter, search: e.target.value })}
           className="px-3 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 w-48"
@@ -436,7 +442,7 @@ function LogList({
           onChange={(e) => onFilterChange({ ...filter, taskId: e.target.value })}
           className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
         >
-          <option value="">全部任务</option>
+          <option value="">{t('log.allTasks')}</option>
           {taskOptions.map((t) => (
             <option key={t.id} value={t.id}>{t.name}</option>
           ))}
@@ -447,24 +453,24 @@ function LogList({
           onChange={(e) => onFilterChange({ ...filter, status: e.target.value as LogFilterState['status'] })}
           className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
         >
-          <option value="all">全部状态</option>
-          <option value="running">执行中</option>
-          <option value="success">成功</option>
-          <option value="failed">失败</option>
+          <option value="all">{t('log.allStatuses')}</option>
+          <option value="running">{t('status.running')}</option>
+          <option value="success">{t('status.success')}</option>
+          <option value="failed">{t('status.failed')}</option>
         </select>
         {/* 清除筛选 */}
         <button
           onClick={() => onFilterChange(defaultLogFilter)}
           className="px-3 py-1.5 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
         >
-          清除筛选
+          {t('filter.clearFilter')}
         </button>
       </div>
 
       {/* 日志列表 */}
       {logs.length === 0 ? (
         <div className="text-center text-gray-500 py-8">
-          暂无执行日志
+          {t('log.noLogs')}
         </div>
       ) : (
         <div className="space-y-2">
@@ -483,11 +489,11 @@ function LogList({
                   {/* 使用 durationMs 显示耗时 */}
                   {log.durationMs != null && log.durationMs > 0 ? (
                     <span className="ml-2">
-                      耗时 {log.durationMs < 1000 ? `${log.durationMs}ms` : `${(log.durationMs / 1000).toFixed(1)}s`}
+                      {t('log.duration', { duration: log.durationMs < 1000 ? `${log.durationMs}ms` : `${(log.durationMs / 1000).toFixed(1)}s` })}
                     </span>
                   ) : log.finishedAt && log.startedAt ? (
                     <span className="ml-2">
-                      耗时 {log.finishedAt - log.startedAt}s
+                      {t('log.duration', { duration: `${log.finishedAt - log.startedAt}s` })}
                     </span>
                   ) : null}
                 </div>
@@ -504,14 +510,14 @@ function LogList({
                     )}
                     {log.toolCallCount != null && log.toolCallCount > 0 && (
                       <span className="text-yellow-400">
-                        工具调用: {log.toolCallCount} 次
+                        {t('log.toolCalls', { count: log.toolCallCount })}
                       </span>
                     )}
                   </div>
 
                   {/* 提示词 - 默认折叠 */}
                   <CollapsibleContent
-                    label="提示词"
+                    label={t('log.prompt')}
                     content={log.prompt}
                     maxHeight={60}
                     className="text-gray-300"
@@ -520,7 +526,7 @@ function LogList({
                   {/* 显示思考过程摘要 */}
                   {log.thinkingSummary && (
                     <CollapsibleContent
-                      label="思考过程"
+                      label={t('log.thinking')}
                       content={log.thinkingSummary}
                       maxHeight={80}
                       className="text-purple-400"
@@ -529,7 +535,7 @@ function LogList({
 
                   {log.output && (
                     <CollapsibleContent
-                      label="输出"
+                      label={t('log.output')}
                       content={log.output}
                       maxHeight={120}
                       className="text-green-400"
@@ -538,7 +544,7 @@ function LogList({
 
                   {log.error && (
                     <CollapsibleContent
-                      label="错误"
+                      label={t('log.error')}
                       content={log.error}
                       maxHeight={80}
                       className="text-red-400"
@@ -555,7 +561,7 @@ function LogList({
       {pagination.totalPages > 1 && (
         <div className="flex items-center justify-between px-3 py-2 bg-[#1a1a2e] border border-[#2a2a4a] rounded">
           <div className="text-sm text-gray-400">
-            共 {pagination.total} 条日志，第 {pagination.page}/{pagination.totalPages} 页
+            {t('log.totalLogs', { total: pagination.total, page: pagination.page, totalPages: pagination.totalPages })}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -563,7 +569,7 @@ function LogList({
               disabled={pagination.page <= 1}
               className="px-3 py-1 text-sm bg-[#2a2a4a] text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3a3a5a] transition-colors"
             >
-              上一页
+              {t('log.previousPage')}
             </button>
             {/* 页码 */}
             <div className="flex items-center gap-1">
@@ -598,7 +604,7 @@ function LogList({
               disabled={pagination.page >= pagination.totalPages}
               className="px-3 py-1 text-sm bg-[#2a2a4a] text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3a3a5a] transition-colors"
             >
-              下一页
+              {t('log.nextPage')}
             </button>
           </div>
         </div>
@@ -636,6 +642,8 @@ function LogSettings({
   onCleanup: () => void;
   cleaning: boolean;
 }) {
+  const { t } = useTranslation('scheduler');
+
   const formatBytes = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
@@ -644,30 +652,30 @@ function LogSettings({
   };
 
   const formatTime = (timestamp: number | undefined): string => {
-    if (!timestamp) return '从未';
-    return new Date(timestamp * 1000).toLocaleString('zh-CN');
+    if (!timestamp) return t('time.never');
+    return new Date(timestamp * 1000).toLocaleString();
   };
 
   return (
     <div className="space-y-4">
       {/* 日志统计 */}
       <div className="bg-[#1a1a2e] rounded-lg p-4 border border-[#2a2a4a]">
-        <h3 className="text-white font-medium mb-3">日志统计</h3>
+        <h3 className="text-white font-medium mb-3">{t('logSettings.stats')}</h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-gray-400">总日志数：</span>
+            <span className="text-gray-400">{t('logSettings.totalLogs')}</span>
             <span className="text-white ml-2">{stats?.totalLogs ?? 0}</span>
           </div>
           <div>
-            <span className="text-gray-400">有日志的任务：</span>
+            <span className="text-gray-400">{t('logSettings.tasksWithLogs')}</span>
             <span className="text-white ml-2">{stats?.totalTasks ?? 0}</span>
           </div>
           <div>
-            <span className="text-gray-400">存储大小：</span>
+            <span className="text-gray-400">{t('logSettings.storageSize')}</span>
             <span className="text-white ml-2">{formatBytes(stats?.totalSizeBytes ?? 0)}</span>
           </div>
           <div>
-            <span className="text-gray-400">上次清理：</span>
+            <span className="text-gray-400">{t('logSettings.lastCleanup')}</span>
             <span className="text-white ml-2">{formatTime(stats?.lastCleanupAt)}</span>
           </div>
         </div>
@@ -675,45 +683,45 @@ function LogSettings({
 
       {/* 保留配置 */}
       <div className="bg-[#1a1a2e] rounded-lg p-4 border border-[#2a2a4a]">
-        <h3 className="text-white font-medium mb-3">保留策略</h3>
+        <h3 className="text-white font-medium mb-3">{t('logSettings.retentionPolicy')}</h3>
         <div className="space-y-4">
           {/* 保留天数 */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-gray-300 text-sm">保留天数</label>
-              <p className="text-xs text-gray-500">超过此天数的日志将被自动清理（0 表示不限）</p>
+              <label className="text-gray-300 text-sm">{t('logSettings.retentionDays')}</label>
+              <p className="text-xs text-gray-500">{t('logSettings.retentionDaysHint')}</p>
             </div>
             <select
               value={config.retentionDays}
               onChange={(e) => onConfigChange({ ...config, retentionDays: parseInt(e.target.value) })}
               className="px-3 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
             >
-              <option value={0}>不限</option>
-              <option value={7}>7 天</option>
-              <option value={14}>14 天</option>
-              <option value={30}>30 天</option>
-              <option value={60}>60 天</option>
-              <option value={90}>90 天</option>
+              <option value={0}>{t('logSettings.unlimited')}</option>
+              <option value={7}>{t('logSettings.days', { count: 7 })}</option>
+              <option value={14}>{t('logSettings.days', { count: 14 })}</option>
+              <option value={30}>{t('logSettings.days', { count: 30 })}</option>
+              <option value={60}>{t('logSettings.days', { count: 60 })}</option>
+              <option value={90}>{t('logSettings.days', { count: 90 })}</option>
             </select>
           </div>
 
           {/* 每任务最大日志数 */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-gray-300 text-sm">每任务最大日志数</label>
-              <p className="text-xs text-gray-500">每个任务最多保留的日志条数（0 表示不限）</p>
+              <label className="text-gray-300 text-sm">{t('logSettings.maxLogsPerTask')}</label>
+              <p className="text-xs text-gray-500">{t('logSettings.maxLogsPerTaskHint')}</p>
             </div>
             <select
               value={config.maxLogsPerTask}
               onChange={(e) => onConfigChange({ ...config, maxLogsPerTask: parseInt(e.target.value) })}
               className="px-3 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
             >
-              <option value={0}>不限</option>
-              <option value={10}>10 条</option>
-              <option value={20}>20 条</option>
-              <option value={50}>50 条</option>
-              <option value={100}>100 条</option>
-              <option value={200}>200 条</option>
+              <option value={0}>{t('logSettings.unlimited')}</option>
+              <option value={10}>{t('logSettings.items', { count: 10 })}</option>
+              <option value={20}>{t('logSettings.items', { count: 20 })}</option>
+              <option value={50}>{t('logSettings.items', { count: 50 })}</option>
+              <option value={100}>{t('logSettings.items', { count: 100 })}</option>
+              <option value={200}>{t('logSettings.items', { count: 200 })}</option>
             </select>
           </div>
         </div>
@@ -721,13 +729,13 @@ function LogSettings({
 
       {/* 自动清理 */}
       <div className="bg-[#1a1a2e] rounded-lg p-4 border border-[#2a2a4a]">
-        <h3 className="text-white font-medium mb-3">自动清理</h3>
+        <h3 className="text-white font-medium mb-3">{t('logSettings.autoCleanup')}</h3>
         <div className="space-y-4">
           {/* 启用自动清理 */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-gray-300 text-sm">启用自动清理</label>
-              <p className="text-xs text-gray-500">定时检查并清理过期日志</p>
+              <label className="text-gray-300 text-sm">{t('logSettings.autoCleanupEnabled')}</label>
+              <p className="text-xs text-gray-500">{t('logSettings.autoCleanupEnabledHint')}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -744,19 +752,19 @@ function LogSettings({
           {config.autoCleanupEnabled && (
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-gray-300 text-sm">清理间隔</label>
-                <p className="text-xs text-gray-500">自动检查清理的时间间隔</p>
+                <label className="text-gray-300 text-sm">{t('logSettings.cleanupInterval')}</label>
+                <p className="text-xs text-gray-500">{t('logSettings.cleanupIntervalHint')}</p>
               </div>
               <select
                 value={config.autoCleanupIntervalHours}
                 onChange={(e) => onConfigChange({ ...config, autoCleanupIntervalHours: parseInt(e.target.value) })}
                 className="px-3 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
               >
-                <option value={1}>每小时</option>
-                <option value={6}>每 6 小时</option>
-                <option value={12}>每 12 小时</option>
-                <option value={24}>每天</option>
-                <option value={72}>每 3 天</option>
+                <option value={1}>{t('logSettings.everyHour')}</option>
+                <option value={6}>{t('logSettings.every6Hours')}</option>
+                <option value={12}>{t('logSettings.every12Hours')}</option>
+                <option value={24}>{t('logSettings.everyDay')}</option>
+                <option value={72}>{t('logSettings.every3Days')}</option>
               </select>
             </div>
           )}
@@ -846,7 +854,7 @@ const defaultFilter: TaskFilter = {
 };
 
 /** 筛选任务 */
-function filterTasks(tasks: ScheduledTask[], filter: TaskFilter): ScheduledTask[] {
+function filterTasks(tasks: ScheduledTask[], filter: TaskFilter, defaultGroupName: string): ScheduledTask[] {
   return tasks.filter((task) => {
     // 搜索任务名称
     if (filter.search && !task.name.toLowerCase().includes(filter.search.toLowerCase())) {
@@ -870,7 +878,7 @@ function filterTasks(tasks: ScheduledTask[], filter: TaskFilter): ScheduledTask[
       }
     }
     // 分组
-    if (filter.group !== 'all' && (task.group || '默认') !== filter.group) return false;
+    if (filter.group !== 'all' && (task.group || defaultGroupName) !== filter.group) return false;
     return true;
   });
 }
@@ -943,6 +951,7 @@ const defaultLogFilter: LogFilterState = {
 
 /** 主面板 */
 export function SchedulerPanel() {
+  const { t } = useTranslation('scheduler');
   const { tasks, logs, logPagination, loading, subscribingTaskId, loadTasks, loadLogsPaginated, createTask, updateTask, deleteTask, toggleTask, runTask, runTaskWithSubscription, clearSubscription, subscribeTask, unsubscribeTask, initSchedulerEventListener } =
     useSchedulerStore();
   const toast = useToastStore();
@@ -999,18 +1008,19 @@ export function SchedulerPanel() {
 
   // 从任务列表提取引擎和分组选项
   const engineOptions = [...new Set(tasks.map((t) => t.engineId))].sort();
-  const groupOptions = [...new Set(tasks.map((t) => t.group || '默认'))].sort((a, b) => {
-    if (a === '默认') return 1;
-    if (b === '默认') return -1;
+  const defaultGroupName = t('group.default');
+  const groupOptions = [...new Set(tasks.map((t) => t.group || defaultGroupName))].sort((a, b) => {
+    if (a === defaultGroupName) return 1;
+    if (b === defaultGroupName) return -1;
     return a.localeCompare(b);
   });
 
   // 应用筛选
-  const filteredTasks = filterTasks(tasks, filter);
+  const filteredTasks = filterTasks(tasks, filter, defaultGroupName);
 
   // 按分组整理筛选后的任务，并排序
   const groupedTasks = filteredTasks.reduce((acc, task) => {
-    const groupKey = task.group || '默认';
+    const groupKey = task.group || defaultGroupName;
     if (!acc[groupKey]) {
       acc[groupKey] = [];
     }
@@ -1026,8 +1036,8 @@ export function SchedulerPanel() {
   // 获取排序后的分组名
   const groupNames = Object.keys(groupedTasks).sort((a, b) => {
     // "默认" 组放在最后
-    if (a === '默认') return 1;
-    if (b === '默认') return -1;
+    if (a === defaultGroupName) return 1;
+    if (b === defaultGroupName) return -1;
     return a.localeCompare(b);
   });
 
@@ -1063,7 +1073,7 @@ export function SchedulerPanel() {
       toast.success(result);
       await loadLockStatus();
     } catch (e) {
-      toast.error('启动失败', e instanceof Error ? e.message : '其他实例占用任务');
+      toast.error(t('toast.startFailed'), e instanceof Error ? e.message : t('toast.startFailedDetail'));
     } finally {
       setSchedulerOperating(false);
     }
@@ -1073,8 +1083,8 @@ export function SchedulerPanel() {
   const handleStopScheduler = () => {
     setConfirmDialog({
       show: true,
-      title: '停止调度器',
-      message: '确定要停止调度器吗？\n定时任务将不再自动执行。',
+      title: t('scheduler.stopConfirmTitle'),
+      message: t('scheduler.stopConfirmMessage'),
       type: 'warning',
       onConfirm: async () => {
         setConfirmDialog(null);
@@ -1084,7 +1094,7 @@ export function SchedulerPanel() {
           toast.success(result);
           await loadLockStatus();
         } catch (e) {
-          toast.error('停止失败', e instanceof Error ? e.message : '未知错误');
+          toast.error(t('toast.stopFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
         } finally {
           setSchedulerOperating(false);
         }
@@ -1125,9 +1135,9 @@ export function SchedulerPanel() {
     setLogRetentionConfig(newConfig);
     try {
       await tauri.schedulerUpdateLogRetentionConfig(newConfig);
-      toast.success('配置已保存', '日志保留策略已更新');
+      toast.success(t('toast.configSaved'), t('toast.configSavedDetail'));
     } catch (e) {
-      toast.error('保存失败', e instanceof Error ? e.message : '未知错误');
+      toast.error(t('toast.saveFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
 
@@ -1135,19 +1145,19 @@ export function SchedulerPanel() {
   const handleCleanup = async () => {
     setConfirmDialog({
       show: true,
-      title: '确认清理',
-      message: '确定要清理过期日志吗？此操作不可撤销。',
+      title: t('confirm.cleanupTitle'),
+      message: t('confirm.cleanupMessage'),
       type: 'warning',
       onConfirm: async () => {
         setConfirmDialog(null);
         setCleaning(true);
         try {
           const count = await tauri.schedulerCleanupLogs();
-          toast.success('清理完成', `已清理 ${count} 条过期日志`);
+          toast.success(t('toast.cleanupComplete'), t('toast.cleanupCompleteDetail', { count }));
           // 刷新统计
           loadLogSettings();
         } catch (e) {
-          toast.error('清理失败', e instanceof Error ? e.message : '未知错误');
+          toast.error(t('toast.cleanupFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
         } finally {
           setCleaning(false);
         }
@@ -1173,14 +1183,14 @@ export function SchedulerPanel() {
     try {
       await runTask(task.id);
       // 任务在后台执行，这里只是提交成功
-      toast.info('任务已提交', `任务 ${task.name} 已在后台开始执行`);
+      toast.info(t('toast.taskSubmitted'), t('toast.taskSubmittedDetail', { name: task.name }));
       // 刷新任务列表和日志
       loadTasks();
       if (activeTab === 'logs') {
         loadLogsPaginated(logFilter.taskId || undefined, logPage, 20);
       }
     } catch (e) {
-      toast.error('提交失败', e instanceof Error ? e.message : '未知错误');
+      toast.error(t('toast.executionFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
 
@@ -1189,7 +1199,7 @@ export function SchedulerPanel() {
     // 通过 eventChatStore 的 interruptChat 来中断
     try {
       await useEventChatStore.getState().interruptChat();
-      toast.info('已中断', '任务执行已被中断');
+      toast.info(t('toast.subscriptionCancelled'), t('toast.subscriptionCancelledDetail'));
     } catch (e) {
       console.error('中断任务失败:', e);
     }
@@ -1200,7 +1210,7 @@ export function SchedulerPanel() {
   const handleSubscribeAndRun = async (task: ScheduledTask) => {
     // 防抖：如果已有任务在执行，不允许再次点击
     if (subscribingTaskId) {
-      toast.warning('请等待', '已有任务在执行中，请等待完成后再试');
+      toast.warning(t('toast.pleaseWait'), t('toast.pleaseWaitDetail'));
       return;
     }
 
@@ -1214,14 +1224,14 @@ export function SchedulerPanel() {
       }
       
       await runTaskWithSubscription(task.id, task.name, conversationId || undefined);
-      toast.info('订阅执行', `任务「${task.name}」正在执行，请在 AI 对话窗口查看实时进度`);
+      toast.info(t('toast.subscribed'), t('toast.subscribedDetail', { name: task.name }));
       // 刷新任务列表和日志
       loadTasks();
       if (activeTab === 'logs') {
         loadLogsPaginated(logFilter.taskId || undefined, logPage, 20);
       }
     } catch (e) {
-      toast.error('执行失败', e instanceof Error ? e.message : '未知错误');
+      toast.error(t('toast.executionFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
 
@@ -1229,10 +1239,10 @@ export function SchedulerPanel() {
   const handleUnsubscribe = async (task: ScheduledTask) => {
     try {
       await unsubscribeTask(task.id);
-      toast.info('已取消订阅', `任务「${task.name}」已取消订阅`);
+      toast.info(t('toast.unsubscribed'), t('toast.unsubscribedDetail', { name: task.name }));
       loadTasks();
     } catch (e) {
-      toast.error('取消订阅失败', e instanceof Error ? e.message : '未知错误');
+      toast.error(t('toast.unsubscribeFailed', '取消订阅失败'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
 
@@ -1270,17 +1280,17 @@ export function SchedulerPanel() {
   const handleBatchEnable = async () => {
     const selectedTasks = tasks.filter((t) => selectedTaskIds.has(t.id) && !t.enabled);
     if (selectedTasks.length === 0) {
-      toast.warning('提示', '没有可启用的任务');
+      toast.warning(t('toast.noEnableTargets'), t('toast.noEnableTargetsDetail'));
       return;
     }
     try {
       for (const task of selectedTasks) {
         await toggleTask(task.id, true);
       }
-      toast.success('批量启用成功', `已启用 ${selectedTasks.length} 个任务`);
+      toast.success(t('toast.batchEnableSuccess'), t('toast.batchEnableSuccessDetail', { count: selectedTasks.length }));
       loadTasks();
     } catch (e) {
-      toast.error('批量启用失败', e instanceof Error ? e.message : '未知错误');
+      toast.error(t('toast.batchEnableFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
 
@@ -1288,17 +1298,17 @@ export function SchedulerPanel() {
   const handleBatchDisable = async () => {
     const selectedTasks = tasks.filter((t) => selectedTaskIds.has(t.id) && t.enabled);
     if (selectedTasks.length === 0) {
-      toast.warning('提示', '没有可禁用的任务');
+      toast.warning(t('toast.noDisableTargets'), t('toast.noDisableTargetsDetail'));
       return;
     }
     try {
       for (const task of selectedTasks) {
         await toggleTask(task.id, false);
       }
-      toast.success('批量禁用成功', `已禁用 ${selectedTasks.length} 个任务`);
+      toast.success(t('toast.batchDisableSuccess'), t('toast.batchDisableSuccessDetail', { count: selectedTasks.length }));
       loadTasks();
     } catch (e) {
-      toast.error('批量禁用失败', e instanceof Error ? e.message : '未知错误');
+      toast.error(t('toast.batchDisableFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
 
@@ -1306,13 +1316,13 @@ export function SchedulerPanel() {
   const handleBatchDelete = async () => {
     const selectedTasks = tasks.filter((t) => selectedTaskIds.has(t.id));
     if (selectedTasks.length === 0) {
-      toast.warning('提示', '请先选择要删除的任务');
+      toast.warning(t('toast.noDeleteTargets'), t('toast.noDeleteTargetsDetail'));
       return;
     }
     setConfirmDialog({
       show: true,
-      title: '确认批量删除',
-      message: `确定要删除选中的 ${selectedTasks.length} 个任务吗？此操作不可恢复。`,
+      title: t('confirm.batchDeleteTitle'),
+      message: t('confirm.batchDeleteMessage', { count: selectedTasks.length }),
       type: 'danger',
       onConfirm: async () => {
         setConfirmDialog(null);
@@ -1320,11 +1330,11 @@ export function SchedulerPanel() {
           for (const task of selectedTasks) {
             await deleteTask(task.id);
           }
-          toast.success('批量删除成功', `已删除 ${selectedTasks.length} 个任务`);
+          toast.success(t('toast.batchDeleteSuccess'), t('toast.batchDeleteSuccessDetail', { count: selectedTasks.length }));
           setSelectedTaskIds(new Set());
           loadTasks();
         } catch (e) {
-          toast.error('批量删除失败', e instanceof Error ? e.message : '未知错误');
+          toast.error(t('toast.batchDeleteFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
         }
       }
     });
@@ -1333,10 +1343,10 @@ export function SchedulerPanel() {
   const handleCreate = async (params: CreateTaskParams) => {
     try {
       await createTask(params);
-      toast.success('创建成功');
+      toast.success(t('toast.createSuccess'));
       setShowEditor(false);
     } catch (e) {
-      toast.error('创建失败', e instanceof Error ? e.message : '未知错误');
+      toast.error(t('toast.createFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
 
@@ -1363,11 +1373,11 @@ export function SchedulerPanel() {
   const handleCopySave = async (params: CreateTaskParams) => {
     try {
       await createTask(params);
-      toast.success('复制成功');
+      toast.success(t('toast.copySuccess'));
       setShowEditor(false);
       setCopyingTask(undefined);
     } catch (e) {
-      toast.error('复制失败', e instanceof Error ? e.message : '未知错误');
+      toast.error(t('toast.copyFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
 
@@ -1378,27 +1388,27 @@ export function SchedulerPanel() {
         ...editingTask,
         ...params,
       });
-      toast.success('更新成功');
+      toast.success(t('toast.updateSuccess'));
       setShowEditor(false);
       setEditingTask(undefined);
     } catch (e) {
-      toast.error('更新失败', e instanceof Error ? e.message : '未知错误');
+      toast.error(t('toast.updateFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
 
   const handleDelete = async (id: string) => {
     setConfirmDialog({
       show: true,
-      title: '确认删除',
-      message: '确定要删除这个任务吗？此操作不可恢复。',
+      title: t('confirm.deleteTitle'),
+      message: t('confirm.deleteMessage'),
       type: 'danger',
       onConfirm: async () => {
         setConfirmDialog(null);
         try {
           await deleteTask(id);
-          toast.success('删除成功');
+          toast.success(t('toast.deleteSuccess'));
         } catch (e) {
-          toast.error('删除失败', e instanceof Error ? e.message : '未知错误');
+          toast.error(t('toast.deleteFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
         }
       }
     });
@@ -1432,7 +1442,7 @@ export function SchedulerPanel() {
       : filteredTasks;
 
     if (tasksToExport.length === 0) {
-      toast.warning('无可导出任务', '请选择要导出的任务');
+      toast.warning(t('toast.noExportTargets'), t('toast.noExportTargetsDetail'));
       return;
     }
 
@@ -1440,10 +1450,10 @@ export function SchedulerPanel() {
       const exportItems = tasksToExport.map(taskToExportItem);
       const success = await tauri.schedulerExportTasks(exportItems);
       if (success) {
-        toast.success('导出成功', `已导出 ${tasksToExport.length} 个任务`);
+        toast.success(t('toast.exportSuccess'), t('toast.exportSuccessDetail', { count: tasksToExport.length }));
       }
     } catch (e) {
-      toast.error('导出失败', e instanceof Error ? e.message : '未知错误');
+      toast.error(t('toast.exportFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
 
@@ -1486,13 +1496,13 @@ export function SchedulerPanel() {
       }
 
       if (successCount > 0) {
-        toast.success('导入完成', `成功导入 ${successCount} 个任务${failCount > 0 ? `，失败 ${failCount} 个` : ''}`);
+        toast.success(t('toast.importComplete'), t('toast.importCompleteDetail', { success: successCount, failed: failCount > 0 ? t('toast.importFailedCount', { count: failCount }) : '' }));
         loadTasks();
       } else {
-        toast.error('导入失败', '所有任务导入失败');
+        toast.error(t('toast.importFailed'), t('toast.importFailedDetail'));
       }
     } catch (e) {
-      toast.error('导入失败', e instanceof Error ? e.message : '未知错误');
+      toast.error(t('toast.importFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
 
@@ -1502,7 +1512,7 @@ export function SchedulerPanel() {
       <div className="p-4 border-b border-[#2a2a4a] flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-medium text-white flex items-center gap-2">
-            定时任务
+            {t('title')}
           </h1>
           {/* 调度器状态指示器 */}
           {lockStatus && (
@@ -1512,7 +1522,7 @@ export function SchedulerPanel() {
                 : 'bg-red-500/20 text-red-400'
             }`}>
               <span className={`w-2 h-2 rounded-full ${lockStatus.isHolder ? 'bg-green-500' : 'bg-red-500'}`} />
-              {lockStatus.isHolder ? '调度中' : '已停止'}
+              {lockStatus.isHolder ? t('status.scheduling') : t('status.stopped')}
             </span>
           )}
         </div>
@@ -1524,18 +1534,18 @@ export function SchedulerPanel() {
                 onClick={handleStopScheduler}
                 disabled={schedulerOperating}
                 className="px-3 py-1.5 text-sm bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="停止调度器"
+                title={t('scheduler.stopHint')}
               >
-                {isCompact ? '⏹' : '停止调度'}
+                {isCompact ? '⏹' : t('scheduler.stop')}
               </button>
             ) : (
               <button
                 onClick={handleStartScheduler}
                 disabled={schedulerOperating}
                 className="px-3 py-1.5 text-sm bg-green-600/20 text-green-400 hover:bg-green-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="启动调度器"
+                title={t('scheduler.startHint')}
               >
-                {isCompact ? '▶' : '启动调度'}
+                {isCompact ? '▶' : t('scheduler.start')}
               </button>
             )
           )}
@@ -1543,7 +1553,7 @@ export function SchedulerPanel() {
             onClick={handleImportTasks}
             className="px-3 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors text-sm"
           >
-            {isCompact ? '↓' : '导入'}
+            {isCompact ? '↓' : t('importExport.import')}
           </button>
           <button
             onClick={() => {
@@ -1552,7 +1562,7 @@ export function SchedulerPanel() {
             }}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
           >
-            + 新建
+            + {t('newTask')}
           </button>
         </div>
       </div>
@@ -1568,7 +1578,7 @@ export function SchedulerPanel() {
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            任务列表 ({tasks.length})
+            {t('tabs.tasks')} ({tasks.length})
           </button>
           <button
             onClick={() => setActiveTab('logs')}
@@ -1578,7 +1588,7 @@ export function SchedulerPanel() {
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            执行日志 ({logs.length})
+            {t('tabs.logs')} ({logs.length})
           </button>
           <button
             onClick={() => setActiveTab('settings')}
@@ -1588,7 +1598,7 @@ export function SchedulerPanel() {
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            设置
+            {t('tabs.settings')}
           </button>
         </div>
       </div>
@@ -1600,7 +1610,7 @@ export function SchedulerPanel() {
             {/* 搜索框 */}
             <input
               type="text"
-              placeholder="搜索..."
+              placeholder={t('filter.search')}
               value={filter.search}
               onChange={(e) => setFilter({ ...filter, search: e.target.value })}
               className={`px-3 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 ${isCompact ? 'w-24' : 'w-48'}`}
@@ -1611,9 +1621,9 @@ export function SchedulerPanel() {
               onChange={(e) => setFilter({ ...filter, enabled: e.target.value as TaskFilter['enabled'] })}
               className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
             >
-              <option value="all">全部状态</option>
-              <option value="enabled">已启用</option>
-              <option value="disabled">已禁用</option>
+              <option value="all">{t('filter.allStatus')}</option>
+              <option value="enabled">{t('filter.enabled')}</option>
+              <option value="disabled">{t('filter.disabled')}</option>
             </select>
 
             {/* 紧凑模式：更多筛选按钮 */}
@@ -1626,7 +1636,7 @@ export function SchedulerPanel() {
                     : 'bg-gray-600/20 text-gray-400 hover:bg-gray-600/30'
                 }`}
               >
-                {showMoreFilters ? '收起' : '更多'}
+                {showMoreFilters ? t('filter.collapse') : t('filter.more')}
               </button>
             )}
 
@@ -1639,9 +1649,9 @@ export function SchedulerPanel() {
                   onChange={(e) => setFilter({ ...filter, mode: e.target.value as TaskFilter['mode'] })}
                   className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
                 >
-                  <option value="all">全部模式</option>
-                  <option value="simple">简单模式</option>
-                  <option value="protocol">协议模式</option>
+                  <option value="all">{t('filter.allModes')}</option>
+                  <option value="simple">{t('filter.simpleMode')}</option>
+                  <option value="protocol">{t('filter.protocolMode')}</option>
                 </select>
                 {/* 引擎筛选 */}
                 <select
@@ -1649,7 +1659,7 @@ export function SchedulerPanel() {
                   onChange={(e) => setFilter({ ...filter, engineId: e.target.value })}
                   className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
                 >
-                  <option value="all">全部引擎</option>
+                  <option value="all">{t('filter.allEngines')}</option>
                   {engineOptions.map((engine) => (
                     <option key={engine} value={engine}>{engine}</option>
                   ))}
@@ -1660,10 +1670,10 @@ export function SchedulerPanel() {
                   onChange={(e) => setFilter({ ...filter, triggerType: e.target.value as TaskFilter['triggerType'] })}
                   className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
                 >
-                  <option value="all">全部触发</option>
-                  <option value="once">一次性</option>
-                  <option value="cron">Cron</option>
-                  <option value="interval">间隔</option>
+                  <option value="all">{t('filter.allTriggers')}</option>
+                  <option value="once">{t('triggerTypes.once')}</option>
+                  <option value="cron">{t('triggerTypes.cron')}</option>
+                  <option value="interval">{t('triggerTypes.interval')}</option>
                 </select>
                 {/* 执行状态筛选 */}
                 <select
@@ -1671,11 +1681,11 @@ export function SchedulerPanel() {
                   onChange={(e) => setFilter({ ...filter, lastRunStatus: e.target.value as TaskFilter['lastRunStatus'] })}
                   className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
                 >
-                  <option value="all">全部执行状态</option>
-                  <option value="running">执行中</option>
-                  <option value="success">成功</option>
-                  <option value="failed">失败</option>
-                  <option value="none">未执行</option>
+                  <option value="all">{t('filter.allExecutionStatus')}</option>
+                  <option value="running">{t('status.running')}</option>
+                  <option value="success">{t('status.success')}</option>
+                  <option value="failed">{t('status.failed')}</option>
+                  <option value="none">{t('status.notExecuted')}</option>
                 </select>
                 {/* 分组筛选 */}
                 <select
@@ -1683,7 +1693,7 @@ export function SchedulerPanel() {
                   onChange={(e) => setFilter({ ...filter, group: e.target.value })}
                   className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
                 >
-                  <option value="all">全部分组</option>
+                  <option value="all">{t('filter.allGroups')}</option>
                   {groupOptions.map((group) => (
                     <option key={group} value={group}>{group}</option>
                   ))}
@@ -1716,7 +1726,7 @@ export function SchedulerPanel() {
               onClick={() => setFilter(defaultFilter)}
               className="px-3 py-1.5 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
             >
-              {isCompact ? '重置' : '清除筛选'}
+              {isCompact ? t('filter.reset') : t('filter.clearFilter')}
             </button>
             {/* 筛选结果数量 */}
             {filteredTasks.length !== tasks.length && (
@@ -1739,7 +1749,7 @@ export function SchedulerPanel() {
                   : 'bg-gray-600/20 text-gray-400 hover:bg-gray-600/30'
               }`}
             >
-              {selectionMode ? '退出' : isCompact ? '多选' : '批量选择'}
+              {selectionMode ? t('filter.exit') : isCompact ? t('filter.more') : t('filter.batchSelect')}
             </button>
             {/* 导出按钮 */}
             {!isCompact && (
@@ -1747,7 +1757,7 @@ export function SchedulerPanel() {
                 onClick={handleExportTasks}
                 className="px-3 py-1.5 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
               >
-                导出
+                {t('importExport.export')}
               </button>
             )}
           </div>
@@ -1757,11 +1767,11 @@ export function SchedulerPanel() {
       {/* 内容 */}
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
-          <div className="text-center text-gray-500 py-8">加载中...</div>
+          <div className="text-center text-gray-500 py-8">{t('loading')}</div>
         ) : activeTab === 'tasks' ? (
           tasks.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
-              暂无定时任务，点击右上角按钮创建
+              {t('empty.noTasks')}
             </div>
           ) : (
             <div className="space-y-2">
@@ -1836,7 +1846,7 @@ export function SchedulerPanel() {
               onClick={handleSelectAll}
               className="px-2 py-1 text-sm bg-gray-600/20 text-gray-300 hover:bg-gray-600/30 rounded transition-colors"
             >
-              {selectedTaskIds.size === filteredTasks.length ? '取消' : '全选'}
+              {selectedTaskIds.size === filteredTasks.length ? t('batch.deselectAll') : t('batch.selectAll')}
             </button>
           </div>
           <div className="flex items-center gap-1">
@@ -1845,21 +1855,21 @@ export function SchedulerPanel() {
               disabled={selectedTaskIds.size === 0}
               className={`px-2 py-1 text-sm bg-green-600/20 text-green-400 hover:bg-green-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isCompact ? 'text-xs' : ''}`}
             >
-              {isCompact ? '启用' : '批量启用'}
+              {isCompact ? t('batch.enable') : t('batch.batchEnable')}
             </button>
             <button
               onClick={handleBatchDisable}
               disabled={selectedTaskIds.size === 0}
               className={`px-2 py-1 text-sm bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isCompact ? 'text-xs' : ''}`}
             >
-              {isCompact ? '禁用' : '批量禁用'}
+              {isCompact ? t('batch.disable') : t('batch.batchDisable')}
             </button>
             <button
               onClick={handleBatchDelete}
               disabled={selectedTaskIds.size === 0}
               className={`px-2 py-1 text-sm bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isCompact ? 'text-xs' : ''}`}
             >
-              {isCompact ? '删除' : '批量删除'}
+              {isCompact ? t('task.delete') : t('batch.batchDelete')}
             </button>
           </div>
         </div>
@@ -1870,7 +1880,7 @@ export function SchedulerPanel() {
         <TaskEditor
           task={editingTask || copyingTask}
           onSave={editingTask ? handleUpdate : (copyingTask ? handleCopySave : handleCreate)}
-          title={editingTask ? '编辑任务' : (copyingTask ? '复制任务' : '新建任务')}
+          title={editingTask ? t('editor.editTask') : (copyingTask ? t('editor.copyTask') : t('editor.newTask'))}
           onClose={() => {
             setShowEditor(false);
             setEditingTask(undefined);
@@ -1909,6 +1919,7 @@ function ProtocolDocViewer({
   task: ScheduledTask;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('scheduler');
   const toast = useToastStore();
   const [activeDoc, setActiveDoc] = useState<'task' | 'supplement' | 'memory'>('task');
   const [content, setContent] = useState('');
@@ -1929,7 +1940,7 @@ function ProtocolDocViewer({
         setEditedContent(data);
       })
       .catch((e) => {
-        toast.error('读取文档失败', e instanceof Error ? e.message : '未知错误');
+        toast.error(t('toast.readDocFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
       })
       .finally(() => setLoading(false));
   }, [task, activeDoc, toast]);
@@ -1943,16 +1954,16 @@ function ProtocolDocViewer({
       await tauri.schedulerWriteProtocolFile(task.workDir, task.taskPath, fileType, editedContent);
       setContent(editedContent);
       setIsEditing(false);
-      toast.success('保存成功');
+      toast.success(t('toast.writeDocSuccess'));
     } catch (e) {
-      toast.error('保存失败', e instanceof Error ? e.message : '未知错误');
+      toast.error(t('toast.writeDocFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
 
   const docTabs = [
-    { id: 'task' as const, label: '协议文档' },
-    { id: 'supplement' as const, label: '用户补充' },
-    { id: 'memory' as const, label: '记忆索引' },
+    { id: 'task' as const, label: t('docViewer.taskDoc') },
+    { id: 'supplement' as const, label: t('docViewer.supplement') },
+    { id: 'memory' as const, label: t('docViewer.memoryIndex') },
   ];
 
   return (
@@ -1993,7 +2004,7 @@ function ProtocolDocViewer({
         {/* 内容区域 */}
         <div className="flex-1 overflow-hidden p-4">
           {loading ? (
-            <div className="text-center text-gray-500 py-8">加载中...</div>
+            <div className="text-center text-gray-500 py-8">{t('loading')}</div>
           ) : isEditing ? (
             <textarea
               value={editedContent}
@@ -2002,7 +2013,7 @@ function ProtocolDocViewer({
             />
           ) : (
             <pre className="w-full h-full p-3 bg-[#1a1a2e] border border-[#2a2a4a] rounded text-gray-300 overflow-auto text-sm whitespace-pre-wrap">
-              {content || '(空文档)'}
+              {content || t('docViewer.emptyDoc')}
             </pre>
           )}
         </div>
@@ -2010,7 +2021,7 @@ function ProtocolDocViewer({
         {/* 底部操作栏 */}
         <div className="p-4 border-t border-[#2a2a4a] flex justify-between items-center">
           <div className="text-xs text-gray-500">
-            路径: {task.taskPath}/{activeDoc === 'memory' ? 'memory/index.md' : `${activeDoc}.md`}
+            {t('docViewer.path', { path: `${task.taskPath}/${activeDoc === 'memory' ? 'memory/index.md' : `${activeDoc}.md`}` })}
           </div>
           <div className="flex gap-2">
             {isEditing ? (
@@ -2019,13 +2030,13 @@ function ProtocolDocViewer({
                   onClick={() => setIsEditing(false)}
                   className="px-4 py-2 bg-gray-600/20 text-gray-300 hover:bg-gray-600/30 rounded transition-colors"
                 >
-                  取消
+                  {t('docViewer.cancel')}
                 </button>
                 <button
                   onClick={handleSave}
                   className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
                 >
-                  保存
+                  {t('docViewer.save')}
                 </button>
               </>
             ) : (
@@ -2036,7 +2047,7 @@ function ProtocolDocViewer({
                 }}
                 className="px-4 py-2 bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 rounded transition-colors"
               >
-                编辑
+                {t('docViewer.edit')}
               </button>
             )}
           </div>
