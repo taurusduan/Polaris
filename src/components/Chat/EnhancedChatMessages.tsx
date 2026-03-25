@@ -34,7 +34,7 @@ import {
 } from '../../utils/toolSummary';
 import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, Circle, FileSearch, FolderOpen, Code, FileDiff, RotateCcw, Copy, GitPullRequest, Brain, ListOrdered, Trash2 } from 'lucide-react';
 import { ChatNavigator } from './ChatNavigator';
-import { useMessageSearch } from './MessageSearchPanel';
+import { useMessageSearch, MessageSearchPanel } from './MessageSearchPanel';
 import { QuestionBlockRenderer, SimplifiedQuestionRenderer } from './QuestionBlockRenderer';
 import { PlanModeBlockRenderer, SimplifiedPlanModeRenderer } from './PlanModeBlockRenderer';
 import { AgentRunBlockRenderer, SimplifiedAgentRunRenderer } from './AgentRunBlockRenderer';
@@ -2022,18 +2022,18 @@ export function EnhancedChatMessages() {
     return groupConversationRounds(displayMessages);
   }, [displayMessages]);
 
-  // 消息搜索功能（TODO: 完整集成搜索 UI）
+  // 消息搜索功能
   const {
-    // searchQuery, // TODO: 传递给 renderChatMessage
-    // setSearchQuery,
-    // isSearchVisible,
-    // openSearch,
-    // closeSearch,
-    // currentMatchIndex,
-    // totalMatches,
+    searchQuery,
+    setSearchQuery,
+    isSearchVisible,
+    openSearch,
+    closeSearch,
+    currentMatchIndex,
+    totalMatches,
     currentMatchMessageId,
-    // goToPrevious,
-    // goToNext,
+    goToPrevious,
+    goToNext,
   } = useMessageSearch(displayMessages);
 
   // 搜索结果跳转
@@ -2050,17 +2050,17 @@ export function EnhancedChatMessages() {
     }
   }, [currentMatchMessageId, displayMessages]);
 
-  // 键盘快捷键：Ctrl+F / Cmd+F 打开搜索（TODO: 完整集成搜索 UI 后启用）
-  // useEffect(() => {
-  //   const handleKeyDown = (e: KeyboardEvent) => {
-  //     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-  //       e.preventDefault();
-  //       openSearch();
-  //     }
-  //   };
-  //   window.addEventListener('keydown', handleKeyDown);
-  //   return () => window.removeEventListener('keydown', handleKeyDown);
-  // }, [openSearch]);
+  // 键盘快捷键：Ctrl+F / Cmd+F 打开搜索
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        openSearch();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [openSearch]);
 
   // 检测用户是否在底部附近（基于像素距离）
   const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
@@ -2178,6 +2178,20 @@ export function EnhancedChatMessages() {
             />
           )}
         </div>
+
+        {/* 消息搜索面板 */}
+        {isSearchVisible && (
+          <MessageSearchPanel
+            visible={isSearchVisible}
+            onClose={closeSearch}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+            currentMatchIndex={currentMatchIndex}
+            totalMatches={totalMatches}
+            onPrevious={goToPrevious}
+            onNext={goToNext}
+          />
+        )}
 
         {/* 聊天导航器 */}
         {!isEmpty && (
