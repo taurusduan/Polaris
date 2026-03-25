@@ -13,6 +13,8 @@ import zhCNGit from '../locales/zh-CN/git.json';
 import zhCNFileExplorer from '../locales/zh-CN/fileExplorer.json';
 import zhCNSystemPrompt from '../locales/zh-CN/systemPrompt.json';
 import zhCNTools from '../locales/zh-CN/tools.json';
+import zhCNDeveloper from '../locales/zh-CN/developer.json';
+import zhCNScheduler from '../locales/zh-CN/scheduler.json';
 
 import enUSCommon from '../locales/en-US/common.json';
 import enUSSettings from '../locales/en-US/settings.json';
@@ -26,6 +28,8 @@ import enUSGit from '../locales/en-US/git.json';
 import enUSFileExplorer from '../locales/en-US/fileExplorer.json';
 import enUSSystemPrompt from '../locales/en-US/systemPrompt.json';
 import enUSTools from '../locales/en-US/tools.json';
+import enUSDeveloper from '../locales/en-US/developer.json';
+import enUSScheduler from '../locales/en-US/scheduler.json';
 
 export const resources = {
   'zh-CN': {
@@ -41,6 +45,8 @@ export const resources = {
     fileExplorer: zhCNFileExplorer,
     systemPrompt: zhCNSystemPrompt,
     tools: zhCNTools,
+    developer: zhCNDeveloper,
+    scheduler: zhCNScheduler,
   },
   'en-US': {
     common: enUSCommon,
@@ -55,6 +61,8 @@ export const resources = {
     fileExplorer: enUSFileExplorer,
     systemPrompt: enUSSystemPrompt,
     tools: enUSTools,
+    developer: enUSDeveloper,
+    scheduler: enUSScheduler,
   },
 };
 

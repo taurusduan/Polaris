@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx'
 import type { AIEvent } from '../../ai-runtime'
 import { getEventBus } from '../../ai-runtime'
@@ -48,6 +49,7 @@ export interface DeveloperPanelProps {
 }
 
 export function DeveloperPanel({ className = '', width, fillRemaining = false }: DeveloperPanelProps) {
+  const { t } = useTranslation('developer');
   const [isOpen, setIsOpen] = useState(true)
   const [events, setEvents] = useState<EventRecord[]>([])
   const [filterType, setFilterType] = useState<FilterType>('all')
@@ -185,9 +187,9 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
                 onChange={(e) => setFilterType(e.target.value as FilterType)}
                 className="flex-1 px-2 py-1.5 text-xs bg-background border border-border rounded-md text-text-primary focus:outline-none focus:border-primary"
               >
-                <option value="all">全部事件</option>
-                <option value="taskId">按 Task ID</option>
-                <option value="sessionId">按 Session ID</option>
+                <option value="all">{t('filter.all')}</option>
+                <option value="taskId">{t('filter.byTaskId')}</option>
+                <option value="sessionId">{t('filter.bySessionId')}</option>
               </select>
 
               {(filterType === 'taskId' || filterType === 'sessionId') && (
@@ -195,7 +197,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
                   type="text"
                   value={filterValue}
                   onChange={(e) => setFilterValue(e.target.value)}
-                  placeholder={filterType === 'taskId' ? 'Task ID...' : 'Session ID...'}
+                  placeholder={filterType === 'taskId' ? t('filter.taskIdPlaceholder') : t('filter.sessionIdPlaceholder')}
                   className="flex-1 px-2 py-1.5 text-xs bg-background border border-border rounded-md text-text-primary focus:outline-none focus:border-primary"
                 />
               )}
@@ -208,7 +210,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
                 onChange={(e) => setSelectedEventType(e.target.value || null)}
                 className="flex-1 px-2 py-1.5 text-xs bg-background border border-border rounded-md text-text-primary focus:outline-none focus:border-primary"
               >
-                <option value="">全部类型</option>
+                <option value="">{t('filter.allTypes')}</option>
                 {eventTypes.map((type) => (
                   <option key={type} value={type}>
                     {type}
@@ -224,7 +226,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
                     ? 'bg-primary/10 border-primary text-primary'
                     : 'bg-background border-border text-text-tertiary hover:text-text-primary'
                 )}
-                title={autoScroll ? '自动滚动: 开' : '自动滚动: 关'}
+                title={autoScroll ? t('scroll.autoOn') : t('scroll.autoOff')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
@@ -234,7 +236,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
               <button
                 onClick={clearEvents}
                 className="px-2 py-1.5 text-xs bg-background border border-border text-text-tertiary rounded-md hover:text-text-primary hover:bg-background-hover transition-colors"
-                title="清空事件"
+                title={t('events.clearEvents')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -244,7 +246,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
 
             {/* 第三行：最大事件数设置 */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-text-tertiary">最大事件数:</span>
+              <span className="text-xs text-text-tertiary">{t('events.maxEvents')}</span>
               <input
                 type="number"
                 min={100}
@@ -264,7 +266,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
                 <svg className="w-12 h-12 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span className="text-sm">暂无事件</span>
+                <span className="text-sm">{t('events.noEvents')}</span>
               </div>
             ) : (
               <div className="min-w-0 space-y-1">
@@ -292,7 +294,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
                         <button
                           onClick={() => copyEvent(record.event)}
                           className="p-1 text-text-tertiary hover:text-text-primary transition-colors"
-                          title="复制 JSON"
+                          title={t('events.copyJson')}
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -312,8 +314,8 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
 
           {/* 底部状态栏 */}
           <div className="px-4 py-2 border-t border-border-subtle text-xs text-text-tertiary bg-background-surface flex items-center justify-between shrink-0">
-            <span>总计: {events.length}</span>
-            <span>已过滤: {filteredEvents.length}</span>
+            <span>{t('events.total')} {events.length}</span>
+            <span>{t('events.filtered')} {filteredEvents.length}</span>
           </div>
         </div>
       </div>
@@ -347,7 +349,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
             <button
               onClick={() => setIsOpen(false)}
               className="p-1.5 text-text-tertiary hover:text-text-primary transition-colors rounded-lg hover:bg-background-hover"
-              title="折叠面板"
+              title={t('panel.collapse')}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
@@ -358,7 +360,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
           <button
             onClick={() => setIsOpen(true)}
             className="w-full h-full flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors"
-            title="展开 Developer 面板"
+            title={t('panel.expand')}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
@@ -379,9 +381,9 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
                 onChange={(e) => setFilterType(e.target.value as FilterType)}
                 className="flex-1 px-2 py-1.5 text-xs bg-background border border-border rounded-md text-text-primary focus:outline-none focus:border-primary"
               >
-                <option value="all">全部事件</option>
-                <option value="taskId">按 Task ID</option>
-                <option value="sessionId">按 Session ID</option>
+                <option value="all">{t('filter.all')}</option>
+                <option value="taskId">{t('filter.byTaskId')}</option>
+                <option value="sessionId">{t('filter.bySessionId')}</option>
               </select>
 
               {(filterType === 'taskId' || filterType === 'sessionId') && (
@@ -389,7 +391,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
                   type="text"
                   value={filterValue}
                   onChange={(e) => setFilterValue(e.target.value)}
-                  placeholder={filterType === 'taskId' ? 'Task ID...' : 'Session ID...'}
+                  placeholder={filterType === 'taskId' ? t('filter.taskIdPlaceholder') : t('filter.sessionIdPlaceholder')}
                   className="flex-1 px-2 py-1.5 text-xs bg-background border border-border rounded-md text-text-primary focus:outline-none focus:border-primary"
                 />
               )}
@@ -402,7 +404,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
                 onChange={(e) => setSelectedEventType(e.target.value || null)}
                 className="flex-1 px-2 py-1.5 text-xs bg-background border border-border rounded-md text-text-primary focus:outline-none focus:border-primary"
               >
-                <option value="">全部类型</option>
+                <option value="">{t('filter.allTypes')}</option>
                 {eventTypes.map((type) => (
                   <option key={type} value={type}>
                     {type}
@@ -418,7 +420,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
                     ? 'bg-primary/10 border-primary text-primary'
                     : 'bg-background border-border text-text-tertiary hover:text-text-primary'
                 )}
-                title={autoScroll ? '自动滚动: 开' : '自动滚动: 关'}
+                title={autoScroll ? t('scroll.autoOn') : t('scroll.autoOff')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
@@ -428,7 +430,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
               <button
                 onClick={clearEvents}
                 className="px-2 py-1.5 text-xs bg-background border border-border text-text-tertiary rounded-md hover:text-text-primary hover:bg-background-hover transition-colors"
-                title="清空事件"
+                title={t('events.clearEvents')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -438,7 +440,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
 
             {/* 第三行：最大事件数设置 */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-text-tertiary">最大事件数:</span>
+              <span className="text-xs text-text-tertiary">{t('events.maxEvents')}</span>
               <input
                 type="number"
                 min={100}
@@ -458,7 +460,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
                 <svg className="w-12 h-12 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span className="text-sm">暂无事件</span>
+                <span className="text-sm">{t('events.noEvents')}</span>
               </div>
             ) : (
               <div className="min-w-0 space-y-1">
@@ -486,7 +488,7 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
                         <button
                           onClick={() => copyEvent(record.event)}
                           className="p-1 text-text-tertiary hover:text-text-primary transition-colors"
-                          title="复制 JSON"
+                          title={t('events.copyJson')}
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -506,8 +508,8 @@ export function DeveloperPanel({ className = '', width, fillRemaining = false }:
 
           {/* 底部状态栏 */}
           <div className="px-4 py-2 border-t border-border-subtle text-xs text-text-tertiary bg-background-surface flex items-center justify-between shrink-0">
-            <span>总计: {events.length}</span>
-            <span>已过滤: {filteredEvents.length}</span>
+            <span>{t('events.total')} {events.length}</span>
+            <span>{t('events.filtered')} {filteredEvents.length}</span>
           </div>
         </div>
       )}
