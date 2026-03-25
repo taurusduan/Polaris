@@ -228,5 +228,21 @@
     "outputResult": "执行结果",
     "noOutput": "命令执行成功（无输出）",
     "copy": "复制"
+  },
+  "codeBlock": {
+    "clickToExpand": "点击展开代码",
+    "linesCollapsed": "{{count}} 行代码已折叠",
+    "clickToExpandShort": "点击展开",
+    "copyCode": "复制代码",
+    "copied": "已复制",
+    "showLineNumbers": "显示行号",
+    "hideLineNumbers": "隐藏行号",
+    "collapseCode": "折叠代码",
+    "expandCode": "展开代码",
+    "collapse": "折叠",
+    "expand": "展开",
+    "copy": "复制",
+    "lineNumbers": "行号",
+    "lines": "行"
   }
 }

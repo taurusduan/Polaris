@@ -12,6 +12,7 @@
  */
 
 import { memo, useState, useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Copy, Check, List, ListX, ChevronDown, ChevronUp } from 'lucide-react';
 import hljs from 'highlight.js';
 
@@ -184,6 +185,7 @@ function scheduleHighlight(
  * ```
  */
 export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBlockProps) {
+  const { t } = useTranslation('chat');
   const [copied, setCopied] = useState(false);
   const [showLineNumbers, setShowLineNumbers] = useState(false);
   const [highlightedCode, setHighlightedCode] = useState<string | null>(null);
@@ -267,7 +269,7 @@ export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBl
             <span className="text-xs text-text-tertiary font-mono">{displayName}</span>
           )}
           {lineCount > 1 && (
-            <span className="text-xs text-text-muted">{lineCount} 行</span>
+            <span className="text-xs text-text-muted">{lineCount} {t('codeBlock.lines', { count: lineCount })}</span>
           )}
         </div>
 
@@ -278,17 +280,17 @@ export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBl
             <button
               className="px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1.5 text-text-tertiary hover:bg-background-hover"
               onClick={toggleCollapse}
-              title={isCollapsed ? '展开代码' : '折叠代码'}
+              title={isCollapsed ? t('codeBlock.expandCode') : t('codeBlock.collapseCode')}
             >
               {isCollapsed ? (
                 <>
                   <ChevronDown className="w-3.5 h-3.5" />
-                  展开
+                  {t('codeBlock.expand')}
                 </>
               ) : (
                 <>
                   <ChevronUp className="w-3.5 h-3.5" />
-                  折叠
+                  {t('codeBlock.collapse')}
                 </>
               )}
             </button>
@@ -302,17 +304,17 @@ export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBl
                 : 'text-text-tertiary hover:bg-background-hover'
             }`}
             onClick={toggleLineNumbers}
-            title={showLineNumbers ? '隐藏行号' : '显示行号'}
+            title={showLineNumbers ? t('codeBlock.hideLineNumbers') : t('codeBlock.showLineNumbers')}
           >
             {showLineNumbers ? (
               <>
                 <ListX className="w-3.5 h-3.5" />
-                行号
+                {t('codeBlock.lineNumbers')}
               </>
             ) : (
               <>
                 <List className="w-3.5 h-3.5" />
-                行号
+                {t('codeBlock.lineNumbers')}
               </>
             )}
           </button>
@@ -325,17 +327,17 @@ export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBl
                 : 'text-text-tertiary hover:bg-background-hover'
             }`}
             onClick={handleCopy}
-            title={copied ? '已复制' : '复制代码'}
+            title={copied ? t('codeBlock.copied') : t('codeBlock.copyCode')}
           >
             {copied ? (
               <>
                 <Check className="w-3.5 h-3.5" />
-                已复制
+                {t('codeBlock.copied')}
               </>
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5" />
-                复制
+                {t('codeBlock.copy')}
               </>
             )}
           </button>
@@ -349,11 +351,11 @@ export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBl
           <div
             className="p-4 bg-background-base cursor-pointer hover:bg-background-hover/30 transition-colors relative"
             onClick={toggleCollapse}
-            title="点击展开代码"
+            title={t('codeBlock.clickToExpand')}
           >
             <div className="text-xs text-text-muted mb-2">
               {displayName && <span className="font-mono mr-2">{displayName}</span>}
-              <span>{lineCount} 行代码已折叠</span>
+              <span>{t('codeBlock.linesCollapsed', { count: lineCount })}</span>
             </div>
             {/* 显示前 3 行预览 */}
             <pre className="text-sm text-text-tertiary opacity-60 overflow-hidden" style={{ maxHeight: '4.5em' }}>
@@ -364,7 +366,7 @@ export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBl
             {/* 展开提示 */}
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-text-muted flex items-center gap-1">
               <ChevronDown className="w-3.5 h-3.5" />
-              点击展开
+              {t('codeBlock.clickToExpandShort')}
             </div>
           </div>
         ) : (

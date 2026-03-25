@@ -228,5 +228,21 @@
     "outputResult": "Output Result",
     "noOutput": "Command executed successfully (no output)",
     "copy": "Copy"
+  },
+  "codeBlock": {
+    "clickToExpand": "Click to expand code",
+    "linesCollapsed": "{{count}} lines collapsed",
+    "clickToExpandShort": "Click to expand",
+    "copyCode": "Copy code",
+    "copied": "Copied",
+    "showLineNumbers": "Show line numbers",
+    "hideLineNumbers": "Hide line numbers",
+    "collapseCode": "Collapse code",
+    "expandCode": "Expand code",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "copy": "Copy",
+    "lineNumbers": "Lines",
+    "lines": "lines"
   }
 }
