@@ -49,7 +49,9 @@
     "toolPanel": "Tool Panel",
     "developerPanel": "Developer Panel",
     "showAIPanel": "Show AI Panel",
-    "hideAIPanel": "Hide AI Panel"
+    "hideAIPanel": "Hide AI Panel",
+    "showActivityBar": "Show Activity Bar",
+    "hideActivityBar": "Hide Activity Bar"
   },
   "messages": {
     "noWorkspace": "Please open a workspace first",

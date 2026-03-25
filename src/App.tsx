@@ -489,8 +489,8 @@ function App() {
         </div>
       ) : (
         /* 正常模式：完整布局 */
-        <div className="flex flex-1 overflow-hidden">
-          {/* Activity Bar */}
+        <div className="flex flex-1 overflow-hidden relative">
+          {/* Activity Bar - 支持折叠和悬停显示 */}
           <ActivityBar
             onOpenSettings={() => setShowSettings(true)}
             onToggleRightPanel={toggleRightPanel}

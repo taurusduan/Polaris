@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Minus, Square, X, Clock, Download, PanelRight, Pin } from 'lucide-react';
+import { Minus, Square, X, Clock, Download, PanelRight, Pin, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useWorkspaceStore, useViewStore, useEventChatStore } from '../../stores';
 import * as tauri from '../../services/tauri';
@@ -28,7 +28,7 @@ interface TopMenuBarProps {
 export function TopMenuBar({ onNewConversation, onCreateWorkspace, onToggleRightPanel, rightPanelCollapsed, isCompactMode }: TopMenuBarProps) {
   const { t } = useTranslation('common');
   const { getCurrentWorkspace } = useWorkspaceStore();
-  const { toggleSessionHistory } = useViewStore();
+  const { toggleSessionHistory, activityBarCollapsed, toggleActivityBar } = useViewStore();
   const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false);
   const [showNewChatConfirm, setShowNewChatConfirm] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -235,6 +235,20 @@ export function TopMenuBar({ onNewConversation, onCreateWorkspace, onToggleRight
 
             {/* 分隔线 */}
             <div data-tauri-drag-region className="w-px h-4 bg-border-subtle mx-1" />
+
+            {/* ActivityBar 显示/隐藏按钮 */}
+            <button
+              onClick={toggleActivityBar}
+              className={`p-1.5 rounded-md transition-colors ${
+                activityBarCollapsed
+                  ? 'text-text-tertiary hover:text-text-primary hover:bg-background-hover'
+                  : 'text-primary bg-primary/10 hover:bg-primary/20'
+              }`}
+              title={activityBarCollapsed ? t('labels.showActivityBar') : t('labels.hideActivityBar')}
+              data-tauri-drag-region={false}
+            >
+              {activityBarCollapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            </button>
 
             {/* 右侧 AI 面板切换按钮 */}
             <button

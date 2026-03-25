@@ -33,6 +33,7 @@ interface ViewState {
   leftPanelWidth: number;        // 左侧面板宽度
   rightPanelWidth: number;       // 右侧 AI 面板宽度
   rightPanelCollapsed: boolean;  // 右侧面板是否折叠
+  activityBarCollapsed: boolean; // ActivityBar 是否折叠（隐藏图标栏）
   // 小屏模式状态
   compactMode: CompactModeState; // 小屏模式
 }
@@ -61,6 +62,7 @@ interface ViewActions {
   setLeftPanelWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
   toggleRightPanel: () => void;
+  toggleActivityBar: () => void; // 切换 ActivityBar 折叠状态
   // 小屏模式操作
   updateCompactMode: (state: Partial<CompactModeState>) => void;
 }
@@ -88,6 +90,7 @@ export const useViewStore = create<ViewStore>()(
       leftPanelWidth: 280,        // 左侧面板默认宽度
       rightPanelWidth: 400,       // 右侧 AI 面板默认宽度
       rightPanelCollapsed: false, // 右侧面板默认不折叠
+      activityBarCollapsed: false, // ActivityBar 默认不折叠
       // 小屏模式初始状态
       compactMode: {
         isCompactMode: false,
@@ -183,6 +186,9 @@ export const useViewStore = create<ViewStore>()(
 
       // 切换右侧面板折叠状态
       toggleRightPanel: () => set((state) => ({ rightPanelCollapsed: !state.rightPanelCollapsed })),
+
+      // 切换 ActivityBar 折叠状态
+      toggleActivityBar: () => set((state) => ({ activityBarCollapsed: !state.activityBarCollapsed })),
 
       // 更新小屏模式状态
       updateCompactMode: (newState: Partial<CompactModeState>) => set((state) => ({
