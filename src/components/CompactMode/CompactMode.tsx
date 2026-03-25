@@ -27,7 +27,7 @@ interface CompactModeProps {
 
 export function CompactMode({ onSend, onInterrupt, disabled, isStreaming }: CompactModeProps) {
   const { t } = useTranslation('common')
-  const { config, updateConfig } = useConfigStore()
+  const { config, updateConfig, healthStatus } = useConfigStore()
   const { error, clearMessages, messages } = useEventChatStore()
   const currentWorkspace = useWorkspaceStore(state => state.getCurrentWorkspace())
   const { toggleSessionHistory } = useViewStore()
@@ -100,6 +100,12 @@ export function CompactMode({ onSend, onInterrupt, disabled, isStreaming }: Comp
               <option key={opt.id} value={opt.id} className="bg-background text-text-primary">{opt.name}</option>
             ))}
           </select>
+          {/* Claude Code 版本状态 - 仅在选择 claude-code 时显示 */}
+          {config?.defaultEngine === 'claude-code' && healthStatus?.claudeVersion && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
+              v{healthStatus.claudeVersion}
+            </span>
+          )}
         </div>
 
         {/* 右侧：导航 + 快捷操作 */}

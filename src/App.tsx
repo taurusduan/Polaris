@@ -37,7 +37,7 @@ const log = createLogger('App');
 
 function App() {
   const { t } = useTranslation('common');
-  const { isConnecting, connectionState, loadConfig, config, updateConfig } = useConfigStore();
+  const { isConnecting, connectionState, loadConfig, config, updateConfig, healthStatus } = useConfigStore();
   const {
     isStreaming,
     sendMessage,
@@ -549,6 +549,12 @@ function App() {
                       <option key={opt.id} value={opt.id} className="bg-background text-text-primary">{opt.name}</option>
                     ))}
                   </select>
+                  {/* Claude Code 版本状态 - 仅在选择 claude-code 时显示 */}
+                  {config?.defaultEngine === 'claude-code' && healthStatus?.claudeVersion && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
+                      v{healthStatus.claudeVersion}
+                    </span>
+                  )}
                 </div>
               </div>
 
