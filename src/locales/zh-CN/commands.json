@@ -18,5 +18,16 @@
     "exampleHelp": "`/help` - 显示帮助",
     "exampleCommands": "`/commands` - 列出所有命令",
     "exampleFileRef": "`@README.md 请解释这个项目` - 引用文件并提问"
+  },
+  "store": {
+    "customCommandDefault": "自定义命令",
+    "loadCustomCommandsError": "加载自定义命令失败"
+  },
+  "workspace": {
+    "info": "工作区信息",
+    "currentWorkspace": "当前工作区",
+    "path": "路径",
+    "referenceSyntax": "引用语法",
+    "relatedWorkspaces": "关联工作区"
   }
 }

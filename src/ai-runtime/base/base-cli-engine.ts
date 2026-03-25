@@ -53,6 +53,7 @@ import { BaseSession } from './base-session'
 import { createEventIterable } from './base-session'
 import { validateCLIEngineConfig } from '../config-validator'
 import { createLogger } from '../../utils/logger'
+import i18n from '../../i18n'
 
 const log = createLogger('BaseCLIEngine')
 
@@ -265,19 +266,19 @@ export abstract class BaseCLISession extends BaseSession {
     const lines: string[] = []
 
     lines.push('═══════════════════════════════════════════════════════════')
-    lines.push('                        工作区信息')
+    lines.push(`                        ${i18n.t('commands:workspace.info')}`)
     lines.push('═══════════════════════════════════════════════════════════')
-    lines.push(`当前工作区: ${workspaceContext.currentWorkspace.name}`)
-    lines.push(`  路径: ${workspaceContext.currentWorkspace.path}`)
-    lines.push(`  引用语法: @/path`)
+    lines.push(`${i18n.t('commands:workspace.currentWorkspace')}: ${workspaceContext.currentWorkspace.name}`)
+    lines.push(`  ${i18n.t('commands:workspace.path')}: ${workspaceContext.currentWorkspace.path}`)
+    lines.push(`  ${i18n.t('commands:workspace.referenceSyntax')}: @/path`)
 
     if (workspaceContext.contextWorkspaces.length > 0) {
       lines.push('')
-      lines.push('关联工作区:')
+      lines.push(`${i18n.t('commands:workspace.relatedWorkspaces')}:`)
       for (const ws of workspaceContext.contextWorkspaces) {
         lines.push(`  • ${ws.name}`)
-        lines.push(`    路径: ${ws.path}`)
-        lines.push(`    引用语法: @${ws.name}:path`)
+        lines.push(`    ${i18n.t('commands:workspace.path')}: ${ws.path}`)
+        lines.push(`    ${i18n.t('commands:workspace.referenceSyntax')}: @${ws.name}:path`)
       }
     }
 

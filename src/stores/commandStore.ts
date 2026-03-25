@@ -7,6 +7,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { Command } from '../types/command';
 import { builtinCommands } from '../types/command';
 import { createLogger } from '../utils/logger';
+import i18n from '../i18n';
 
 const log = createLogger('CommandStore');
 
@@ -57,7 +58,7 @@ export const useCommandStore = create<CommandState>((set, get) => ({
         ...customCommands.map(cmd => ({
           name: cmd.name,
           type: 'custom' as const,
-          description: cmd.description || '自定义命令',
+          description: cmd.description || i18n.t('commands:store.customCommandDefault'),
           params: cmd.params,
           content: cmd.content,
           filePath: cmd.file_path,
@@ -67,7 +68,7 @@ export const useCommandStore = create<CommandState>((set, get) => ({
       set({ commands, isLoading: false, error: null });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      log.error('加载自定义命令失败', err instanceof Error ? err : new Error(errorMsg));
+      log.error(i18n.t('commands:store.loadCustomCommandsError'), err instanceof Error ? err : new Error(errorMsg));
       // 不阻断，使用内置命令
       set({ commands: builtinCommands, isLoading: false, error: null });
     }

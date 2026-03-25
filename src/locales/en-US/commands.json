@@ -18,5 +18,16 @@
     "exampleHelp": "`/help` - Show help",
     "exampleCommands": "`/commands` - List commands",
     "exampleFileRef": "`@README.md explain this project` - Reference file and ask question"
+  },
+  "store": {
+    "customCommandDefault": "Custom command",
+    "loadCustomCommandsError": "Failed to load custom commands"
+  },
+  "workspace": {
+    "info": "Workspace Info",
+    "currentWorkspace": "Current workspace",
+    "path": "Path",
+    "referenceSyntax": "Reference syntax",
+    "relatedWorkspaces": "Related workspaces"
   }
 }
