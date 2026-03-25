@@ -198,9 +198,10 @@ export function RadialMenu({
       ref={menuRef}
       className="fixed z-50 animate-in fade-in duration-150"
       style={{
-        // 菜单展开位置：悬浮球右侧中心点
-        left: '40px', // 半圆宽度 + 一点间距
-        top: '50%',
+        // 菜单展开位置：触发器右侧
+        // 触发器是贴边半圆，右半圆在屏幕内约 16px
+        left: '20px', // 触发器宽度 + 少量间距
+        top: '58%',
         transform: 'translateY(-50%)'
       }}
       onMouseEnter={() => onHover?.(true)}
