@@ -68,7 +68,9 @@
     "collapse": "Collapse",
     "batchSelect": "Batch Select",
     "exit": "Exit",
-    "export": "Export"
+    "export": "Export",
+    "filterToggle": "Filter",
+    "activeFilters": "{{count}} filters"
   },
 
   "sort": {

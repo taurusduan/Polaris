@@ -68,7 +68,9 @@
     "collapse": "收起",
     "batchSelect": "批量选择",
     "exit": "退出",
-    "export": "导出"
+    "export": "导出",
+    "filterToggle": "筛选",
+    "activeFilters": "{{count}} 个筛选"
   },
 
   "sort": {

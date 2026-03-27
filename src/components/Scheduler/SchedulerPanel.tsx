@@ -1611,6 +1611,7 @@ export function SchedulerPanel() {
       {/* 筛选栏 - 仅在任务列表标签页显示 */}
       {activeTab === 'tasks' && (
         <div className="p-3 border-b border-[#2a2a4a] bg-[#1a1a2e]">
+          {/* 基础筛选行：搜索 + 状态 + 筛选切换 + 清除 */}
           <div className="flex flex-wrap items-center gap-2">
             {/* 搜索框 */}
             <input
@@ -1631,23 +1632,71 @@ export function SchedulerPanel() {
               <option value="disabled">{t('filter.disabled')}</option>
             </select>
 
-            {/* 紧凑模式：更多筛选按钮 */}
-            {isCompact && (
-              <button
-                onClick={() => setShowMoreFilters(!showMoreFilters)}
-                className={`px-2 py-1.5 text-sm rounded transition-colors ${
-                  showMoreFilters
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-600/20 text-gray-400 hover:bg-gray-600/30'
-                }`}
-              >
-                {showMoreFilters ? t('filter.collapse') : t('filter.more')}
-              </button>
-            )}
+            {/* 筛选切换按钮 + 活跃筛选徽章 */}
+            <button
+              onClick={() => setShowMoreFilters(!showMoreFilters)}
+              className={`inline-flex items-center gap-1 px-2 py-1.5 text-sm rounded transition-colors ${
+                showMoreFilters
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-600/20 text-gray-400 hover:bg-gray-600/30'
+              }`}
+            >
+              <span>{t('filter.filterToggle')}</span>
+              <svg className={`w-3 h-3 transition-transform ${showMoreFilters ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+              {/* 活跃筛选数量徽章 */}
+              {(() => {
+                let count = 0;
+                if (filter.mode !== 'all') count++;
+                if (filter.engineId !== 'all') count++;
+                if (filter.triggerType !== 'all') count++;
+                if (filter.lastRunStatus !== 'all') count++;
+                if (filter.group !== 'all') count++;
+                return count > 0 ? (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/20 text-blue-400">
+                    {count}
+                  </span>
+                ) : null;
+              })()}
+            </button>
 
-            {/* 正常模式或紧凑模式下展开时显示所有筛选 */}
-            {(!isCompact || showMoreFilters) && (
-              <>
+            {/* 清除筛选 */}
+            <button
+              onClick={() => setFilter(defaultFilter)}
+              className="px-3 py-1.5 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
+            >
+              {isCompact ? t('filter.reset') : t('filter.clearFilter')}
+            </button>
+            {/* 筛选结果数量 */}
+            {filteredTasks.length !== tasks.length && (
+              <span className="text-xs text-gray-500 ml-2">
+                {filteredTasks.length}/{tasks.length}
+              </span>
+            )}
+            {/* 选择模式切换按钮 */}
+            <button
+              onClick={() => {
+                if (selectionMode) {
+                  handleExitSelectionMode();
+                } else {
+                  setSelectionMode(true);
+                }
+              }}
+              className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                selectionMode
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-600/20 text-gray-400 hover:bg-gray-600/30'
+              }`}
+            >
+              {selectionMode ? t('filter.exit') : isCompact ? t('filter.more') : t('filter.batchSelect')}
+            </button>
+          </div>
+
+          {/* 高级筛选区域（默认折叠） */}
+          {showMoreFilters && (
+            <div className="mt-2 pt-2 border-t border-[#2a2a4a]/50">
+              <div className="flex flex-wrap items-center gap-2">
                 {/* 模式筛选 */}
                 <select
                   value={filter.mode}
@@ -1723,49 +1772,18 @@ export function SchedulerPanel() {
                   <option value="enabled-asc">启用状态 ↑</option>
                   <option value="enabled-desc">启用状态 ↓</option>
                 </select>
-              </>
-            )}
-
-            {/* 清除筛选 */}
-            <button
-              onClick={() => setFilter(defaultFilter)}
-              className="px-3 py-1.5 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
-            >
-              {isCompact ? t('filter.reset') : t('filter.clearFilter')}
-            </button>
-            {/* 筛选结果数量 */}
-            {filteredTasks.length !== tasks.length && (
-              <span className="text-xs text-gray-500 ml-2">
-                {filteredTasks.length}/{tasks.length}
-              </span>
-            )}
-            {/* 选择模式切换按钮 */}
-            <button
-              onClick={() => {
-                if (selectionMode) {
-                  handleExitSelectionMode();
-                } else {
-                  setSelectionMode(true);
-                }
-              }}
-              className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                selectionMode
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-600/20 text-gray-400 hover:bg-gray-600/30'
-              }`}
-            >
-              {selectionMode ? t('filter.exit') : isCompact ? t('filter.more') : t('filter.batchSelect')}
-            </button>
-            {/* 导出按钮 */}
-            {!isCompact && (
-              <button
-                onClick={handleExportTasks}
-                className="px-3 py-1.5 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
-              >
-                {t('importExport.export')}
-              </button>
-            )}
-          </div>
+                {/* 导出按钮 */}
+                {!isCompact && (
+                  <button
+                    onClick={handleExportTasks}
+                    className="px-3 py-1.5 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
+                  >
+                    {t('importExport.export')}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
