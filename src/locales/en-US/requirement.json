@@ -140,5 +140,6 @@
     "hint": "You can set up scheduled tasks to auto-generate (req-generate template)"
   },
 
-  "newRequirement": "New"
+  "newRequirement": "New",
+  "refresh": "Refresh"
 }

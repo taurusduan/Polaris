@@ -140,5 +140,6 @@
     "hint": "可通过定时任务自动生成需求，选择 req-generate 模板"
   },
 
-  "newRequirement": "新建"
+  "newRequirement": "新建",
+  "refresh": "刷新"
 }

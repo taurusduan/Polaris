@@ -17,6 +17,7 @@ import {
   Loader2,
   X as XIcon,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useWorkspaceStore } from '@/stores'
@@ -64,6 +65,7 @@ export function RequirementPanel() {
     stats,
     filter,
     init,
+    reload,
     setFilter,
     deleteRequirement,
     approveRequirements,
@@ -220,14 +222,25 @@ export function RequirementPanel() {
               </span>
             )}
           </h2>
-          <button
-            onClick={() => setShowCreateDialog(true)}
-            className="p-1.5 rounded-lg bg-primary text-white hover:bg-primary/90 transition-all"
-            title={t('newRequirement')}
-            aria-label={t('newRequirement')}
-          >
-            <Plus size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => reload()}
+              disabled={loading}
+              className="p-1.5 rounded-lg hover:bg-background-hover text-text-secondary hover:text-text-primary transition-all disabled:opacity-50"
+              title={t('refresh')}
+              aria-label={t('refresh')}
+            >
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            </button>
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              className="p-1.5 rounded-lg bg-primary text-white hover:bg-primary/90 transition-all"
+              title={t('newRequirement')}
+              aria-label={t('newRequirement')}
+            >
+              <Plus size={16} />
+            </button>
+          </div>
         </div>
 
         {/* 搜索框 */}
