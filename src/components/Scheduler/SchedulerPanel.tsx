@@ -110,17 +110,33 @@ function TaskCard({
 }) {
   const { t } = useTranslation('scheduler');
 
-  // 构建操作菜单项
-  const actionMenuItems: DropdownMenuItem[] = [];
+  // 构建完整操作菜单项（正常模式使用）
+  const fullActionMenuItems: DropdownMenuItem[] = [];
 
   // 协议模式添加文档菜单项
   if (task.mode === 'protocol' && onViewDocs) {
-    actionMenuItems.push({ key: 'docs', label: t('task.docs'), onClick: onViewDocs });
+    fullActionMenuItems.push({ key: 'docs', label: t('task.docs'), onClick: onViewDocs });
   }
 
   // 通用操作菜单项
-  actionMenuItems.push(
+  fullActionMenuItems.push(
     { key: 'run', label: t('task.run'), onClick: onRun },
+    { key: 'toggle', label: task.enabled ? t('task.disabled') : t('task.enabled'), onClick: onToggle },
+    { key: 'edit', label: t('task.edit'), onClick: onEdit },
+    { key: 'copy', label: t('task.copy'), onClick: onCopy },
+    { key: 'delete', label: t('task.delete'), variant: 'danger', onClick: onDelete }
+  );
+
+  // 构建紧凑模式菜单项（排除已有独立按钮的操作，添加订阅相关操作）
+  const compactMenuItems: DropdownMenuItem[] = [];
+  if (task.mode === 'protocol' && onViewDocs) {
+    compactMenuItems.push({ key: 'docs', label: t('task.docs'), onClick: onViewDocs });
+  }
+  // 已订阅时添加取消订阅选项
+  if (isSubscribed && !isSubscribing && onUnsubscribe) {
+    compactMenuItems.push({ key: 'unsubscribe', label: t('task.unsubscribe'), onClick: onUnsubscribe });
+  }
+  compactMenuItems.push(
     { key: 'toggle', label: task.enabled ? t('task.disabled') : t('task.enabled'), onClick: onToggle },
     { key: 'edit', label: t('task.edit'), onClick: onEdit },
     { key: 'copy', label: t('task.copy'), onClick: onCopy },
@@ -188,7 +204,7 @@ function TaskCard({
                   ⋯
                 </button>
               }
-              items={actionMenuItems}
+              items={compactMenuItems}
               align="right"
             />
           </div>
