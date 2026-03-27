@@ -21,6 +21,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { useWorkspaceStore } from '@/stores'
 import { useRequirementStore } from '@/stores/requirementStore'
+import { useToastStore } from '@/stores/toastStore'
 import { RequirementCard } from './RequirementCard'
 import { RequirementDetailDialog } from './RequirementDetailDialog'
 import { RequirementForm } from './RequirementForm'
@@ -60,6 +61,7 @@ function StatusFilterIcon({ status }: { status: StatusFilterType }) {
 export function RequirementPanel() {
   const { t } = useTranslation('requirement')
   const currentWorkspace = useWorkspaceStore(state => state.getCurrentWorkspace())
+  const toast = useToastStore()
 
   const {
     requirements,
@@ -132,27 +134,30 @@ export function RequirementPanel() {
   const handleApprove = async (req: Requirement) => {
     try {
       await approveRequirements([req.id])
+      toast.success(t('toast.approveSuccess'))
     } catch (e) {
       log.error('批准需求失败', e instanceof Error ? e : new Error(String(e)))
-      alert(t('toast.updateFailed'))
+      toast.error(t('toast.updateFailed'))
     }
   }
 
   const handleReject = async (req: Requirement, reason?: string) => {
     try {
       await rejectRequirements([req.id], reason || undefined)
+      toast.success(t('toast.rejectSuccess'))
     } catch (e) {
       log.error('拒绝需求失败', e instanceof Error ? e : new Error(String(e)))
-      alert(t('toast.updateFailed'))
+      toast.error(t('toast.updateFailed'))
     }
   }
 
   const handleDelete = async (req: Requirement) => {
     try {
       await deleteRequirement(req.id)
+      toast.success(t('toast.deleteSuccess'))
     } catch (e) {
       log.error('删除需求失败', e instanceof Error ? e : new Error(String(e)))
-      alert(t('toast.deleteFailed'))
+      toast.error(t('toast.deleteFailed'))
     }
   }
 
@@ -229,7 +234,7 @@ export function RequirementPanel() {
           <div className="flex items-center gap-1 flex-wrap">
             {(['all', 'pending', 'approved', 'executing', 'completed', 'draft', 'rejected', 'failed'] as StatusFilterType[]).map(s => {
               const count = s === 'all' ? null
-                : stats ? (stats as unknown as Record<string, number>)[s] ?? 0 : null
+                : stats ? stats[s as keyof typeof stats] as number ?? 0 : null
               return count !== null && count === 0 && s !== 'all' ? null : (
                 <button
                   key={s}
@@ -318,9 +323,10 @@ export function RequirementPanel() {
               try {
                 await createRequirement(data)
                 setShowCreateDialog(false)
+                toast.success(t('toast.createSuccess'))
               } catch (e) {
                 log.error('创建需求失败', e instanceof Error ? e : new Error(String(e)))
-                alert(t('toast.createFailed'))
+                toast.error(t('toast.createFailed'))
               }
             }}
             onCancel={() => setShowCreateDialog(false)}
@@ -337,18 +343,20 @@ export function RequirementPanel() {
           onEditSubmit={async (data) => {
             try {
               await updateRequirement(selectedRequirement.id, data)
+              toast.success(t('toast.updateSuccess'))
             } catch (e) {
               log.error('更新需求失败', e instanceof Error ? e : new Error(String(e)))
-              alert(t('toast.updateFailed'))
+              toast.error(t('toast.updateFailed'))
             }
           }}
           onDelete={async () => {
             try {
               await deleteRequirement(selectedRequirement.id)
               setSelectedId(null)
+              toast.success(t('toast.deleteSuccess'))
             } catch (e) {
               log.error('删除需求失败', e instanceof Error ? e : new Error(String(e)))
-              alert(t('toast.deleteFailed'))
+              toast.error(t('toast.deleteFailed'))
             }
           }}
           onApprove={handleApprove}
