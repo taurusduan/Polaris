@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-03-27T17:12:52.701Z",
+  "updatedAt": "2026-03-28T01:20:00.000Z",
   "requirements": [
     {
       "id": "req-unsaved-dialog-002",
@@ -355,6 +355,25 @@
       "updatedAt": 1774631572701,
       "generatedAt": 1774631388000,
       "reviewedAt": 1774631572701
+    },
+    {
+      "id": "req-openai-provider-test-024",
+      "title": "OpenAI 提供商连接测试按钮",
+      "description": "当前 OpenAI 兼容提供商配置（OpenAIProvidersTab、AIEngineTab）允许用户填写 API Key、Base URL、模型等参数，但缺少连接验证能力。用户必须实际发送一条对话消息才能发现配置错误（如 API Key 错误、Base URL 不可达、模型不存在），导致"配置 → 对话 → 报错 → 重新配置 → 重试"的低效循环。\n\n**背景分析**：\n- `configStore` 的 `healthStatus` 仅检查本地 CLI 引擎（claude）可用性，不验证 OpenAI 提供商\n- `openai-provider/engine.ts` 有完整的请求构建逻辑，但没有暴露健康检查方法\n- 用户在配置多个提供商时（如 OpenAI + DeepSeek + 自定义），无法快速确认哪些可用\n- 配置错误的具体原因（认证失败 / 网络不通 / 模型不存在）只有在发送消息后才暴露\n\n**改进目标**：\n\n1. **测试连接按钮**\n   - 在每个提供商配置卡片右上角添加「测试连接」按钮\n   - 点击后向配置的 Base URL 发送轻量级验证请求（如 GET /models 或 chat completions with 1 token）\n   - 按钮状态：默认 → 测试中（加载动画）→ 成功（绿色）/ 失败（红色）\n\n2. **测试结果展示**\n   - 成功：显示绿色横幅「连接成功 · 模型 xxx 可用 · 响应延迟 xxxms」\n   - 失败：显示红色横幅，包含具体错误原因和建议\n     - 401 认证失败 → 提示检查 API Key\n     - 网络超时 → 提示检查 Base URL 和网络代理\n     - 404 模型不存在 → 提示检查模型名称\n   - 结果可关闭，不持久化（每次测试重新验证）\n\n3. **提供商卡片状态指示**\n   - 连接成功：卡片标题旁显示绿色圆点\n   - 连接失败：卡片标题旁显示红色圆点\n   - 未测试：无指示（灰色圆点）\n   - 测试中：黄色闪烁圆点\n\n4. **后端支持**\n   - 新增 Tauri command：`test_openai_provider_connection(base_url, api_key, model)`\n   - 发送最小化请求验证连接（1 token completion 或 list models）\n   - 返回：成功/失败状态、错误详情、响应延迟\n\n**影响范围**：\n- `src/components/Settings/OpenAIProvidersTab.tsx` - 添加测试按钮和结果展示\n- `src/components/Settings/tabs/AIEngineTab.tsx` - 同步添加测试能力\n- `src/stores/configStore.ts` - 新增 `testProviderConnection` action 和测试结果状态\n- `src-tauri/src/commands/` - 新增连接测试 Tauri command\n- `src/locales/zh-CN/settings.json` / `src/locales/en-US/settings.json` - 国际化\n\n**预期效果**：\n- 用户配置提供商后可立即验证是否可用\n- 配置错误在输入阶段就被发现和修正\n- 减少因配置问题导致的对话失败体验\n- 多提供商场景下快速确认各提供商状态",
+      "status": "pending",
+      "priority": "normal",
+      "generatedBy": "ai",
+      "tags": [
+        "settings",
+        "openai",
+        "ux",
+        "configuration"
+      ],
+      "hasPrototype": true,
+      "prototypePath": ".polaris/requirements/prototypes/openai-provider-test-connection.html",
+      "createdAt": 1743360000000,
+      "updatedAt": 1743360000000,
+      "generatedAt": 1743360000000
     }
   ]
 }

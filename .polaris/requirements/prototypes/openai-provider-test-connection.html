@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenAI Provider 连接测试按钮</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #1a1b26;
+      color: #c0caf5;
+      display: flex;
+      justify-content: center;
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 680px;
+      width: 100%;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #c0caf5;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h2 .icon { font-size: 20px; }
+
+    /* Provider Card */
+    .provider-card {
+      background: #24283b;
+      border: 1px solid #3b4261;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .provider-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .provider-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #7aa2f7;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .provider-name .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #3b4261;
+    }
+    .provider-name .dot.connected { background: #9ece6a; }
+    .provider-name .dot.failed { background: #f7768e; }
+    .provider-name .dot.testing { background: #e0af68; animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .provider-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Form Fields */
+    .field-group {
+      margin-bottom: 14px;
+    }
+    .field-group label {
+      display: block;
+      font-size: 12px;
+      color: #565f89;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .field-group input, .field-group select {
+      width: 100%;
+      padding: 8px 12px;
+      background: #1a1b26;
+      border: 1px solid #3b4261;
+      border-radius: 8px;
+      color: #c0caf5;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field-group input:focus, .field-group select:focus {
+      border-color: #7aa2f7;
+    }
+    .field-group input::placeholder {
+      color: #3b4261;
+    }
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* Test Button */
+    .btn-test {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      background: #3b4261;
+      color: #c0caf5;
+      border: 1px solid #545c7e;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-test:hover {
+      background: #545c7e;
+      border-color: #7aa2f7;
+    }
+    .btn-test:active {
+      transform: scale(0.97);
+    }
+    .btn-test.testing {
+      background: #332b1a;
+      border-color: #e0af68;
+      color: #e0af68;
+      cursor: not-allowed;
+    }
+    .btn-test .spinner {
+      display: none;
+      width: 14px;
+      height: 14px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .btn-test.testing .spinner { display: inline-block; }
+    .btn-test.testing .btn-icon { display: none; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Result Banner */
+    .test-result {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: none;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.5;
+    }
+    .test-result.show { display: flex; }
+    .test-result.success {
+      background: rgba(158, 206, 106, 0.1);
+      border: 1px solid rgba(158, 206, 106, 0.3);
+      color: #9ece6a;
+    }
+    .test-result.error {
+      background: rgba(247, 118, 142, 0.1);
+      border: 1px solid rgba(247, 118, 142, 0.3);
+      color: #f7768e;
+    }
+    .test-result .result-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .test-result .result-details {
+      flex: 1;
+    }
+    .test-result .result-details .model-info {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-top: 4px;
+    }
+
+    /* Scenario 2: Multiple providers */
+    .section-title {
+      font-size: 14px;
+      color: #565f89;
+      margin: 32px 0 16px;
+      padding-top: 24px;
+      border-top: 1px solid #3b4261;
+    }
+
+    /* Interactive Demo */
+    .demo-controls {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #24283b;
+      border: 1px solid #3b4261;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 12px;
+      color: #565f89;
+      min-width: 200px;
+    }
+    .demo-controls h4 {
+      color: #c0caf5;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .demo-controls .demo-btn {
+      display: block;
+      width: 100%;
+      padding: 6px 10px;
+      margin-bottom: 6px;
+      background: #1a1b26;
+      border: 1px solid #3b4261;
+      border-radius: 6px;
+      color: #c0caf5;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+    }
+    .demo-controls .demo-btn:hover {
+      background: #3b4261;
+      border-color: #7aa2f7;
+    }
+    .demo-controls .demo-btn:last-child { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2><span class="icon">⚡</span> OpenAI 兼容提供商配置</h2>
+
+    <!-- Provider 1: Connected State -->
+    <div class="provider-card" id="card1">
+      <div class="provider-header">
+        <div class="provider-name">
+          <span class="dot" id="dot1"></span>
+          OpenAI (GPT-4)
+        </div>
+        <div class="provider-actions">
+          <button class="btn-test" id="btn1" onclick="testConnection(1, 'success')">
+            <span class="spinner"></span>
+            <span class="btn-icon">🔗</span>
+            <span class="btn-text">测试连接</span>
+          </button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Base URL</label>
+        <input type="text" value="https://api.openai.com/v1" placeholder="https://api.openai.com/v1">
+      </div>
+      <div class="field-group">
+        <label>API Key</label>
+        <input type="password" value="sk-••••••••••••••••" placeholder="sk-...">
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>默认模型</label>
+          <select>
+            <option>gpt-4o</option>
+            <option>gpt-4o-mini</option>
+            <option>gpt-4-turbo</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>最大 Tokens</label>
+          <input type="number" value="4096" placeholder="4096">
+        </div>
+      </div>
+      <div class="test-result" id="result1">
+        <span class="result-icon"></span>
+        <div class="result-details"></div>
+      </div>
+    </div>
+
+    <!-- Provider 2: Error State -->
+    <div class="provider-card" id="card2">
+      <div class="provider-header">
+        <div class="provider-name">
+          <span class="dot" id="dot2"></span>
+          DeepSeek
+        </div>
+        <div class="provider-actions">
+          <button class="btn-test" id="btn2" onclick="testConnection(2, 'error')">
+            <span class="spinner"></span>
+            <span class="btn-icon">🔗</span>
+            <span class="btn-text">测试连接</span>
+          </button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Base URL</label>
+        <input type="text" value="https://api.deepseek.com/v1" placeholder="https://api.deepseek.com/v1">
+      </div>
+      <div class="field-group">
+        <label>API Key</label>
+        <input type="password" value="sk-••••••••••••••••" placeholder="sk-...">
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>默认模型</label>
+          <select>
+            <option>deepseek-chat</option>
+            <option>deepseek-coder</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>最大 Tokens</label>
+          <input type="number" value="8192" placeholder="4096">
+        </div>
+      </div>
+      <div class="test-result" id="result2">
+        <span class="result-icon"></span>
+        <div class="result-details"></div>
+      </div>
+    </div>
+
+    <div class="section-title">点击"测试连接"按钮查看不同状态效果 →</div>
+
+    <!-- Provider 3: Empty/New State -->
+    <div class="provider-card" id="card3">
+      <div class="provider-header">
+        <div class="provider-name">
+          <span class="dot" id="dot3"></span>
+          自定义提供商
+        </div>
+        <div class="provider-actions">
+          <button class="btn-test" id="btn3" onclick="testConnection(3, 'success')">
+            <span class="spinner"></span>
+            <span class="btn-icon">🔗</span>
+            <span class="btn-text">测试连接</span>
+          </button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Base URL</label>
+        <input type="text" placeholder="https://your-api.com/v1">
+      </div>
+      <div class="field-group">
+        <label>API Key</label>
+        <input type="password" placeholder="输入 API Key">
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>默认模型</label>
+          <input type="text" placeholder="模型名称">
+        </div>
+        <div class="field-group">
+          <label>最大 Tokens</label>
+          <input type="number" value="4096" placeholder="4096">
+        </div>
+      </div>
+      <div class="test-result" id="result3">
+        <span class="result-icon"></span>
+        <div class="result-details"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Demo Controls -->
+  <div class="demo-controls">
+    <h4>交互演示</h4>
+    <button class="demo-btn" onclick="simulateTest(1, 'success')">Provider 1 → 成功</button>
+    <button class="demo-btn" onclick="simulateTest(2, 'error')">Provider 2 → 失败</button>
+    <button class="demo-btn" onclick="simulateTest(3, 'success')">Provider 3 → 成功</button>
+    <button class="demo-btn" onclick="resetAll()">重置所有状态</button>
+  </div>
+
+  <script>
+    const successMessages = {
+      1: {
+        title: '连接成功',
+        detail: '模型 gpt-4o 可用 · 响应延迟 230ms · 配额正常',
+        models: '可用模型: gpt-4o, gpt-4o-mini, gpt-4-turbo'
+      },
+      3: {
+        title: '连接成功',
+        detail: '模型响应正常 · 响应延迟 156ms · 配额正常',
+        models: '可用模型: 已确认默认模型可用'
+      }
+    };
+
+    const errorMessages = {
+      2: {
+        title: '连接失败',
+        detail: '认证失败 (401) — 请检查 API Key 是否正确',
+        hint: '提示: DeepSeek API Key 以 "sk-" 开头，可在平台控制台的 API Keys 页面获取'
+      }
+    };
+
+    function simulateTest(id, type) {
+      testConnection(id, type);
+    }
+
+    function testConnection(id, resultType) {
+      const btn = document.getElementById(`btn${id}`);
+      const dot = document.getElementById(`dot${id}`);
+      const result = document.getElementById(`result${id}`);
+
+      // Reset
+      btn.classList.add('testing');
+      btn.querySelector('.btn-text').textContent = '测试中...';
+      dot.className = 'dot testing';
+      result.className = 'test-result';
+      result.classList.remove('show');
+
+      // Simulate delay
+      setTimeout(() => {
+        btn.classList.remove('testing');
+        btn.querySelector('.btn-text').textContent = '测试连接';
+
+        if (resultType === 'success') {
+          const msg = successMessages[id];
+          dot.className = 'dot connected';
+          result.className = 'test-result success show';
+          result.querySelector('.result-icon').textContent = '✅';
+          result.querySelector('.result-details').innerHTML =
+            `<strong>${msg.title}</strong><br>${msg.detail}<div class="model-info">${msg.models}</div>`;
+        } else {
+          const msg = errorMessages[id];
+          dot.className = 'dot failed';
+          result.className = 'test-result error show';
+          result.querySelector('.result-icon').textContent = '❌';
+          result.querySelector('.result-details').innerHTML =
+            `<strong>${msg.title}</strong><br>${msg.detail}<div class="model-info">${msg.hint}</div>`;
+        }
+      }, 1500);
+    }
+
+    function resetAll() {
+      for (let i = 1; i <= 3; i++) {
+        const dot = document.getElementById(`dot${i}`);
+        const result = document.getElementById(`result${i}`);
+        const btn = document.getElementById(`btn${i}`);
+        dot.className = 'dot';
+        result.className = 'test-result';
+        result.classList.remove('show');
+        btn.classList.remove('testing');
+        btn.querySelector('.btn-text').textContent = '测试连接';
+      }
+    }
+  </script>
+</body>
+</html>
