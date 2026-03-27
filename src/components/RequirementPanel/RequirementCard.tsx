@@ -27,9 +27,6 @@ interface RequirementCardProps {
   onClick?: (requirement: Requirement) => void
 }
 
-/** 状态配置（从共享常量导入） */
-const statusStyleConfig = STATUS_STYLES
-
 export function RequirementCard({
   requirement,
   disabled,
@@ -50,13 +47,15 @@ export function RequirementCard({
       minute: '2-digit',
     })
 
-  const style = statusStyleConfig[requirement.status]
+  const style = STATUS_STYLES[requirement.status]
   const priorityStyle = `${PRIORITY_TEXT[requirement.priority]} ${PRIORITY_BG[requirement.priority]}`
   const canReview = requirement.status === 'pending' || requirement.status === 'draft'
 
   return (
     <div
-      className={`p-3 rounded-lg border transition-all hover:shadow-sm cursor-pointer ${
+      role="button"
+      tabIndex={0}
+      className={`p-3 rounded-lg border transition-all hover:shadow-sm cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
         requirement.status === 'executing'
           ? 'bg-blue-500/5 border-blue-500/30'
           : requirement.status === 'completed'
@@ -64,6 +63,12 @@ export function RequirementCard({
           : 'bg-background-surface border-border-subtle hover:border-border'
       }`}
       onClick={() => onClick?.(requirement)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.(requirement)
+        }
+      }}
     >
       <div className="flex items-start gap-2">
         {/* 状态指示点 */}

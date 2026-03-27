@@ -221,6 +221,7 @@ export function RequirementPanel() {
             onClick={() => setShowCreateDialog(true)}
             className="p-1.5 rounded-lg bg-primary text-white hover:bg-primary/90 transition-all"
             title={t('newRequirement')}
+            aria-label={t('newRequirement')}
           >
             <Plus size={16} />
           </button>
@@ -244,6 +245,7 @@ export function RequirementPanel() {
               value={filter.search || ''}
               onChange={e => handleSearchChange(e.target.value)}
               placeholder={t('filter.search')}
+              aria-label={t('filter.search')}
               className="w-full pl-9 pr-3 py-2 text-sm bg-background-surface border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-text-primary placeholder-text-tertiary"
             />
           </div>
@@ -259,6 +261,7 @@ export function RequirementPanel() {
                 <button
                   key={s}
                   onClick={() => setStatusFilter(s)}
+                  aria-pressed={statusFilter === s}
                   className={`px-2 py-1 text-xs rounded flex items-center gap-1 whitespace-nowrap transition-all ${
                     statusFilter === s
                       ? 'bg-primary text-white'
@@ -285,6 +288,7 @@ export function RequirementPanel() {
                 setSortBy(field)
                 setSortOrder(order)
               }}
+              aria-label={t('sort.label')}
               className="px-2 py-1 text-xs bg-background-surface border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-text-secondary cursor-pointer max-w-[200px]"
             >
               <option value="createdAt-desc">{t('sort.createdAtDesc')}</option>
@@ -338,8 +342,10 @@ export function RequirementPanel() {
       {/* 创建需求弹窗 */}
       {showCreateDialog && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('detail.createTitle')}
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={() => setShowCreateDialog(false)}
         >
           <RequirementForm
             mode="create"

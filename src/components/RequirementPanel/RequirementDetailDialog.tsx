@@ -46,12 +46,6 @@ interface RequirementDetailDialogProps {
   onReadPrototype?: (path: string) => Promise<string>
 }
 
-/** 状态样式（从共享常量派生，忽略 dot 字段） */
-const statusStyleMap = STATUS_STYLES
-
-/** 优先级颜色（从共享常量导入） */
-const priorityStyleMap = PRIORITY_TEXT
-
 export function RequirementDetailDialog({
   requirement,
   open,
@@ -73,7 +67,7 @@ export function RequirementDetailDialog({
 
   if (!open) return null
 
-  const style = statusStyleMap[requirement.status]
+  const style = STATUS_STYLES[requirement.status]
   const canReview = requirement.status === 'pending' || requirement.status === 'draft'
 
   // 加载原型
@@ -123,7 +117,12 @@ export function RequirementDetailDialog({
   // 编辑模式：直接用 RequirementForm
   if (editing) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('detail.editTitle')}
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      >
         <RequirementForm
           requirement={requirement}
           mode="edit"
@@ -139,7 +138,12 @@ export function RequirementDetailDialog({
 
   // 查看模式
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('detail.title')}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    >
       <div
         className="bg-background-elevated rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
@@ -190,7 +194,7 @@ export function RequirementDetailDialog({
             {/* 优先级 */}
             <div className="flex items-center gap-1">
               <span>{t('detail.priorityField')}:</span>
-              <span className={priorityStyleMap[requirement.priority]}>
+              <span className={PRIORITY_TEXT[requirement.priority]}>
                 {t(`priority.${requirement.priority}`)}
               </span>
             </div>

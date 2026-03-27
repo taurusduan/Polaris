@@ -33,6 +33,7 @@
   },
 
   "sort": {
+    "label": "Sort by",
     "priorityDesc": "Priority ↓",
     "priorityAsc": "Priority ↑",
     "createdAtDesc": "Created ↓",

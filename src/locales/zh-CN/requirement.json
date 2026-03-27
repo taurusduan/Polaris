@@ -33,6 +33,7 @@
   },
 
   "sort": {
+    "label": "排序方式",
     "priorityDesc": "优先级 ↓",
     "priorityAsc": "优先级 ↑",
     "createdAtDesc": "创建时间 ↓",

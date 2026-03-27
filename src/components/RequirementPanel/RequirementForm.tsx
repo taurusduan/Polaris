@@ -60,7 +60,7 @@ export function RequirementForm({ requirement, onSubmit, onCancel, mode }: Requi
   }
 
   const handleRemoveTag = (tag: string) => {
-    setTags(tags.filter(t => t !== tag))
+    setTags(prev => prev.filter(item => item !== tag))
   }
 
   const handleSubmit = () => {
@@ -101,6 +101,7 @@ export function RequirementForm({ requirement, onSubmit, onCancel, mode }: Requi
           onClick={onCancel}
           className="p-1 rounded hover:bg-background-hover text-text-secondary hover:text-text-primary transition-all"
           title={t('form.closeTooltip')}
+          aria-label={t('form.closeTooltip')}
         >
           <X size={18} />
         </button>
@@ -147,9 +148,18 @@ export function RequirementForm({ requirement, onSubmit, onCancel, mode }: Requi
               {tags.map(tag => (
                 <span
                   key={tag}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleRemoveTag(tag)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === 'Delete') {
+                      e.preventDefault()
+                      handleRemoveTag(tag)
+                    }
+                  }}
                   className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-blue-500 bg-blue-500/10 rounded cursor-pointer hover:bg-blue-500/20 transition-colors"
                   title={t('form.clickRemove')}
+                  aria-label={`${t('form.clickRemove')}: ${tag}`}
                 >
                   {tag}
                   <X size={10} />
