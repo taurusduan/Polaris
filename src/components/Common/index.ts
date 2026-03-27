@@ -12,6 +12,8 @@ export { ErrorBoundary } from './ErrorBoundary';
 export { DropdownMenu } from './DropdownMenu';
 export { LanguageSwitcher } from './LanguageSwitcher';
 export { ToastContainer } from './Toast';
+export { ConfirmDialog } from './ConfirmDialog';
+export { UnsavedDialog } from './UnsavedDialog';
 export * from './Icons';
 export * from '../Workspace';
 export * from '../Settings';

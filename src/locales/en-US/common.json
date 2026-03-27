@@ -104,7 +104,11 @@
     "openFileHint": "Open files from the file explorer on the left, or view diffs in the Git panel",
     "previewInDevelopment": "Preview feature in development...",
     "closeOthers": "Close Others",
-    "closeAll": "Close All"
+    "closeAll": "Close All",
+    "unsavedChanges": "Unsaved Changes",
+    "unsavedChangesMessage": "\"{{name}}\" has unsaved changes. Do you want to save?",
+    "save": "Save",
+    "dontSave": "Don't Save"
   },
   "connection": {
     "connecting": "Connecting to Claude Code",

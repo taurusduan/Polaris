@@ -8,13 +8,23 @@ import { ReactNode, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X, FileDiff, FileText, Image as ImageIcon } from 'lucide-react'
 import { useTabStore, Tab } from '@/stores/tabStore'
+import { useFileEditorStore } from '@/stores/fileEditorStore'
 import { DiffViewer } from '@/components/Diff/DiffViewer'
 import { EditorPanel } from '@/components/Editor'
 import { TabContextMenu } from './TabContextMenu'
 import { ImagePreview } from '@/components/Preview/ImagePreview'
+import { UnsavedDialog } from '@/components/Common/UnsavedDialog'
+import { useToastStore } from '@/stores/toastStore'
 
 interface TabBarProps {
   className?: string
+}
+
+/** 未保存确认对话框状态 */
+interface UnsavedDialogState {
+  visible: boolean
+  tabId: string
+  fileName: string
 }
 
 /**
@@ -25,9 +35,25 @@ export function TabBar({ className = '' }: TabBarProps) {
   const tabs = useTabStore((state) => state.tabs)
   const activeTabId = useTabStore((state) => state.activeTabId)
   const closeTab = useTabStore((state) => state.closeTab)
+  const setTabDirty = useTabStore((state) => state.setTabDirty)
   const closeOtherTabs = useTabStore((state) => state.closeOtherTabs)
   const closeAllTabs = useTabStore((state) => state.closeAllTabs)
   const switchTab = useTabStore((state) => state.switchTab)
+
+  // 文件编辑器状态
+  const currentFile = useFileEditorStore((state) => state.currentFile)
+  const saveFile = useFileEditorStore((state) => state.saveFile)
+
+  // Toast 通知
+  const toast = useToastStore()
+
+  // 未保存确认对话框状态
+  const [unsavedDialog, setUnsavedDialog] = useState<UnsavedDialogState>({
+    visible: false,
+    tabId: '',
+    fileName: '',
+  })
+  const [isSaving, setIsSaving] = useState(false)
 
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState<{
@@ -48,14 +74,84 @@ export function TabBar({ className = '' }: TabBarProps) {
     return <FileText size={14} />
   }
 
-  // 关闭 Tab 时阻止事件冒泡
+  // 检查 Tab 是否有未保存更改
+  const checkTabDirty = useCallback((tab: Tab): boolean => {
+    // 只有 editor 类型的 Tab 才有 dirty 状态
+    if (tab.type === 'editor' && tab.filePath) {
+      // 检查是否与当前编辑器文件匹配
+      if (currentFile?.path === tab.filePath && currentFile.isModified) {
+        return true
+      }
+      // 也检查 Tab 自身的 dirty 标志
+      if (tab.isDirty) {
+        return true
+      }
+    }
+    return false
+  }, [currentFile])
+
+  // 同步编辑器修改状态到 Tab
+  const syncEditorDirtyToTab = useCallback((tab: Tab) => {
+    if (tab.type === 'editor' && tab.filePath && currentFile?.path === tab.filePath) {
+      const isDirty = currentFile.isModified
+      if (tab.isDirty !== isDirty) {
+        setTabDirty(tab.id, isDirty)
+      }
+    }
+  }, [currentFile, setTabDirty])
+
+  // 关闭 Tab 时检查未保存状态
   const handleClose = useCallback(
-    (e: React.MouseEvent, tabId: string) => {
+    (e: React.MouseEvent, tab: Tab) => {
       e.stopPropagation()
-      closeTab(tabId)
+
+      // 同步 dirty 状态
+      syncEditorDirtyToTab(tab)
+
+      // 检查是否有未保存更改
+      if (checkTabDirty(tab)) {
+        setUnsavedDialog({
+          visible: true,
+          tabId: tab.id,
+          fileName: tab.title,
+        })
+      } else {
+        closeTab(tab.id)
+      }
     },
-    [closeTab]
+    [closeTab, checkTabDirty, syncEditorDirtyToTab]
   )
+
+  // 保存并关闭
+  const handleSaveAndClose = useCallback(async () => {
+    setIsSaving(true)
+    try {
+      await saveFile()
+      // 保存成功后关闭 Tab
+      closeTab(unsavedDialog.tabId)
+      // 重置编辑器状态
+      setTabDirty(unsavedDialog.tabId, false)
+      setUnsavedDialog({ visible: false, tabId: '', fileName: '' })
+      toast.success(t('messages.fileSaved', { ns: 'common' }) || '文件已保存')
+    } catch (error) {
+      toast.error(t('messages.saveFailed', { ns: 'common' }) || '保存失败')
+      // 保存失败时保持对话框打开
+    } finally {
+      setIsSaving(false)
+    }
+  }, [saveFile, closeTab, unsavedDialog.tabId, setTabDirty, toast, t])
+
+  // 不保存直接关闭
+  const handleDontSave = useCallback(() => {
+    closeTab(unsavedDialog.tabId)
+    setTabDirty(unsavedDialog.tabId, false)
+    setUnsavedDialog({ visible: false, tabId: '', fileName: '' })
+  }, [closeTab, unsavedDialog.tabId, setTabDirty])
+
+  // 取消关闭
+  const handleCancelClose = useCallback(() => {
+    setUnsavedDialog({ visible: false, tabId: '', fileName: '' })
+  }, [])
 
   // 右键菜单处理
   const handleContextMenu = useCallback(
@@ -85,35 +181,46 @@ export function TabBar({ className = '' }: TabBarProps) {
       <div
         className={`flex items-center gap-1 px-2 h-10 bg-background-surface border-b border-border-subtle overflow-x-auto ${className}`}
       >
-        {tabs.map((tab) => (
-          <div
-            key={tab.id}
-            onClick={() => switchTab(tab.id)}
-            onContextMenu={(e) => handleContextMenu(e, tab.id)}
-            className={`group flex items-center gap-2 px-3 py-1.5 rounded-t-md min-w-[120px] max-w-[200px] cursor-pointer transition-all select-none ${
-              activeTabId === tab.id
-                ? 'bg-background-base text-text-primary border-t-2 border-primary'
-                : 'text-text-secondary hover:text-text-primary hover:bg-background-hover'
-            }`}
-          >
-            {/* 图标 */}
-            <span className="shrink-0">{getTabIcon(tab)}</span>
+        {tabs.map((tab) => {
+          const isDirty = checkTabDirty(tab)
+          return (
+            <div
+              key={tab.id}
+              onClick={() => switchTab(tab.id)}
+              onContextMenu={(e) => handleContextMenu(e, tab.id)}
+              className={`group flex items-center gap-2 px-3 py-1.5 rounded-t-md min-w-[120px] max-w-[200px] cursor-pointer transition-all select-none ${
+                activeTabId === tab.id
+                  ? 'bg-background-base text-text-primary border-t-2 border-primary'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-background-hover'
+              }`}
+            >
+              {/* 图标 */}
+              <span className="shrink-0">{getTabIcon(tab)}</span>
 
-            {/* 标题 */}
-            <span className="flex-1 text-xs font-medium truncate">{tab.title}</span>
+              {/* 标题 */}
+              <span className="flex-1 text-xs font-medium truncate">{tab.title}</span>
 
-            {/* 关闭按钮 */}
-            {tab.closable && (
-              <button
-                onClick={(e) => handleClose(e, tab.id)}
-                className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-background-hover transition-all"
-                title={t('tabs.close')}
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
-        ))}
+              {/* Dirty 指示器或关闭按钮 */}
+              {tab.closable && (
+                <button
+                  onClick={(e) => handleClose(e, tab)}
+                  className={`p-0.5 rounded transition-all ${
+                    isDirty
+                      ? 'opacity-100 hover:bg-background-hover'
+                      : 'opacity-0 group-hover:opacity-100 hover:bg-background-hover'
+                  }`}
+                  title={isDirty ? t('tabs.unsavedChanges') : t('tabs.close')}
+                >
+                  {isDirty ? (
+                    <span className="w-2.5 h-2.5 rounded-full bg-warning block" />
+                  ) : (
+                    <X size={12} />
+                  )}
+                </button>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {/* 右键菜单 */}
@@ -124,15 +231,56 @@ export function TabBar({ className = '' }: TabBarProps) {
         tabId={contextMenu.tabId}
         onClose={() => setContextMenu({ ...contextMenu, visible: false })}
         onCloseTab={() => {
-          closeTab(contextMenu.tabId)
+          // 右键菜单关闭也需要检查 dirty 状态
+          const tab = tabs.find(t => t.id === contextMenu.tabId)
+          if (tab) {
+            syncEditorDirtyToTab(tab)
+            if (checkTabDirty(tab)) {
+              setUnsavedDialog({
+                visible: true,
+                tabId: tab.id,
+                fileName: tab.title,
+              })
+            } else {
+              closeTab(contextMenu.tabId)
+            }
+          }
         }}
         onCloseOthers={(tabId) => {
-          closeOtherTabs(tabId)
+          // 检查其他 Tab 是否有 dirty 的
+          const otherTabs = tabs.filter(t => t.id !== tabId)
+          const dirtyTabs = otherTabs.filter(t => checkTabDirty(t))
+          if (dirtyTabs.length > 0) {
+            // 有未保存的 Tab，显示确认对话框
+            // 由于涉及多个 Tab，暂时直接关闭所有（后续可增强为批量处理）
+            closeOtherTabs(tabId)
+          } else {
+            closeOtherTabs(tabId)
+          }
         }}
         onCloseAll={() => {
-          closeAllTabs()
+          // 检查所有 Tab 是否有 dirty 的
+          const dirtyTabs = tabs.filter(t => checkTabDirty(t))
+          if (dirtyTabs.length > 0) {
+            // 有未保存的 Tab，显示确认对话框
+            // 由于涉及多个 Tab，暂时直接关闭所有（后续可增强为批量处理）
+            closeAllTabs()
+          } else {
+            closeAllTabs()
+          }
         }}
       />
+
+      {/* 未保存确认对话框 */}
+      {unsavedDialog.visible && (
+        <UnsavedDialog
+          fileName={unsavedDialog.fileName}
+          onSave={handleSaveAndClose}
+          onDontSave={handleDontSave}
+          onCancel={handleCancelClose}
+          isSaving={isSaving}
+        />
+      )}
     </>
   )
 }

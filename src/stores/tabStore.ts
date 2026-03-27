@@ -23,6 +23,8 @@ export interface Tab {
   diffData?: GitDiffEntry
   // 其他元数据
   metadata?: Record<string, any>
+  /** 文件是否有未保存的更改 */
+  isDirty?: boolean
 }
 
 interface TabState {
@@ -39,6 +41,11 @@ interface TabActions {
   switchTab: (tabId: string) => void
   closeAllTabs: () => void
   closeOtherTabs: (tabId: string) => void
+
+  // Dirty 状态管理
+  setTabDirty: (tabId: string, isDirty: boolean) => void
+  getDirtyTabs: () => Tab[]
+  hasDirtyTabs: () => boolean
 
   // 获取操作
   getActiveTab: () => Tab | null
@@ -196,6 +203,25 @@ export const useTabStore = create<TabStore>()(
       // 根据 ID 获取 Tab
       getTabById: (id: string) => {
         return get().tabs.find((tab) => tab.id === id)
+      },
+
+      // 设置 Tab 的 dirty 状态
+      setTabDirty: (tabId: string, isDirty: boolean) => {
+        set((state) => ({
+          tabs: state.tabs.map((tab) =>
+            tab.id === tabId ? { ...tab, isDirty } : tab
+          ),
+        }))
+      },
+
+      // 获取所有 dirty 的 Tab
+      getDirtyTabs: () => {
+        return get().tabs.filter((tab) => tab.isDirty)
+      },
+
+      // 检查是否有 dirty 的 Tab
+      hasDirtyTabs: () => {
+        return get().tabs.some((tab) => tab.isDirty)
       },
     }),
     {

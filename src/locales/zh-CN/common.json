@@ -105,7 +105,11 @@
     "openFileHint": "从左侧文件浏览器打开文件,或在 Git 面板中查看差异",
     "previewInDevelopment": "预览功能开发中...",
     "closeOthers": "关闭其他",
-    "closeAll": "关闭所有"
+    "closeAll": "关闭所有",
+    "unsavedChanges": "未保存的更改",
+    "unsavedChangesMessage": "\"{{name}}\" 有未保存的更改。是否保存？",
+    "save": "保存",
+    "dontSave": "不保存"
   },
   "connection": {
     "connecting": "正在连接 Claude Code",
