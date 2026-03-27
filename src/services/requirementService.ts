@@ -261,31 +261,6 @@ export class RequirementService {
   }
 
   /**
-   * 获取待执行需求（按优先级和调度时间排序）
-   */
-  getExecutableRequirements(): Requirement[] {
-    const now = Date.now()
-    return this.requirements
-      .filter(r => {
-        // 只能执行已批准的
-        if (r.status !== 'approved') return false
-        // 如果设置了定时执行，检查是否到达执行时间
-        if (r.executeConfig?.scheduledAt && r.executeConfig.scheduledAt > now) {
-          return false
-        }
-        return true
-      })
-      .sort((a, b) => {
-        // 按优先级排序
-        const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 }
-        const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
-        if (priorityDiff !== 0) return priorityDiff
-        // 同优先级按调度时间排序
-        return (a.executeConfig?.scheduledAt || 0) - (b.executeConfig?.scheduledAt || 0)
-      })
-  }
-
-  /**
    * 保存原型 HTML 文件
    */
   async savePrototype(id: string, html: string): Promise<string> {

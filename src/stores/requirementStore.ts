@@ -62,8 +62,6 @@ interface RequirementState {
   getFilteredRequirements: () => Requirement[]
   /** 获取选中的需求 */
   getSelectedRequirement: () => Requirement | undefined
-  /** 获取待执行需求 */
-  getExecutableRequirements: () => Requirement[]
   /** 保存原型 */
   savePrototype: (id: string, html: string) => Promise<string>
   /** 读取原型 */
@@ -263,10 +261,6 @@ export const useRequirementStore = create<RequirementState>((set, get) => ({
     const { selectedId } = get()
     if (!selectedId) return undefined
     return requirementService.getRequirementById(selectedId)
-  },
-
-  getExecutableRequirements: () => {
-    return requirementService.getExecutableRequirements()
   },
 
   savePrototype: async (id: string, html: string) => {
