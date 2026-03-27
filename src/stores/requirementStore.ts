@@ -123,10 +123,12 @@ export const useRequirementStore = create<RequirementState>((set, get) => ({
   reload: async () => {
     set({ loading: true, error: null })
     try {
-      await requirementService.setWorkspace(
-        requirementService.getCurrentWorkspacePath()!,
-        true
-      )
+      const workspacePath = requirementService.getCurrentWorkspacePath()
+      if (!workspacePath) {
+        set({ loading: false, error: 'Workspace not initialized' })
+        return
+      }
+      await requirementService.setWorkspace(workspacePath, true)
       const requirements = requirementService.getAllRequirements()
       const stats = requirementService.getStats()
       set({ requirements, stats, loading: false })
@@ -204,7 +206,7 @@ export const useRequirementStore = create<RequirementState>((set, get) => ({
       set(state => ({
         requirements: requirementService.getAllRequirements(),
         stats: requirementService.getStats(),
-        selectedId: ids.includes(state.selectedId!) ? null : state.selectedId,
+        selectedId: state.selectedId && ids.includes(state.selectedId) ? null : state.selectedId,
       }))
     } catch (e) {
       const error = e instanceof Error ? e.message : '批量删除失败'

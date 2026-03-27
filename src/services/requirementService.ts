@@ -69,8 +69,13 @@ export class RequirementService {
       this.requirements = (data && typeof data === 'object' && Array.isArray(data.requirements))
         ? data.requirements
         : []
-    } catch {
-      // 文件不存在或读取失败，初始化为空
+    } catch (e) {
+      if (e instanceof SyntaxError) {
+        // JSON 解析失败 — 文件内容损坏
+        log.error('需求文件 JSON 格式错误:', e)
+        throw new Error(`需求文件格式错误: ${(e as SyntaxError).message}`)
+      }
+      // 文件不存在或读取失败（如权限问题），初始化为空
       // 不写入文件 — 避免覆盖损坏的 JSON 或触发权限错误
       log.debug('需求文件不存在或读取失败，初始化为空')
       this.requirements = []
