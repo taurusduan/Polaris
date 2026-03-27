@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Requirement } from '@/types/requirement'
-import { STATUS_STYLES, PRIORITY_TEXT, PRIORITY_BG } from './constants'
+import { STATUS_STYLES, PRIORITY_TEXT, PRIORITY_BG, formatTime } from './constants'
 
 interface RequirementCardProps {
   requirement: Requirement
@@ -37,15 +37,6 @@ export function RequirementCard({
   onClick,
 }: RequirementCardProps) {
   const { t, i18n } = useTranslation('requirement')
-
-  /** 格式化时间戳 */
-  const formatTime = (ts: number) =>
-    new Date(ts).toLocaleString(i18n.language, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
 
   const style = STATUS_STYLES[requirement.status]
   const priorityStyle = `${PRIORITY_TEXT[requirement.priority]} ${PRIORITY_BG[requirement.priority]}`
@@ -129,7 +120,7 @@ export function RequirementCard({
 
           {/* 时间戳 */}
           <div className="mt-1.5 text-xs text-text-muted">
-            {formatTime(requirement.createdAt)}
+            {formatTime(requirement.createdAt, i18n.language)}
           </div>
         </div>
 
@@ -172,9 +163,7 @@ export function RequirementCard({
             <button
               onClick={e => {
                 e.stopPropagation()
-                if (confirm(t('confirm.deleteMessage'))) {
-                  onDeleteClick(requirement)
-                }
+                onDeleteClick(requirement)
               }}
               className="p-1.5 rounded hover:bg-red-500/10 text-text-secondary hover:text-red-500 transition-all"
               title={t('card.delete')}

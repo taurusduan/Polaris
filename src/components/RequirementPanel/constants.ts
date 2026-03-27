@@ -32,3 +32,32 @@ export const PRIORITY_BG: Record<RequirementPriority, string> = {
   high: 'bg-orange-500/10',
   urgent: 'bg-red-500/10',
 }
+
+/** 优先级排序权重（高权重优先） */
+export const PRIORITY_WEIGHT: Record<RequirementPriority, number> = {
+  urgent: 4,
+  high: 3,
+  normal: 2,
+  low: 1,
+}
+
+/** 时间格式预设 */
+export const TIME_FORMAT_SHORT: Intl.DateTimeFormatOptions = {
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+}
+
+export const TIME_FORMAT_FULL: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+}
+
+/** 格式化时间戳为本地化字符串 */
+export function formatTime(ts: number, locale: string, options?: Intl.DateTimeFormatOptions): string {
+  return new Date(ts).toLocaleString(locale, options ?? TIME_FORMAT_SHORT)
+}

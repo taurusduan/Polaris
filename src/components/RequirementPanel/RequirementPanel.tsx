@@ -22,10 +22,12 @@ import { useTranslation } from 'react-i18next'
 import { useWorkspaceStore } from '@/stores'
 import { useRequirementStore } from '@/stores/requirementStore'
 import { useToastStore } from '@/stores/toastStore'
+import { ConfirmDialog } from '@/components/Common/ConfirmDialog'
 import { RequirementCard } from './RequirementCard'
 import { RequirementDetailDialog } from './RequirementDetailDialog'
 import { RequirementForm } from './RequirementForm'
-import type { Requirement, RequirementStatus, RequirementPriority } from '@/types/requirement'
+import type { Requirement, RequirementStatus } from '@/types/requirement'
+import { PRIORITY_WEIGHT } from './constants'
 import { createLogger } from '@/utils/logger'
 
 const log = createLogger('RequirementPanel')
@@ -36,14 +38,6 @@ type StatusFilterType = RequirementStatus | 'all'
 /** 排序字段 */
 type SortField = 'priority' | 'createdAt'
 type SortOrder = 'desc' | 'asc'
-
-/** 优先级权重 */
-const PRIORITY_WEIGHT: Record<RequirementPriority, number> = {
-  urgent: 4,
-  high: 3,
-  normal: 2,
-  low: 1,
-}
 
 /** 获取状态筛选按钮的图标 */
 function StatusFilterIcon({ status }: { status: StatusFilterType }) {
@@ -91,6 +85,15 @@ export function RequirementPanel() {
 
   // 操作进行中追踪（防止重复点击）
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set())
+
+  // 确认对话框
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title?: string
+    message: string
+    onConfirm: () => void
+    type?: 'danger' | 'warning' | 'info'
+  } | null>(null)
+
   const setProcessing = useCallback((id: string, processing: boolean) => {
     setProcessingIds(prev => {
       const next = new Set(prev)
@@ -315,7 +318,12 @@ export function RequirementPanel() {
             disabled={processingIds.has(req.id)}
             onApproveClick={handleApprove}
             onRejectClick={req => setSelectedId(req.id)}
-            onDeleteClick={handleDelete}
+            onDeleteClick={req => setConfirmDialog({
+              title: t('confirm.deleteTitle'),
+              message: t('confirm.deleteMessage'),
+              type: 'danger',
+              onConfirm: () => handleDelete(req),
+            })}
             onEditClick={req => setSelectedId(req.id)}
             onClick={req => setSelectedId(req.id)}
           />
@@ -380,19 +388,38 @@ export function RequirementPanel() {
               toast.error(t('toast.updateFailed'))
             }
           }}
-          onDelete={async () => {
-            try {
-              await deleteRequirement(selectedRequirement.id)
-              setSelectedId(null)
-              toast.success(t('toast.deleteSuccess'))
-            } catch (e) {
-              log.error('删除需求失败', e instanceof Error ? e : new Error(String(e)))
-              toast.error(t('toast.deleteFailed'))
-            }
-          }}
+          onDelete={() => setConfirmDialog({
+            title: t('confirm.deleteTitle'),
+            message: t('confirm.deleteMessage'),
+            type: 'danger',
+            onConfirm: async () => {
+              try {
+                await deleteRequirement(selectedRequirement.id)
+                setSelectedId(null)
+                toast.success(t('toast.deleteSuccess'))
+              } catch (e) {
+                log.error('删除需求失败', e instanceof Error ? e : new Error(String(e)))
+                toast.error(t('toast.deleteFailed'))
+              }
+            },
+          })}
           onApprove={handleApprove}
           onReject={handleReject}
           onReadPrototype={readPrototype}
+        />
+      )}
+
+      {/* 确认对话框 */}
+      {confirmDialog && (
+        <ConfirmDialog
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={() => {
+            confirmDialog.onConfirm()
+            setConfirmDialog(null)
+          }}
+          onCancel={() => setConfirmDialog(null)}
+          type={confirmDialog.type}
         />
       )}
     </div>

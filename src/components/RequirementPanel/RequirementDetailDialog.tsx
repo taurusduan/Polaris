@@ -23,7 +23,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import type { Requirement, RequirementPriority, RequirementSource } from '@/types/requirement'
 import { RequirementForm } from './RequirementForm'
-import { STATUS_STYLES, PRIORITY_TEXT } from './constants'
+import { STATUS_STYLES, PRIORITY_TEXT, formatTime, TIME_FORMAT_FULL } from './constants'
 
 interface RequirementDetailDialogProps {
   requirement: Requirement
@@ -92,15 +92,6 @@ export function RequirementDetailDialog({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, requirement.id, requirement.prototypePath])
-
-  const formatTime = (ts: number) =>
-    new Date(ts).toLocaleString(i18n.language, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
 
   // Escape 键关闭弹窗
   useEffect(() => {
@@ -240,25 +231,25 @@ export function RequirementDetailDialog({
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="text-text-secondary">
-                  {t('detail.generatedAt')}: {formatTime(requirement.generatedAt)}
+                  {t('detail.generatedAt')}: {formatTime(requirement.generatedAt, i18n.language, TIME_FORMAT_FULL)}
                 </div>
 
                 {requirement.reviewedAt && (
                   <div className="text-text-secondary">
-                    {t('detail.reviewedAt')}: {formatTime(requirement.reviewedAt)}
+                    {t('detail.reviewedAt')}: {formatTime(requirement.reviewedAt, i18n.language, TIME_FORMAT_FULL)}
                   </div>
                 )}
 
                 {requirement.executedAt && (
                   <div className="text-text-secondary">
                     <Clock size={12} className="inline mr-0.5" />
-                    {t('detail.executedAt')}: {formatTime(requirement.executedAt)}
+                    {t('detail.executedAt')}: {formatTime(requirement.executedAt, i18n.language, TIME_FORMAT_FULL)}
                   </div>
                 )}
 
                 {requirement.completedAt && (
                   <div className="text-text-secondary">
-                    {t('detail.completedAt')}: {formatTime(requirement.completedAt)}
+                    {t('detail.completedAt')}: {formatTime(requirement.completedAt, i18n.language, TIME_FORMAT_FULL)}
                   </div>
                 )}
               </div>
@@ -410,10 +401,8 @@ export function RequirementDetailDialog({
           {onDelete && (
             <button
               onClick={() => {
-                if (confirm(t('confirm.deleteMessage'))) {
-                  onDelete()
-                  onClose()
-                }
+                onDelete()
+                onClose()
               }}
               className="px-3 py-1.5 text-sm text-red-500 rounded-lg hover:bg-red-500/10 transition-all flex items-center gap-1 disabled:opacity-50 disabled:pointer-events-none"
               disabled={disabled}
