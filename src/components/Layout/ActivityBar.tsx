@@ -6,7 +6,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, Terminal, Code2, PanelRight } from 'lucide-react'
+import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, ClipboardList, Terminal, Code2, PanelRight } from 'lucide-react'
 import { useViewStore } from '@/stores/viewStore'
 import { ActivityBarIcon } from './ActivityBarIcon'
 import { RadialMenu, RadialMenuTrigger } from './RadialMenu'
@@ -96,6 +96,11 @@ export function ActivityBar({ className, onOpenSettings, onToggleRightPanel, rig
       id: 'scheduler' as const,
       icon: Clock,
       label: t('labels.schedulerPanel'),
+    },
+    {
+      id: 'requirement' as const,
+      icon: ClipboardList,
+      label: t('labels.requirementPanel'),
     },
     {
       id: 'terminal' as const,

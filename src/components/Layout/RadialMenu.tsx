@@ -6,7 +6,7 @@
  */
 
 import { useRef, useEffect } from 'react'
-import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, Terminal, Code2, PanelRight } from 'lucide-react'
+import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, ClipboardList, Terminal, Code2, PanelRight } from 'lucide-react'
 import { useViewStore, LeftPanelType } from '@/stores/viewStore'
 import { useTranslation } from 'react-i18next'
 
@@ -89,6 +89,15 @@ export function RadialMenu({
       label: t('labels.schedulerPanel'),
       onClick: () => {
         toggleLeftPanel('scheduler')
+        onClose()
+      }
+    },
+    {
+      id: 'requirement',
+      icon: ClipboardList,
+      label: t('labels.requirementPanel'),
+      onClick: () => {
+        toggleLeftPanel('requirement')
         onClose()
       }
     },
