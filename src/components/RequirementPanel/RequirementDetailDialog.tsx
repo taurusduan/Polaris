@@ -23,6 +23,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import type { Requirement, RequirementPriority, RequirementSource } from '@/types/requirement'
 import { RequirementForm } from './RequirementForm'
+import { STATUS_STYLES, PRIORITY_TEXT } from './constants'
 
 interface RequirementDetailDialogProps {
   requirement: Requirement
@@ -45,24 +46,11 @@ interface RequirementDetailDialogProps {
   onReadPrototype?: (path: string) => Promise<string>
 }
 
-/** 状态颜色映射 */
-const statusStyleMap: Record<string, { text: string; bg: string }> = {
-  draft: { text: 'text-text-tertiary', bg: 'bg-gray-500/10' },
-  pending: { text: 'text-amber-500', bg: 'bg-amber-500/10' },
-  approved: { text: 'text-green-500', bg: 'bg-green-500/10' },
-  rejected: { text: 'text-red-500', bg: 'bg-red-500/10' },
-  executing: { text: 'text-blue-500', bg: 'bg-blue-500/10' },
-  completed: { text: 'text-indigo-500', bg: 'bg-indigo-500/10' },
-  failed: { text: 'text-red-400', bg: 'bg-red-400/10' },
-}
+/** 状态样式（从共享常量派生，忽略 dot 字段） */
+const statusStyleMap = STATUS_STYLES
 
-/** 优先级颜色映射 */
-const priorityStyleMap: Record<string, string> = {
-  low: 'text-text-tertiary',
-  normal: 'text-blue-500',
-  high: 'text-orange-500',
-  urgent: 'text-red-500',
-}
+/** 优先级颜色（从共享常量导入） */
+const priorityStyleMap = PRIORITY_TEXT
 
 export function RequirementDetailDialog({
   requirement,
@@ -85,7 +73,7 @@ export function RequirementDetailDialog({
 
   if (!open) return null
 
-  const style = statusStyleMap[requirement.status] || statusStyleMap.draft
+  const style = statusStyleMap[requirement.status]
   const canReview = requirement.status === 'pending' || requirement.status === 'draft'
 
   // 加载原型
@@ -202,7 +190,7 @@ export function RequirementDetailDialog({
             {/* 优先级 */}
             <div className="flex items-center gap-1">
               <span>{t('detail.priorityField')}:</span>
-              <span className={priorityStyleMap[requirement.priority] || ''}>
+              <span className={priorityStyleMap[requirement.priority]}>
                 {t(`priority.${requirement.priority}`)}
               </span>
             </div>

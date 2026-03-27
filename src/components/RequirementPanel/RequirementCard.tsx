@@ -14,7 +14,8 @@ import {
   Eye,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { Requirement, RequirementStatus } from '@/types/requirement'
+import type { Requirement } from '@/types/requirement'
+import { STATUS_STYLES, PRIORITY_TEXT, PRIORITY_BG } from './constants'
 
 interface RequirementCardProps {
   requirement: Requirement
@@ -26,24 +27,8 @@ interface RequirementCardProps {
   onClick?: (requirement: Requirement) => void
 }
 
-/** 状态配置：颜色、背景 */
-const statusStyleConfig: Record<RequirementStatus, { text: string; bg: string; dot: string }> = {
-  draft: { text: 'text-text-tertiary', bg: 'bg-gray-500/10', dot: 'bg-gray-500' },
-  pending: { text: 'text-amber-500', bg: 'bg-amber-500/10', dot: 'bg-amber-500' },
-  approved: { text: 'text-green-500', bg: 'bg-green-500/10', dot: 'bg-green-500' },
-  rejected: { text: 'text-red-500', bg: 'bg-red-500/10', dot: 'bg-red-500' },
-  executing: { text: 'text-blue-500', bg: 'bg-blue-500/10', dot: 'bg-blue-500' },
-  completed: { text: 'text-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500' },
-  failed: { text: 'text-red-400', bg: 'bg-red-400/10', dot: 'bg-red-400' },
-}
-
-/** 优先级颜色类 */
-const priorityStyleConfig: Record<string, string> = {
-  low: 'text-text-tertiary bg-gray-500/10',
-  normal: 'text-blue-500 bg-blue-500/10',
-  high: 'text-orange-500 bg-orange-500/10',
-  urgent: 'text-red-500 bg-red-500/10',
-}
+/** 状态配置（从共享常量导入） */
+const statusStyleConfig = STATUS_STYLES
 
 export function RequirementCard({
   requirement,
@@ -66,7 +51,7 @@ export function RequirementCard({
     })
 
   const style = statusStyleConfig[requirement.status]
-  const priorityStyle = priorityStyleConfig[requirement.priority] || priorityStyleConfig.normal
+  const priorityStyle = `${PRIORITY_TEXT[requirement.priority]} ${PRIORITY_BG[requirement.priority]}`
   const canReview = requirement.status === 'pending' || requirement.status === 'draft'
 
   return (

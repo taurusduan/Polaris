@@ -71,9 +71,9 @@ export class RequirementService {
         : []
     } catch {
       // 文件不存在或读取失败，初始化为空
+      // 不写入文件 — 避免覆盖损坏的 JSON 或触发权限错误
       log.debug('需求文件不存在或读取失败，初始化为空')
       this.requirements = []
-      await this.saveToFile()
     }
   }
 
@@ -111,16 +111,6 @@ export class RequirementService {
    */
   getAllRequirements(): Requirement[] {
     return [...this.requirements]
-  }
-
-  /**
-   * 根据状态筛选需求
-   */
-  getRequirementsByStatus(status: Requirement['status'] | 'all'): Requirement[] {
-    if (status === 'all') {
-      return this.getAllRequirements()
-    }
-    return this.requirements.filter(r => r.status === status)
   }
 
   /**
@@ -287,14 +277,6 @@ export class RequirementService {
         // 同优先级按调度时间排序
         return (a.executeConfig?.scheduledAt || 0) - (b.executeConfig?.scheduledAt || 0)
       })
-  }
-
-  /**
-   * 获取原型文件路径（绝对路径）
-   */
-  getPrototypeAbsolutePath(prototypePath: string): string | null {
-    if (!this.workspacePath) return null
-    return `${this.workspacePath}/${prototypePath}`
   }
 
   /**

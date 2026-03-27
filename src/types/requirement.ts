@@ -173,14 +173,6 @@ export interface RequirementFileData {
   requirements: Requirement[]
 }
 
-/** 允许 AI 读取的需求状态 */
-export const AI_READABLE_STATUSES: RequirementStatus[] = [
-  'pending', 'approved', 'executing',
-]
-
-/** 允许从队列执行的需求状态 */
-export const EXECUTABLE_STATUSES: RequirementStatus[] = ['approved']
-
 /**
  * 创建默认需求（自动填充 ID 和时间戳）
  */
