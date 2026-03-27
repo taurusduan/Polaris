@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>编辑器面包屑导航 - 原型</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f11;
+      color: #f8f8f8;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* 模拟 IDE 布局 */
+    .ide-layout {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* 左侧文件树 */
+    .sidebar {
+      width: 220px;
+      background: #161619;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      padding: 8px 0;
+      flex-shrink: 0;
+    }
+
+    .sidebar-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      padding: 4px 16px 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 16px 4px 24px;
+      font-size: 13px;
+      color: #aaa;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .file-item:hover { background: rgba(255,255,255,0.05); }
+    .file-item.active { background: rgba(56,139,253,0.15); color: #f8f8f8; }
+    .file-item.folder { color: #ccc; }
+    .file-item .icon { font-size: 14px; flex-shrink: 0; }
+
+    /* 中间编辑区 */
+    .editor-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Tab Bar */
+    .tab-bar {
+      display: flex;
+      align-items: center;
+      height: 38px;
+      background: #161619;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 0 8px;
+      gap: 4px;
+    }
+
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 6px 6px 0 0;
+      font-size: 12px;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.15s;
+      max-width: 160px;
+    }
+
+    .tab:hover { color: #ccc; background: rgba(255,255,255,0.05); }
+    .tab.active {
+      color: #f8f8f8;
+      background: #1a1a1f;
+      border-top: 2px solid #388bfd;
+    }
+    .tab .tab-close { font-size: 10px; margin-left: 4px; opacity: 0; transition: opacity 0.15s; }
+    .tab:hover .tab-close { opacity: 0.6; }
+    .tab .dirty-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #e5a100; margin-left: 4px;
+    }
+
+    /* ===== 面包屑导航 (核心原型) ===== */
+    .breadcrumb-bar {
+      display: flex;
+      align-items: center;
+      height: 28px;
+      padding: 0 12px;
+      background: #1a1a1f;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      gap: 2px;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+
+    .breadcrumb-bar::-webkit-scrollbar { height: 0; }
+
+    .breadcrumb-segment {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      position: relative;
+    }
+
+    .breadcrumb-segment:hover {
+      color: #ccc;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .breadcrumb-segment.active {
+      color: #e0e0e0;
+      font-weight: 500;
+    }
+
+    .breadcrumb-segment .folder-icon {
+      font-size: 12px;
+      opacity: 0.6;
+    }
+
+    .breadcrumb-separator {
+      color: #555;
+      font-size: 10px;
+      margin: 0 1px;
+      user-select: none;
+    }
+
+    .breadcrumb-segment .chevron-icon {
+      font-size: 8px;
+      margin-left: 2px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .breadcrumb-segment:hover .chevron-icon { opacity: 0.5; }
+
+    /* 面包屑下拉菜单 */
+    .breadcrumb-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 4px;
+      background: #1e1e22;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 4px;
+      min-width: 180px;
+      z-index: 100;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      display: none;
+    }
+
+    .breadcrumb-dropdown.show { display: block; }
+
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #aaa;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .dropdown-item:hover { background: rgba(56,139,253,0.15); color: #f8f8f8; }
+    .dropdown-item .item-icon { font-size: 14px; }
+    .dropdown-item .item-arrow { margin-left: auto; font-size: 10px; color: #555; }
+
+    /* 语言标识 + 编码 */
+    .breadcrumb-trailing {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11px;
+      color: #666;
+      flex-shrink: 0;
+    }
+
+    .breadcrumb-trailing span {
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+
+    .breadcrumb-trailing span:hover { color: #aaa; }
+
+    /* 编辑器内容 */
+    .editor-content {
+      flex: 1;
+      padding: 16px;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #ccc;
+      overflow: auto;
+    }
+
+    .line { display: flex; }
+    .line-num {
+      width: 40px;
+      text-align: right;
+      padding-right: 16px;
+      color: #444;
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .line-content { flex: 1; }
+
+    .keyword { color: #c586c0; }
+    .type { color: #4ec9b0; }
+    .string { color: #ce9178; }
+    .comment { color: #6a9955; }
+    .function { color: #dcdcaa; }
+    .variable { color: #9cdcfe; }
+    .tag { color: #569cd6; }
+
+    /* 右侧面板 */
+    .right-panel {
+      width: 280px;
+      background: #161619;
+      border-left: 1px solid rgba(255,255,255,0.08);
+      padding: 12px;
+      flex-shrink: 0;
+    }
+
+    .panel-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .prototype-badge {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      background: rgba(56,139,253,0.2);
+      border: 1px solid rgba(56,139,253,0.3);
+      color: #388bfd;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      z-index: 1000;
+    }
+
+    /* 说明区域 */
+    .info-card {
+      background: rgba(56,139,253,0.08);
+      border: 1px solid rgba(56,139,253,0.15);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .info-card h4 {
+      font-size: 12px;
+      color: #388bfd;
+      margin-bottom: 6px;
+    }
+
+    .info-card ul {
+      list-style: none;
+      font-size: 11px;
+      color: #aaa;
+    }
+
+    .info-card li {
+      padding: 2px 0;
+      padding-left: 12px;
+      position: relative;
+    }
+
+    .info-card li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: #388bfd;
+    }
+
+    /* 动画 */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .breadcrumb-dropdown.show {
+      animation: fadeIn 0.15s ease-out;
+    }
+
+    /* 高亮效果 */
+    .highlight-new {
+      position: relative;
+    }
+
+    .highlight-new::after {
+      content: 'NEW';
+      position: absolute;
+      top: -8px;
+      right: -24px;
+      background: #388bfd;
+      color: white;
+      font-size: 8px;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="prototype-badge">Prototype - Editor Breadcrumb</div>
+
+  <div class="ide-layout">
+    <!-- 左侧文件树 -->
+    <div class="sidebar">
+      <div class="sidebar-title">Explorer</div>
+      <div class="file-item folder"><span class="icon">📂</span> src</div>
+      <div class="file-item folder" style="padding-left:40px"><span class="icon">📂</span> components</div>
+      <div class="file-item folder" style="padding-left:56px"><span class="icon">📂</span> Editor</div>
+      <div class="file-item active" style="padding-left:72px"><span class="icon">📄</span> EditorHeader.tsx</div>
+      <div class="file-item" style="padding-left:72px"><span class="icon">📄</span> EditorPanel.tsx</div>
+      <div class="file-item" style="padding-left:72px"><span class="icon">📄</span> Editor.tsx</div>
+      <div class="file-item" style="padding-left:56px"><span class="icon">📂</span> Chat</div>
+      <div class="file-item" style="padding-left:56px"><span class="icon">📂</span> Layout</div>
+      <div class="file-item folder" style="padding-left:40px"><span class="icon">📂</span> stores</div>
+      <div class="file-item folder" style="padding-left:40px"><span class="icon">📂</span> types</div>
+      <div class="file-item folder" style="padding-left:40px"><span class="icon">📂</span> utils</div>
+    </div>
+
+    <!-- 中间编辑区 -->
+    <div class="editor-area">
+      <!-- Tab Bar -->
+      <div class="tab-bar">
+        <div class="tab active">
+          <span>📄</span> EditorHeader.tsx
+          <div class="dirty-dot"></div>
+        </div>
+        <div class="tab">
+          <span>📄</span> EditorPanel.tsx
+          <span class="tab-close">✕</span>
+        </div>
+        <div class="tab">
+          <span>📄</span> tabStore.ts
+          <span class="tab-close">✕</span>
+        </div>
+      </div>
+
+      <!-- ★ 面包屑导航栏（核心新增功能） ★ -->
+      <div class="breadcrumb-bar highlight-new" id="breadcrumbBar">
+        <!-- 路径段 -->
+        <div class="breadcrumb-segment" onclick="toggleDropdown('src-dropdown')">
+          <span class="folder-icon">📁</span>
+          <span>src</span>
+          <span class="chevron-icon">▾</span>
+          <!-- 下拉菜单 -->
+          <div class="breadcrumb-dropdown" id="src-dropdown">
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📂</span> components
+              <span class="item-arrow">›</span>
+            </div>
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📂</span> stores
+              <span class="item-arrow">›</span>
+            </div>
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📂</span> types
+              <span class="item-arrow">›</span>
+            </div>
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📂</span> utils
+              <span class="item-arrow">›</span>
+            </div>
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📄</span> App.tsx
+            </div>
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📄</span> main.tsx
+            </div>
+          </div>
+        </div>
+        <span class="breadcrumb-separator">›</span>
+        <div class="breadcrumb-segment" onclick="toggleDropdown('comp-dropdown')">
+          <span class="folder-icon">📁</span>
+          <span>components</span>
+          <span class="chevron-icon">▾</span>
+          <div class="breadcrumb-dropdown" id="comp-dropdown">
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📂</span> Chat
+              <span class="item-arrow">›</span>
+            </div>
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📂</span> Common
+              <span class="item-arrow">›</span>
+            </div>
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📂</span> Editor
+              <span class="item-arrow">›</span>
+            </div>
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📂</span> Layout
+              <span class="item-arrow">›</span>
+            </div>
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📂</span> Scheduler
+              <span class="item-arrow">›</span>
+            </div>
+          </div>
+        </div>
+        <span class="breadcrumb-separator">›</span>
+        <div class="breadcrumb-segment" onclick="toggleDropdown('editor-dropdown')">
+          <span class="folder-icon">📁</span>
+          <span>Editor</span>
+          <span class="chevron-icon">▾</span>
+          <div class="breadcrumb-dropdown" id="editor-dropdown">
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📄</span> Editor.tsx
+            </div>
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📄</span> EditorHeader.tsx
+            </div>
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📄</span> EditorPanel.tsx
+            </div>
+            <div class="dropdown-item" onclick="event.stopPropagation()">
+              <span class="item-icon">📄</span> MarkdownEditor.tsx
+            </div>
+          </div>
+        </div>
+        <span class="breadcrumb-separator">›</span>
+        <div class="breadcrumb-segment active">
+          <span class="folder-icon">📄</span>
+          <span>EditorHeader.tsx</span>
+        </div>
+
+        <!-- 右侧附加信息 -->
+        <div class="breadcrumb-trailing">
+          <span>TypeScript React</span>
+          <span>UTF-8</span>
+          <span>LF</span>
+        </div>
+      </div>
+
+      <!-- 编辑器内容 -->
+      <div class="editor-content">
+        <div class="line"><span class="line-num">1</span><span class="line-content"><span class="comment">/**</span></span></div>
+        <div class="line"><span class="line-num">2</span><span class="line-content"><span class="comment"> * 编辑器顶部栏组件</span></span></div>
+        <div class="line"><span class="line-num">3</span><span class="line-content"><span class="comment"> */</span></span></div>
+        <div class="line"><span class="line-num">4</span><span class="line-content"></span></div>
+        <div class="line"><span class="line-num">5</span><span class="line-content"><span class="keyword">import</span> { <span class="variable">useState</span>, <span class="variable">useEffect</span>, <span class="variable">useRef</span> } <span class="keyword">from</span> <span class="string">'react'</span>;</span></div>
+        <div class="line"><span class="line-num">6</span><span class="line-content"><span class="keyword">import</span> { <span class="variable">useTranslation</span> } <span class="keyword">from</span> <span class="string">'react-i18next'</span>;</span></div>
+        <div class="line"><span class="line-num">7</span><span class="line-content"><span class="keyword">import</span> { <span class="variable">useFileEditorStore</span> } <span class="keyword">from</span> <span class="string">'../../stores'</span>;</span></div>
+        <div class="line"><span class="line-num">8</span><span class="line-content"><span class="keyword">import</span> { <span class="function">createLogger</span> } <span class="keyword">from</span> <span class="string">'../../utils/logger'</span>;</span></div>
+        <div class="line"><span class="line-num">9</span><span class="line-content"></span></div>
+        <div class="line"><span class="line-num">10</span><span class="line-content"><span class="keyword">const</span> <span class="variable">log</span> = <span class="function">createLogger</span>(<span class="string">'EditorHeader'</span>);</span></div>
+        <div class="line"><span class="line-num">11</span><span class="line-content"></span></div>
+        <div class="line"><span class="line-num">12</span><span class="line-content"><span class="keyword">interface</span> <span class="type">EditorHeaderProps</span> {</span></div>
+        <div class="line"><span class="line-num">13</span><span class="line-content">  <span class="variable">className</span>?: <span class="type">string</span>;</span></div>
+        <div class="line"><span class="line-num">14</span><span class="line-content">}</span></div>
+        <div class="line"><span class="line-num">15</span><span class="line-content"></span></div>
+        <div class="line"><span class="line-num">16</span><span class="line-content"><span class="keyword">export function</span> <span class="function">EditorHeader</span>({ <span class="variable">className</span> = <span class="string">''</span> }: <span class="type">EditorHeaderProps</span>) {</span></div>
+        <div class="line"><span class="line-num">17</span><span class="line-content">  <span class="keyword">const</span> { <span class="variable">t</span> } = <span class="function">useTranslation</span>(<span class="string">'fileExplorer'</span>);</span></div>
+        <div class="line"><span class="line-num">18</span><span class="line-content">  <span class="keyword">const</span> { <span class="variable">currentFile</span>, <span class="variable">saveFile</span>, <span class="variable">closeFile</span> } = <span class="function">useFileEditorStore</span>();</span></div>
+        <div class="line"><span class="line-num">19</span><span class="line-content">  <span class="comment">// ...</span></span></div>
+        <div class="line"><span class="line-num">20</span><span class="line-content">}</span></div>
+      </div>
+    </div>
+
+    <!-- 右侧信息面板 -->
+    <div class="right-panel">
+      <div class="info-card">
+        <h4>🍞 面包屑导航功能说明</h4>
+        <ul>
+          <li>显示完整文件路径：src › components › Editor › EditorHeader.tsx</li>
+          <li>点击路径段展开同级文件/文件夹列表</li>
+          <li>选择文件直接打开到编辑器</li>
+          <li>选择文件夹在文件树中展开定位</li>
+        </ul>
+      </div>
+
+      <div class="info-card">
+        <h4>🎯 交互说明</h4>
+        <ul>
+          <li>点击「src」查看 src 目录下的所有文件和文件夹</li>
+          <li>点击「components」查看 components 下的子目录</li>
+          <li>点击「Editor」查看 Editor 目录下的所有文件</li>
+          <li>当前文件名高亮且不可点击</li>
+        </ul>
+      </div>
+
+      <div class="info-card">
+        <h4>📐 设计细节</h4>
+        <ul>
+          <li>面包屑栏高度 28px，与 TabBar 分离</li>
+          <li>位于 TabBar 和编辑器内容之间</li>
+          <li>路径段 hover 显示背景色</li>
+          <li>文件夹显示文件夹图标，文件显示文件图标</li>
+          <li>右侧显示语言类型和编码信息</li>
+          <li>路径过长时支持水平滚动</li>
+        </ul>
+      </div>
+
+      <div class="info-card">
+        <h4>🔧 技术实现</h4>
+        <ul>
+          <li>解析当前文件路径生成面包屑段</li>
+          <li>每段关联文件系统目录内容</li>
+          <li>下拉菜单展示同级文件列表</li>
+          <li>复用 FileExplorer 的文件图标逻辑</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 面包屑下拉菜单交互
+    function toggleDropdown(id) {
+      // 关闭所有下拉
+      document.querySelectorAll('.breadcrumb-dropdown').forEach(d => {
+        if (d.id !== id) d.classList.remove('show');
+      });
+      // 切换当前
+      const dropdown = document.getElementById(id);
+      dropdown.classList.toggle('show');
+      event.stopPropagation();
+    }
+
+    // 点击外部关闭下拉
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.breadcrumb-dropdown').forEach(d => {
+        d.classList.remove('show');
+      });
+    });
+
+    // 阻止下拉内部点击冒泡关闭
+    document.querySelectorAll('.breadcrumb-dropdown').forEach(d => {
+      d.addEventListener('click', (e) => e.stopPropagation());
+    });
+  </script>
+
+</body>
+</html>
