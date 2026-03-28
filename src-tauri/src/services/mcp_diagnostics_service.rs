@@ -12,7 +12,8 @@ pub struct TodoMcpDiagnostics {
     pub resource_dir: Option<String>,
     pub resolved_executable_path: String,
     pub executable_exists: bool,
-    pub expected_resource_path: Option<String>,
+    pub expected_resource_bin_path: Option<String>,
+    pub expected_resource_root_path: Option<String>,
     pub expected_dev_path: String,
     pub workspace_config_path: Option<String>,
     pub workspace_config_exists: Option<bool>,
@@ -42,9 +43,12 @@ impl TodoMcpDiagnosticsService {
             resource_dir: resource_dir.as_ref().map(|path| path.to_string_lossy().to_string()),
             resolved_executable_path: resolved_executable_path.to_string_lossy().to_string(),
             executable_exists: resolved_executable_path.exists(),
-            expected_resource_path: resource_dir
+            expected_resource_bin_path: resource_dir
                 .as_ref()
                 .map(|dir| dir.join(Path::new("bin/polaris-todo-mcp.exe")).to_string_lossy().to_string()),
+            expected_resource_root_path: resource_dir
+                .as_ref()
+                .map(|dir| dir.join(Path::new("polaris-todo-mcp.exe")).to_string_lossy().to_string()),
             expected_dev_path: app_root
                 .join(Path::new("src-tauri/target/debug/polaris-todo-mcp.exe"))
                 .to_string_lossy()

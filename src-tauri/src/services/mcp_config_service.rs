@@ -6,6 +6,7 @@ const MCP_SERVER_NAME: &str = "polaris-todo";
 const MCP_CONFIG_RELATIVE_PATH: &str = ".polaris/claude/mcp.json";
 const TODO_MCP_BIN_NAME: &str = "polaris-todo-mcp";
 const TODO_MCP_BUNDLE_RELATIVE_PATH: &str = "bin/polaris-todo-mcp.exe";
+const TODO_MCP_BUNDLE_FALLBACK_RELATIVE_PATH: &str = "polaris-todo-mcp.exe";
 const TODO_MCP_DEV_RELATIVE_PATH: &str = "src-tauri/target/debug/polaris-todo-mcp.exe";
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -80,14 +81,23 @@ impl WorkspaceMcpConfigService {
 
 fn resolve_mcp_executable_path(resource_dir: Option<PathBuf>, app_root: PathBuf) -> Result<PathBuf> {
     if let Some(ref resource_dir) = resource_dir {
-        let bundled_path = resource_dir.join(Path::new(TODO_MCP_BUNDLE_RELATIVE_PATH));
-        if bundled_path.exists() {
-            return Ok(bundled_path);
+        let bundled_candidates = [
+            resource_dir.join(Path::new(TODO_MCP_BUNDLE_RELATIVE_PATH)),
+            resource_dir.join(Path::new(TODO_MCP_BUNDLE_FALLBACK_RELATIVE_PATH)),
+        ];
+
+        for bundled_path in bundled_candidates {
+            if bundled_path.exists() {
+                return Ok(bundled_path);
+            }
         }
 
         tracing::warn!(
-            "[MCP] 未在资源目录找到 Todo MCP 可执行文件，回退到开发目录: {}",
-            bundled_path.display()
+            "[MCP] 未在资源目录找到 Todo MCP 可执行文件，已检查: '{}' 和 '{}'，回退到开发目录",
+            resource_dir.join(Path::new(TODO_MCP_BUNDLE_RELATIVE_PATH)).display(),
+            resource_dir
+                .join(Path::new(TODO_MCP_BUNDLE_FALLBACK_RELATIVE_PATH))
+                .display()
         );
     }
 
@@ -112,11 +122,15 @@ fn resolve_mcp_executable_path(resource_dir: Option<PathBuf>, app_root: PathBuf)
     }
 
     Err(AppError::ProcessError(format!(
-        "无法定位 {}。已检查资源路径 '{}' 与开发路径 '{}'",
+        "无法定位 {}。已检查资源路径 '{}'、'{}' 与开发路径 '{}'",
         TODO_MCP_BIN_NAME,
         resource_dir
             .as_ref()
             .map(|dir| dir.join(Path::new(TODO_MCP_BUNDLE_RELATIVE_PATH)).display().to_string())
+            .unwrap_or_else(|| "<无资源目录>".to_string()),
+        resource_dir
+            .as_ref()
+            .map(|dir| dir.join(Path::new(TODO_MCP_BUNDLE_FALLBACK_RELATIVE_PATH)).display().to_string())
             .unwrap_or_else(|| "<无资源目录>".to_string()),
         dev_path.display()
     )))
@@ -147,6 +161,23 @@ mod tests {
 
         let path = resolve_mcp_executable_path(Some(resource_dir.clone()), app_root.clone()).unwrap();
         assert_eq!(path, resource_dir.join("bin/polaris-todo-mcp.exe"));
+
+        let _ = std::fs::remove_dir_all(&temp_root);
+    }
+
+    #[test]
+    fn prefers_root_level_bundled_path_when_present() {
+        let temp_root = std::env::temp_dir().join(format!("polaris-mcp-test-{}", uuid::Uuid::new_v4()));
+        let app_root = temp_root.join("app-root");
+        let resource_dir = temp_root.join("resources");
+
+        std::fs::create_dir_all(app_root.join("src-tauri/target/debug")).unwrap();
+        std::fs::create_dir_all(&resource_dir).unwrap();
+        std::fs::write(app_root.join("src-tauri/target/debug/polaris-todo-mcp.exe"), "dev bin").unwrap();
+        std::fs::write(resource_dir.join("polaris-todo-mcp.exe"), "bundled root bin").unwrap();
+
+        let path = resolve_mcp_executable_path(Some(resource_dir.clone()), app_root.clone()).unwrap();
+        assert_eq!(path, resource_dir.join("polaris-todo-mcp.exe"));
 
         let _ = std::fs::remove_dir_all(&temp_root);
     }
