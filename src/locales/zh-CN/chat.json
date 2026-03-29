@@ -17,9 +17,7 @@
     "hint": "Enter 发送 · Shift+Enter 换行",
     "diffChip": "差异: {{status}}",
     "attachmentCount": "{{count}} 个附件",
-    "readyToSend": "可直接发送",
-    "startSpeech": "开始语音识别 (Ctrl+Space)",
-    "stopSpeech": "停止语音识别"
+    "readyToSend": "可直接发送"
   },
   "message": {
     "user": "用户",

@@ -1,5 +1,7 @@
 /**
  * 语音识别 Hook
+ *
+ * 固定配置：连续识别 + 显示临时结果
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -7,34 +9,30 @@ import { speechService } from '../services/speechService';
 import type {
   SpeechRecognitionStatus,
   SpeechRecognitionError,
-  SpeechConfig,
+  SpeechLanguage,
   VoiceCommand
 } from '../types/speech';
-import { DEFAULT_SPEECH_CONFIG, checkVoiceCommand } from '../types/speech';
+import { checkVoiceCommand } from '../types/speech';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('useSpeechRecognition');
 
 export interface UseSpeechRecognitionOptions {
-  /** 是否自动将识别结果追加到现有文本 */
-  appendMode?: boolean;
-  /** 识别完成后的回调 */
+  /** 识别语言 */
+  language?: SpeechLanguage;
+  /** 识别结果回调 */
   onResult?: (transcript: string) => void;
   /** 错误回调 */
   onError?: (error: SpeechRecognitionError) => void;
   /** 语音命令回调 */
   onCommand?: (command: VoiceCommand) => void;
-  /** 语音配置 */
-  config?: Partial<SpeechConfig>;
 }
 
 export interface UseSpeechRecognitionReturn {
   /** 当前状态 */
   status: SpeechRecognitionStatus;
-  /** 临时识别结果（未确认） */
+  /** 临时识别结果 */
   interimTranscript: string;
-  /** 最终识别结果 */
-  finalTranscript: string;
   /** 是否支持语音识别 */
   isSupported: boolean;
   /** 错误信息 */
@@ -45,8 +43,6 @@ export interface UseSpeechRecognitionReturn {
   stop: () => void;
   /** 切换识别状态 */
   toggle: () => void;
-  /** 清空结果 */
-  clear: () => void;
   /** 是否正在识别 */
   isListening: boolean;
 }
@@ -54,11 +50,10 @@ export interface UseSpeechRecognitionReturn {
 export function useSpeechRecognition(
   options: UseSpeechRecognitionOptions = {}
 ): UseSpeechRecognitionReturn {
-  const { appendMode = false, onResult, onError, onCommand, config: configProp } = options;
+  const { language = 'zh-CN', onResult, onError, onCommand } = options;
 
   const [status, setStatus] = useState<SpeechRecognitionStatus>('idle');
   const [interimTranscript, setInterimTranscript] = useState('');
-  const [finalTranscript, setFinalTranscript] = useState('');
   const [error, setError] = useState<SpeechRecognitionError | null>(null);
 
   const isSupported = speechService.supported;
@@ -97,9 +92,6 @@ export function useSpeechRecognition(
             return; // 命令不填入输入框
           }
 
-          setFinalTranscript(prev =>
-            appendMode ? prev + transcript : transcript
-          );
           onResultRef.current?.(transcript);
         } else {
           setInterimTranscript(transcript);
@@ -114,17 +106,20 @@ export function useSpeechRecognition(
     return () => {
       // 不销毁服务，保持单例
     };
-  }, [isSupported, appendMode]);
+  }, [isSupported]);
 
-  // 应用配置变化
+  // 应用语言配置
   useEffect(() => {
     if (isSupported) {
       speechService.setConfig({
-        ...DEFAULT_SPEECH_CONFIG,
-        ...configProp
+        enabled: true,
+        language,
+        // 固定配置
+        continuous: true,
+        interimResults: true,
       });
     }
-  }, [configProp, isSupported]);
+  }, [language, isSupported]);
 
   const start = useCallback(() => {
     if (!isSupported) {
@@ -149,22 +144,14 @@ export function useSpeechRecognition(
     }
   }, [isListening, start, stop]);
 
-  const clear = useCallback(() => {
-    setFinalTranscript('');
-    setInterimTranscript('');
-    setError(null);
-  }, []);
-
   return {
     status,
     interimTranscript,
-    finalTranscript,
     isSupported,
     error,
     start,
     stop,
     toggle,
-    clear,
     isListening,
   };
 }

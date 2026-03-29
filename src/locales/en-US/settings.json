@@ -208,31 +208,22 @@
   "speech": {
     "enabled": {
       "title": "Enable Speech Input",
-      "desc": "Use speech input for quick text entry"
-    },
-    "shortcut": {
-      "title": "Shortcut",
-      "hint": "Press shortcut: send if input has content, start speech if empty"
+      "desc": "Click speech button in status bar to start continuous recognition"
     },
     "language": {
       "title": "Recognition Language"
     },
-    "advanced": {
-      "title": "Advanced Options"
-    },
-    "continuous": {
-      "title": "Continuous Recognition",
-      "desc": "Keep listening and recognizing speech"
-    },
-    "interimResults": {
-      "title": "Show Interim Results",
-      "desc": "Display text while recognizing"
+    "commands": {
+      "title": "Voice Commands",
+      "send": "Send message",
+      "clear": "Clear input",
+      "interrupt": "Interrupt conversation"
     },
     "tips": {
       "title": "Instructions",
-      "shortcut": "Press Ctrl+Space to quickly start speech recognition",
-      "requirement": "Requires microphone permission and network connection",
-      "platform": "Best support on Windows, macOS/Linux needs testing"
+      "button": "Click speech button in status bar to start/stop recognition",
+      "continuous": "Keeps listening until manually stopped",
+      "requirement": "Requires microphone permission and network connection"
     }
   }
 }

@@ -8,13 +8,17 @@
  * - 会话时长
  * - Claude Code 版本
  * - 输入字数
+ * - 语音识别按钮
  */
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEventChatStore, useConfigStore, useChatInputStore } from '../../stores';
 import { MessageSquare, Wrench, Clock, Paperclip } from 'lucide-react';
 import { clsx } from 'clsx';
+import { IconMic } from '../Common/Icons';
+import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
+import type { SpeechConfig, VoiceCommand } from '../../types/speech';
 
 interface ChatStatusBarProps {
   /** 是否紧凑模式 */
@@ -49,8 +53,60 @@ export function ChatStatusBar({ compact = false }: ChatStatusBarProps) {
   const messages = useEventChatStore(state => state.messages);
   const currentMessage = useEventChatStore(state => state.currentMessage);
   const isStreaming = useEventChatStore(state => state.isStreaming);
+  const interruptChat = useEventChatStore(state => state.interruptChat);
   const { config, healthStatus } = useConfigStore();
-  const { inputLength, attachmentCount, suggestionMode, hasPendingQuestion, hasActivePlan } = useChatInputStore();
+  const {
+    inputLength,
+    attachmentCount,
+    suggestionMode,
+    hasPendingQuestion,
+    hasActivePlan,
+    appendSpeechTranscript,
+    setSpeechCommand,
+    speechCommand,
+  } = useChatInputStore();
+
+  // 语音识别配置
+  const speechConfig = config?.speech as SpeechConfig | undefined;
+  const speechEnabled = speechConfig?.enabled ?? true;
+
+  // 语音识别 Hook
+  const {
+    interimTranscript,
+    isSupported: speechSupported,
+    start: startSpeech,
+    stop: stopSpeech,
+    isListening,
+  } = useSpeechRecognition({
+    language: speechConfig?.language || 'zh-CN',
+    onResult: (transcript) => {
+      // 追加到输入框
+      appendSpeechTranscript(transcript);
+    },
+    onCommand: (command: VoiceCommand) => {
+      // 设置命令，由 ChatInput 处理
+      setSpeechCommand(command);
+    }
+  });
+
+  // 处理语音命令
+  useEffect(() => {
+    if (!speechCommand) return;
+
+    switch (speechCommand) {
+      case 'interrupt':
+        if (isStreaming) {
+          interruptChat();
+        }
+        break;
+      // 'send' 和 'clear' 由 ChatInput 处理
+    }
+
+    // 清除命令（保留 send 和 clear 给 ChatInput 处理）
+    if (speechCommand === 'interrupt') {
+      setSpeechCommand(null);
+    }
+  }, [speechCommand, isStreaming, interruptChat, setSpeechCommand]);
 
   // 计算统计数据
   const stats = useMemo(() => {
@@ -170,8 +226,31 @@ export function ChatStatusBar({ compact = false }: ChatStatusBarProps) {
         )}
       </div>
 
-      {/* 右侧：状态提示和字数 */}
+      {/* 右侧：语音、状态提示和字数 */}
       <div className="flex items-center gap-3">
+        {/* 语音识别 */}
+        {speechEnabled && speechSupported && (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={isListening ? stopSpeech : startSpeech}
+              className={clsx(
+                'flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors',
+                isListening
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-text-tertiary hover:text-text-primary hover:bg-background-hover'
+              )}
+              title={isListening ? t('speech.stop', '停止语音识别') : t('speech.start', '开始语音识别')}
+            >
+              <IconMic size={14} className={isListening ? 'animate-pulse' : ''} />
+              {isListening && (
+                <span className="max-w-[200px] truncate">
+                  {interimTranscript || t('speech.listening', '正在听...')}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* 输入状态提示 */}
         {inputHint && (
           <span className={clsx(

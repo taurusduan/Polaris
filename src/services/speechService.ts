@@ -3,11 +3,10 @@
  */
 
 import type {
-  SpeechConfig,
+  SpeechLanguage,
   SpeechRecognitionStatus,
   SpeechRecognitionError as AppSpeechError
 } from '../types/speech';
-import { DEFAULT_SPEECH_CONFIG } from '../types/speech';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('SpeechService');
@@ -53,13 +52,26 @@ interface WindowWithSpeech extends Window {
   webkitSpeechRecognition?: SpeechRecognitionConstructor;
 }
 
+/** 语音服务配置 */
+interface SpeechServiceConfig {
+  enabled: boolean;
+  language: SpeechLanguage;
+  continuous: boolean;
+  interimResults: boolean;
+}
+
 /**
  * 语音识别服务类
  */
 export class SpeechService {
   private recognition: WebSpeechRecognition | null = null;
   private isSupported = false;
-  private config: SpeechConfig = DEFAULT_SPEECH_CONFIG;
+  private config: SpeechServiceConfig = {
+    enabled: true,
+    language: 'zh-CN',
+    continuous: true,
+    interimResults: true,
+  };
   private retryCount = 0;
   private maxRetries = 1;
 
@@ -98,7 +110,7 @@ export class SpeechService {
   /**
    * 设置配置
    */
-  setConfig(config: Partial<SpeechConfig>): void {
+  setConfig(config: Partial<SpeechServiceConfig>): void {
     this.config = { ...this.config, ...config };
     if (this.recognition) {
       this.applyConfig();

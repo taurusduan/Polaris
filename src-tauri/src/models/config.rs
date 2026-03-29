@@ -368,37 +368,19 @@ pub struct SpeechConfig {
     #[serde(default = "default_speech_enabled")]
     pub enabled: bool,
 
-    /// 快捷键 (默认 "Ctrl+Space")
-    #[serde(default = "default_speech_shortcut")]
-    pub shortcut: String,
-
     /// 识别语言 (默认 "zh-CN")
     #[serde(default = "default_speech_language")]
     pub language: String,
-
-    /// 是否连续识别
-    #[serde(default = "default_speech_continuous")]
-    pub continuous: bool,
-
-    /// 是否显示临时结果
-    #[serde(default = "default_speech_interim_results")]
-    pub interim_results: bool,
 }
 
 fn default_speech_enabled() -> bool { true }
-fn default_speech_shortcut() -> String { "Ctrl+Space".to_string() }
 fn default_speech_language() -> String { "zh-CN".to_string() }
-fn default_speech_continuous() -> bool { false }
-fn default_speech_interim_results() -> bool { true }
 
 impl Default for SpeechConfig {
     fn default() -> Self {
         Self {
             enabled: default_speech_enabled(),
-            shortcut: default_speech_shortcut(),
             language: default_speech_language(),
-            continuous: default_speech_continuous(),
-            interim_results: default_speech_interim_results(),
         }
     }
 }

@@ -30,14 +30,8 @@ export interface SpeechRecognitionError {
 export interface SpeechConfig {
   /** 是否启用语音输入 */
   enabled: boolean;
-  /** 快捷键 (默认 "Ctrl+Space") */
-  shortcut: string;
-  /** 识别语言 (默认跟随界面语言) */
+  /** 识别语言 */
   language: SpeechLanguage;
-  /** 是否连续识别 */
-  continuous: boolean;
-  /** 是否显示临时结果 */
-  interimResults: boolean;
 }
 
 /** 支持的语音识别语言 */
@@ -62,10 +56,7 @@ export const SPEECH_LANGUAGE_OPTIONS: Array<{ value: SpeechLanguage; label: stri
 /** 默认语音配置 */
 export const DEFAULT_SPEECH_CONFIG: SpeechConfig = {
   enabled: true,
-  shortcut: 'Ctrl+Space',
   language: 'zh-CN',
-  continuous: false,
-  interimResults: true,
 };
 
 /** 语音命令类型 */

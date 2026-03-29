@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand';
+import type { VoiceCommand } from '../types/speech';
 
 type SuggestionMode = 'workspace' | 'file' | 'git' | null;
 
@@ -19,6 +20,10 @@ interface ChatInputState {
   hasPendingQuestion: boolean;
   /** 是否有活跃的计划 */
   hasActivePlan: boolean;
+  /** 待追加的语音文字 */
+  speechTranscript: string;
+  /** 待执行的语音命令 */
+  speechCommand: VoiceCommand | null;
 
   /** 设置输入字数 */
   setInputLength: (length: number) => void;
@@ -30,6 +35,12 @@ interface ChatInputState {
   setHasPendingQuestion: (has: boolean) => void;
   /** 设置活跃计划状态 */
   setHasActivePlan: (has: boolean) => void;
+  /** 追加语音文字 */
+  appendSpeechTranscript: (text: string) => void;
+  /** 设置语音命令 */
+  setSpeechCommand: (command: VoiceCommand | null) => void;
+  /** 清空语音文字 */
+  clearSpeechTranscript: () => void;
 }
 
 export const useChatInputStore = create<ChatInputState>((set) => ({
@@ -38,10 +49,17 @@ export const useChatInputStore = create<ChatInputState>((set) => ({
   suggestionMode: null,
   hasPendingQuestion: false,
   hasActivePlan: false,
+  speechTranscript: '',
+  speechCommand: null,
 
   setInputLength: (length) => set({ inputLength: length }),
   setAttachmentCount: (count) => set({ attachmentCount: count }),
   setSuggestionMode: (mode) => set({ suggestionMode: mode }),
   setHasPendingQuestion: (has) => set({ hasPendingQuestion: has }),
   setHasActivePlan: (has) => set({ hasActivePlan: has }),
+  appendSpeechTranscript: (text) => set((state) => ({
+    speechTranscript: state.speechTranscript + text
+  })),
+  setSpeechCommand: (command) => set({ speechCommand: command }),
+  clearSpeechTranscript: () => set({ speechTranscript: '' }),
 }));
