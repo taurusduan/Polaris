@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import type { ScheduledTask, TriggerType, CreateTaskParams, TaskExecution, ExecutionLog, ToolCallRecord, ExecutionStatus } from '../types/scheduler';
 import * as tauri from '../services/tauri';
 import type { LockStatus } from '../services/tauri';
+import { getEventRouter } from '../services/eventRouter';
 
 interface SchedulerState {
   /** 任务列表 */
@@ -26,6 +27,8 @@ interface SchedulerState {
   currentExecution: TaskExecution | null;
   /** 执行详情视图是否显示 */
   showExecutionView: boolean;
+  /** 执行事件监听清理函数 */
+  _executionCleanup: (() => void) | null;
 
   /** 加载任务列表 */
   loadTasks: () => Promise<void>;
@@ -67,6 +70,8 @@ interface SchedulerState {
   clearExecutionLogs: (taskId: string) => void;
   /** 获取任务执行详情 */
   getTaskExecution: (taskId: string) => TaskExecution | null;
+  /** 注册执行事件监听 */
+  registerExecutionContext: (taskId: string) => Promise<() => void>;
 }
 
 export const useSchedulerStore = create<SchedulerState>((set, get) => ({
@@ -78,6 +83,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
   runningTaskIds: new Set<string>(),
   currentExecution: null,
   showExecutionView: false,
+  _executionCleanup: null,
 
   loadTasks: async () => {
     set({ loading: true, error: null });
@@ -351,5 +357,103 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       return state.currentExecution;
     }
     return null;
+  },
+
+  registerExecutionContext: async (taskId) => {
+    const router = getEventRouter();
+    await router.initialize();
+
+    const contextId = `scheduler-${taskId}`;
+
+    // 清理旧的监听器
+    const oldCleanup = get()._executionCleanup;
+    if (oldCleanup) {
+      oldCleanup();
+    }
+
+    // 注册事件处理器
+    const unregister = router.register(contextId, (payload: unknown) => {
+      const event = payload as Record<string, unknown>;
+      const type = event?.type as string | undefined;
+
+      console.log('[Scheduler] 收到事件:', type, event);
+
+      if (type === 'session_start') {
+        // 会话开始
+        get().addExecutionLog(taskId, {
+          level: 'info',
+          message: '开始执行任务...',
+        });
+      } else if (type === 'progress') {
+        // 进度消息
+        const message = (event?.message as string) || '处理中...';
+        get().addExecutionLog(taskId, {
+          level: 'info',
+          message,
+        });
+      } else if (type === 'assistant_message' || type === 'assistant') {
+        // AI 响应内容
+        const content = event?.content as string | undefined;
+        if (content) {
+          get().addExecutionLog(taskId, {
+            level: 'info',
+            message: content,
+          });
+        }
+      } else if (type === 'tool_call_start') {
+        // 工具调用开始
+        const toolName = (event?.toolName as string) || (event?.name as string) || 'unknown';
+        get().addExecutionLog(taskId, {
+          level: 'info',
+          message: `调用工具: ${toolName}`,
+        });
+        get().addToolCall(taskId, {
+          name: toolName,
+          args: event?.args as Record<string, unknown> | undefined,
+        });
+      } else if (type === 'tool_call_end') {
+        // 工具调用结束
+        const toolName = (event?.toolName as string) || (event?.name as string) || 'unknown';
+        get().addExecutionLog(taskId, {
+          level: 'info',
+          message: `工具完成: ${toolName}`,
+        });
+      } else if (type === 'session_end') {
+        // 会话结束
+        const reason = event?.reason as string | undefined;
+        if (reason === 'success' || reason === 'complete') {
+          get().setExecutionStatus(taskId, 'success');
+          get().updateRunStatus(taskId, 'success');
+        } else if (reason === 'error' || reason === 'failed') {
+          get().setExecutionStatus(taskId, 'failed', event?.error as string);
+          get().updateRunStatus(taskId, 'failed');
+        } else {
+          // 默认成功
+          get().setExecutionStatus(taskId, 'success');
+          get().updateRunStatus(taskId, 'success');
+        }
+        get().addExecutionLog(taskId, {
+          level: reason === 'error' ? 'error' : 'info',
+          message: reason === 'error' ? `执行失败: ${event?.error}` : '执行完成',
+        });
+      } else if (type === 'error') {
+        // 错误
+        const errorMsg = (event?.error as string) || (event?.message as string) || '未知错误';
+        get().addExecutionLog(taskId, {
+          level: 'error',
+          message: errorMsg,
+        });
+        get().setExecutionStatus(taskId, 'failed', errorMsg);
+        get().updateRunStatus(taskId, 'failed');
+      }
+    });
+
+    const cleanup = () => {
+      unregister();
+    };
+
+    set({ _executionCleanup: cleanup });
+
+    return cleanup;
   },
 }));

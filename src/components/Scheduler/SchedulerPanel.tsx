@@ -255,6 +255,7 @@ export function SchedulerPanel() {
     showExecutionView,
     openExecutionView,
     currentExecution,
+    registerExecutionContext,
   } = useSchedulerStore();
   const toast = useToastStore();
 
@@ -363,6 +364,12 @@ export function SchedulerPanel() {
       await runTask(task.id);
       toast.success(t('toast.runTriggered'), t('toast.runTriggeredDetail', { name: task.name }));
 
+      // 先打开执行详情视图
+      openExecutionView(task.id, task.name);
+
+      // 注册事件处理器
+      await registerExecutionContext(task.id);
+
       // 调用 AI 引擎执行任务
       const engineId = task.engineId || 'claude-code';
       const workDir = task.workDir || undefined;
@@ -381,9 +388,6 @@ export function SchedulerPanel() {
       });
 
       console.log('[Scheduler] 任务执行会话 ID:', sessionId);
-
-      // 打开执行详情视图
-      openExecutionView(task.id, task.name);
 
     } catch (e) {
       console.error('[Scheduler] 任务执行失败:', e);
