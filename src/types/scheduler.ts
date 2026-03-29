@@ -88,3 +88,77 @@ export function parseIntervalValue(value: string): { num: number; unit: Interval
 export function formatIntervalValue(num: number, unit: IntervalUnit): string {
   return `${num}${unit}`;
 }
+
+// ============================================================================
+// 执行详情相关类型
+// ============================================================================
+
+/** 执行日志级别 */
+export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+
+/** 执行日志条目 */
+export interface ExecutionLog {
+  /** 日志 ID */
+  id: string;
+  /** 时间戳 (毫秒) */
+  timestamp: number;
+  /** 日志级别 */
+  level: LogLevel;
+  /** 日志内容 */
+  message: string;
+  /** 工具调用信息（可选） */
+  toolCall?: {
+    name: string;
+    args?: Record<string, unknown>;
+    result?: unknown;
+  };
+}
+
+/** 工具调用记录 */
+export interface ToolCallRecord {
+  /** 工具名称 */
+  name: string;
+  /** 调用参数 */
+  args?: Record<string, unknown>;
+  /** 返回结果 */
+  result?: unknown;
+  /** 开始时间 */
+  startTime: number;
+  /** 结束时间 */
+  endTime?: number;
+  /** 是否成功 */
+  success?: boolean;
+}
+
+/** 执行状态 */
+export type ExecutionStatus = 'idle' | 'running' | 'success' | 'failed' | 'cancelled';
+
+/** 任务执行详情 */
+export interface TaskExecution {
+  /** 任务 ID */
+  taskId: string;
+  /** 任务名称 */
+  taskName: string;
+  /** 执行状态 */
+  status: ExecutionStatus;
+  /** 开始时间 (毫秒) */
+  startTime: number;
+  /** 结束时间 (毫秒) */
+  endTime?: number;
+  /** 执行日志 */
+  logs: ExecutionLog[];
+  /** 工具调用记录 */
+  toolCalls: ToolCallRecord[];
+  /** 错误信息 */
+  error?: string;
+}
+
+/** 执行详情视图状态 */
+export interface ExecutionViewState {
+  /** 当前查看的任务 ID */
+  taskId: string | null;
+  /** 执行详情 */
+  execution: TaskExecution | null;
+  /** 是否加载中 */
+  loading: boolean;
+}

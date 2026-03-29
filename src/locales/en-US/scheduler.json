@@ -48,7 +48,8 @@
     "docs": "Docs",
     "runInBackground": "Run now (background)",
     "subscribeHint": "Subscribe - View execution in AI chat",
-    "stopSubscription": "Stop"
+    "stopSubscription": "Stop",
+    "viewDetail": "View Details"
   },
 
   "filter": {
@@ -289,6 +290,28 @@
     "acquireSuccess": "Lock acquired",
     "acquireFailed": "Cannot acquire lock, another instance is still running",
     "releaseSuccess": "Lock released"
+  },
+
+  "execution": {
+    "status": {
+      "idle": "Idle",
+      "running": "Running",
+      "success": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "duration": "Duration",
+    "logs": "Execution Logs",
+    "autoScroll": "Auto Scroll",
+    "manualScroll": "Manual Scroll",
+    "clearLogs": "Clear Logs",
+    "waitingOutput": "Waiting for task output...",
+    "noLogs": "No execution logs",
+    "toolCalls": "Tool Calls",
+    "error": "Error",
+    "stop": "Stop Task",
+    "back": "Back to List",
+    "cancelled": "Task cancelled"
   },
 
   "newTask": "New"

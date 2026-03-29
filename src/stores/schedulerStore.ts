@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand';
-import type { ScheduledTask, TriggerType, CreateTaskParams } from '../types/scheduler';
+import type { ScheduledTask, TriggerType, CreateTaskParams, TaskExecution, ExecutionLog, ToolCallRecord, ExecutionStatus } from '../types/scheduler';
 import * as tauri from '../services/tauri';
 import type { LockStatus } from '../services/tauri';
 
@@ -20,6 +20,12 @@ interface SchedulerState {
   lockLoading: boolean;
   /** 正在执行的任务 ID 集合 */
   runningTaskIds: Set<string>;
+
+  // === 执行详情相关 ===
+  /** 当前查看的执行详情 */
+  currentExecution: TaskExecution | null;
+  /** 执行详情视图是否显示 */
+  showExecutionView: boolean;
 
   /** 加载任务列表 */
   loadTasks: () => Promise<void>;
@@ -45,6 +51,22 @@ interface SchedulerState {
   updateRunStatus: (id: string, status: 'success' | 'failed') => Promise<void>;
   /** 检查任务是否正在执行 */
   isTaskRunning: (id: string) => boolean;
+
+  // === 执行详情相关方法 ===
+  /** 打开执行详情视图 */
+  openExecutionView: (taskId: string, taskName: string) => void;
+  /** 关闭执行详情视图 */
+  closeExecutionView: () => void;
+  /** 添加执行日志 */
+  addExecutionLog: (taskId: string, log: Omit<ExecutionLog, 'id' | 'timestamp'>) => void;
+  /** 添加工具调用记录 */
+  addToolCall: (taskId: string, toolCall: Omit<ToolCallRecord, 'startTime'>) => void;
+  /** 更新执行状态 */
+  setExecutionStatus: (taskId: string, status: ExecutionStatus, error?: string) => void;
+  /** 清空执行日志 */
+  clearExecutionLogs: (taskId: string) => void;
+  /** 获取任务执行详情 */
+  getTaskExecution: (taskId: string) => TaskExecution | null;
 }
 
 export const useSchedulerStore = create<SchedulerState>((set, get) => ({
@@ -54,6 +76,8 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
   lockStatus: null,
   lockLoading: false,
   runningTaskIds: new Set<string>(),
+  currentExecution: null,
+  showExecutionView: false,
 
   loadTasks: async () => {
     set({ loading: true, error: null });
@@ -228,5 +252,104 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
 
   isTaskRunning: (id) => {
     return get().runningTaskIds.has(id);
+  },
+
+  // === 执行详情相关方法 ===
+  openExecutionView: (taskId, taskName) => {
+    const existingExecution = get().currentExecution;
+    if (existingExecution && existingExecution.taskId === taskId) {
+      set({ showExecutionView: true });
+      return;
+    }
+
+    // 创建新的执行详情
+    const execution: TaskExecution = {
+      taskId,
+      taskName,
+      status: get().runningTaskIds.has(taskId) ? 'running' : 'idle',
+      startTime: Date.now(),
+      logs: [],
+      toolCalls: [],
+    };
+    set({ currentExecution: execution, showExecutionView: true });
+  },
+
+  closeExecutionView: () => {
+    set({ showExecutionView: false });
+  },
+
+  addExecutionLog: (taskId, log) => {
+    set((state) => {
+      if (!state.currentExecution || state.currentExecution.taskId !== taskId) {
+        return state;
+      }
+      const newLog: ExecutionLog = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        timestamp: Date.now(),
+        ...log,
+      };
+      return {
+        currentExecution: {
+          ...state.currentExecution,
+          logs: [...state.currentExecution.logs, newLog],
+        },
+      };
+    });
+  },
+
+  addToolCall: (taskId, toolCall) => {
+    set((state) => {
+      if (!state.currentExecution || state.currentExecution.taskId !== taskId) {
+        return state;
+      }
+      const newToolCall: ToolCallRecord = {
+        ...toolCall,
+        startTime: Date.now(),
+      };
+      return {
+        currentExecution: {
+          ...state.currentExecution,
+          toolCalls: [...state.currentExecution.toolCalls, newToolCall],
+        },
+      };
+    });
+  },
+
+  setExecutionStatus: (taskId, status, error) => {
+    set((state) => {
+      if (!state.currentExecution || state.currentExecution.taskId !== taskId) {
+        return state;
+      }
+      return {
+        currentExecution: {
+          ...state.currentExecution,
+          status,
+          endTime: status === 'success' || status === 'failed' || status === 'cancelled' ? Date.now() : undefined,
+          error,
+        },
+      };
+    });
+  },
+
+  clearExecutionLogs: (taskId) => {
+    set((state) => {
+      if (!state.currentExecution || state.currentExecution.taskId !== taskId) {
+        return state;
+      }
+      return {
+        currentExecution: {
+          ...state.currentExecution,
+          logs: [],
+        },
+      };
+    });
+  },
+
+  getTaskExecution: (taskId) => {
+    const state = get();
+    if (state.currentExecution && state.currentExecution.taskId === taskId) {
+      return state.currentExecution;
+    }
+    return null;
   },
 }));

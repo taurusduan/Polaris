@@ -48,7 +48,8 @@
     "docs": "文档",
     "runInBackground": "立即执行（后台）",
     "subscribeHint": "订阅执行 - 在 AI 对话窗口查看执行过程",
-    "stopSubscription": "停止"
+    "stopSubscription": "停止",
+    "viewDetail": "查看详情"
   },
 
   "filter": {
@@ -289,6 +290,28 @@
     "acquireSuccess": "已获取锁",
     "acquireFailed": "无法获取锁，其他实例仍在运行",
     "releaseSuccess": "已释放锁"
+  },
+
+  "execution": {
+    "status": {
+      "idle": "等待中",
+      "running": "执行中",
+      "success": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消"
+    },
+    "duration": "用时",
+    "logs": "执行日志",
+    "autoScroll": "自动滚动",
+    "manualScroll": "手动滚动",
+    "clearLogs": "清空日志",
+    "waitingOutput": "等待任务输出...",
+    "noLogs": "暂无执行日志",
+    "toolCalls": "工具调用",
+    "error": "错误",
+    "stop": "停止任务",
+    "back": "返回列表",
+    "cancelled": "任务已取消"
   },
 
   "newTask": "新建"

@@ -12,6 +12,7 @@ import type { ScheduledTask } from '../../types/scheduler';
 import { TriggerTypeLabels } from '../../types/scheduler';
 import type { CreateTaskParams } from '../../types/scheduler';
 import { TaskEditor } from './TaskEditor';
+import { TaskExecutionView } from './TaskExecutionView';
 import { useContainerSize } from '../../hooks';
 
 /** 格式化相对时间 */
@@ -28,7 +29,7 @@ function formatRelativeTime(timestamp: number | undefined, t: (key: string, opti
 }
 
 /** 状态徽章 */
-function StatusBadge({ status }: { status?: 'running' | 'success' | 'failed' }) {
+function StatusBadge({ status, pulse }: { status?: 'running' | 'success' | 'failed'; pulse?: boolean }) {
   const { t } = useTranslation('scheduler');
   if (!status) return <span className="text-text-muted">{t('status.notExecuted')}</span>;
 
@@ -45,7 +46,7 @@ function StatusBadge({ status }: { status?: 'running' | 'success' | 'failed' }) 
   };
 
   return (
-    <span className={`px-2 py-0.5 rounded text-xs ${styles[status]}`}>
+    <span className={`px-2 py-0.5 rounded text-xs ${styles[status]} ${pulse && status === 'running' ? 'animate-pulse' : ''}`}>
       {labels[status]}
     </span>
   );
@@ -59,6 +60,7 @@ function TaskCard({
   onDelete,
   onToggle,
   onRun,
+  onViewDetail,
   isRunning,
   isCompact,
 }: {
@@ -68,12 +70,14 @@ function TaskCard({
   onDelete: () => void;
   onToggle: () => void;
   onRun: () => void;
+  onViewDetail: () => void;
   isRunning?: boolean;
   isCompact?: boolean;
 }) {
   const { t } = useTranslation('scheduler');
 
   const menuItems: DropdownMenuItem[] = [
+    { key: 'view', label: t('task.viewDetail', { defaultValue: '查看详情' }), onClick: onViewDetail },
     { key: 'run', label: t('task.run'), onClick: onRun },
     { key: 'toggle', label: task.enabled ? t('task.disabled') : t('task.enabled'), onClick: onToggle },
     { key: 'edit', label: t('task.edit'), onClick: onEdit },
@@ -84,7 +88,10 @@ function TaskCard({
   // 紧凑模式
   if (isCompact) {
     return (
-      <div className={`bg-background-surface rounded-lg p-3 border border-border-subtle ${!task.enabled ? 'opacity-70' : ''}`}>
+      <div
+        onClick={onViewDetail}
+        className={`bg-background-surface rounded-lg p-3 border border-border-subtle cursor-pointer hover:border-primary/30 transition-colors ${!task.enabled ? 'opacity-70' : ''}`}
+      >
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${task.enabled ? 'bg-success' : 'bg-text-muted'}`} />
@@ -93,7 +100,10 @@ function TaskCard({
           <div className="flex items-center gap-1 shrink-0">
             <DropdownMenu
               trigger={
-                <button className="w-7 h-7 flex items-center justify-center bg-background-hover text-text-secondary hover:bg-background-active rounded transition-colors text-xs">
+                <button
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-7 h-7 flex items-center justify-center bg-background-hover text-text-secondary hover:bg-background-active rounded transition-colors text-xs"
+                >
                   ⋯
                 </button>
               }
@@ -103,7 +113,7 @@ function TaskCard({
           </div>
         </div>
         <div className="text-xs text-text-muted flex items-center gap-2">
-          <StatusBadge status={task.lastRunStatus} />
+          <StatusBadge status={task.lastRunStatus} pulse={isRunning} />
           {task.enabled && task.nextRunAt && (
             <span>
               {t('task.nextRun')}: <span className="text-primary">{formatRelativeTime(task.nextRunAt, t)}</span>
@@ -116,10 +126,13 @@ function TaskCard({
 
   // 正常模式
   return (
-    <div className={`bg-background-surface rounded-lg p-4 border border-border-subtle ${!task.enabled ? 'opacity-70' : ''}`}>
+    <div
+      onClick={onViewDetail}
+      className={`bg-background-surface rounded-lg p-4 border border-border-subtle cursor-pointer hover:border-primary/30 transition-colors ${!task.enabled ? 'opacity-70' : ''}`}
+    >
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <span className={`w-2 h-2 rounded-full shrink-0 ${task.enabled ? 'bg-success' : 'bg-text-muted'}`} />
+        <span className={`w-2 h-2 rounded-full shrink-0 ${isRunning ? 'bg-info animate-pulse' : task.enabled ? 'bg-success' : 'bg-text-muted'}`} />
         <h3 className="text-text-primary font-medium truncate">{task.name}</h3>
         {task.description && (
           <span className="text-xs text-text-muted truncate">{task.description}</span>
@@ -140,12 +153,12 @@ function TaskCard({
             </>
           )}
           <span className="text-text-muted">{t('log.stats', { defaultValue: '状态' })}</span>
-          <span><StatusBadge status={task.lastRunStatus} /></span>
+          <span><StatusBadge status={task.lastRunStatus} pulse={isRunning} /></span>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-subtle flex-wrap">
+      <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-subtle flex-wrap" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={onRun}
           disabled={isRunning}
@@ -222,7 +235,25 @@ function filterTasks(tasks: ScheduledTask[], filter: TaskFilter): ScheduledTask[
 /** 主面板 */
 export function SchedulerPanel() {
   const { t } = useTranslation('scheduler');
-  const { tasks, loading, loadTasks, createTask, updateTask, deleteTask, toggleTask, runTask, isTaskRunning, lockStatus, lockLoading, loadLockStatus, acquireLock, releaseLock } = useSchedulerStore();
+  const {
+    tasks,
+    loading,
+    loadTasks,
+    createTask,
+    updateTask,
+    deleteTask,
+    toggleTask,
+    runTask,
+    isTaskRunning,
+    lockStatus,
+    lockLoading,
+    loadLockStatus,
+    acquireLock,
+    releaseLock,
+    showExecutionView,
+    openExecutionView,
+    currentExecution,
+  } = useSchedulerStore();
   const toast = useToastStore();
 
   // 响应式布局检测
@@ -338,6 +369,15 @@ export function SchedulerPanel() {
       toast.error(t('toast.runTriggerFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
     }
   };
+
+  const handleViewDetail = (task: ScheduledTask) => {
+    openExecutionView(task.id, task.name);
+  };
+
+  // Master-Detail 布局：显示详情视图或列表
+  if (showExecutionView && currentExecution) {
+    return <TaskExecutionView />;
+  }
 
   return (
     <div ref={containerRef} className="h-full flex flex-col bg-background-base">
@@ -495,6 +535,7 @@ export function SchedulerPanel() {
                 onDelete={() => handleDelete(task.id)}
                 onToggle={() => toggleTask(task.id, !task.enabled)}
                 onRun={() => handleRun(task)}
+                onViewDetail={() => handleViewDetail(task)}
                 isRunning={isTaskRunning(task.id)}
               />
             ))}
