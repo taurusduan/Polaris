@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { invoke } from '@tauri-apps/api/core';
 import { useSchedulerStore, useToastStore } from '../../stores';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
 import { DropdownMenu } from '../Common/DropdownMenu';
@@ -244,6 +245,7 @@ export function SchedulerPanel() {
     deleteTask,
     toggleTask,
     runTask,
+    updateRunStatus,
     isTaskRunning,
     lockStatus,
     lockLoading,
@@ -357,16 +359,37 @@ export function SchedulerPanel() {
     }
 
     try {
+      // 标记任务为执行中
       await runTask(task.id);
       toast.success(t('toast.runTriggered'), t('toast.runTriggeredDetail', { name: task.name }));
 
-      // TODO: 这里可以触发实际的 AI 引擎执行
-      // 目前只是标记任务为执行中状态，实际执行需要调度器或用户手动触发
+      // 调用 AI 引擎执行任务
+      const engineId = task.engineId || 'claude-code';
+      const workDir = task.workDir || undefined;
 
-      // 模拟执行完成（实际应该由 AI 引擎执行后更新）
-      // await updateRunStatus(task.id, 'success');
+      console.log('[Scheduler] 执行任务:', task.name, '引擎:', engineId);
+
+      // 调用 start_chat 执行任务
+      const sessionId = await invoke<string>('start_chat', {
+        message: task.prompt,
+        options: {
+          workDir,
+          contextId: `scheduler-${task.id}`,
+          engineId,
+          enableMcpTools: engineId === 'claude-code',
+        },
+      });
+
+      console.log('[Scheduler] 任务执行会话 ID:', sessionId);
+
+      // 打开执行详情视图
+      openExecutionView(task.id, task.name);
+
     } catch (e) {
+      console.error('[Scheduler] 任务执行失败:', e);
       toast.error(t('toast.runTriggerFailed'), e instanceof Error ? e.message : t('toast.importFailedDetail'));
+      // 执行失败，更新状态
+      await updateRunStatus(task.id, 'failed');
     }
   };
 
