@@ -12,6 +12,7 @@ import { SchedulerControl } from './SchedulerControl';
 import { TaskCard } from './TaskCard';
 import { TaskEditor } from './TaskEditor';
 import { ExecutionLogDrawer } from './ExecutionLogDrawer';
+import { TemplateManager } from './TemplateManager';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
 
 /** 筛选条件 */
@@ -61,12 +62,16 @@ export function SchedulerPanel() {
     subscribeToEvents,
     loadSchedulerStatus,
     handleTaskDue,
+    buildPrompt,
   } = useSchedulerStore();
 
   // 编辑器状态
   const [showEditor, setShowEditor] = useState(false);
   const [editingTask, setEditingTask] = useState<ScheduledTask | undefined>();
   const [copyingTask, setCopyingTask] = useState<ScheduledTask | undefined>();
+
+  // 模板管理状态
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
 
   // 筛选状态
   const [filter, setFilter] = useState<TaskFilter>(DEFAULT_FILTER);
@@ -196,10 +201,21 @@ export function SchedulerPanel() {
       // 执行任务（不订阅）
       await runTask(task.id, { subscribe: false });
 
+      // 如果有模板，先构建提示词
+      let finalPrompt = task.prompt;
+      if (task.templateId) {
+        try {
+          finalPrompt = await buildPrompt(task.templateId, task.name, task.prompt);
+          console.log('[Scheduler] 已应用模板，最终提示词长度:', finalPrompt.length);
+        } catch (e) {
+          console.error('[Scheduler] 应用模板失败，使用原始提示词:', e);
+        }
+      }
+
       // 调用 AI 引擎
       const engineId = task.engineId || 'claude-code';
       const sessionId = await invoke<string>('start_chat', {
-        message: task.prompt,
+        message: finalPrompt,
         options: {
           workDir: task.workDir,
           contextId: `scheduler-${task.id}`,
@@ -250,16 +266,24 @@ export function SchedulerPanel() {
             {t('taskCount', { count: tasks.length })}
           </span>
         </div>
-        <button
-          onClick={() => {
-            setEditingTask(undefined);
-            setCopyingTask(undefined);
-            setShowEditor(true);
-          }}
-          className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors text-sm"
-        >
-          + {t('newTask')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowTemplateManager(true)}
+            className="px-3 py-2 bg-background-hover text-text-secondary hover:bg-background-active rounded-lg transition-colors text-sm"
+          >
+            {t('template.title')}
+          </button>
+          <button
+            onClick={() => {
+              setEditingTask(undefined);
+              setCopyingTask(undefined);
+              setShowEditor(true);
+            }}
+            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors text-sm"
+          >
+            + {t('newTask')}
+          </button>
+        </div>
       </div>
 
       {/* 调度器控制栏 */}
@@ -385,6 +409,9 @@ export function SchedulerPanel() {
           onCancel={() => setConfirmDialog(null)}
         />
       )}
+
+      {/* 模板管理弹窗 */}
+      {showTemplateManager && <TemplateManager onClose={() => setShowTemplateManager(false)} />}
     </div>
   );
 }

@@ -13,6 +13,8 @@ import type {
   TaskExecutionInfo,
   ExecutionState,
   LogEntryType,
+  PromptTemplate,
+  CreateTemplateParams,
 } from '../types/scheduler';
 import * as tauri from '../services/tauri';
 import { getEventRouter } from '../services/eventRouter';
@@ -167,6 +169,24 @@ interface SchedulerState {
   getExecution: (taskId: string) => TaskExecutionInfo | undefined;
   /** 获取所有执行中的任务 */
   getExecutingTasks: () => TaskExecutionInfo[];
+
+  // === 模板管理 ===
+  /** 模板列表 */
+  templates: PromptTemplate[];
+  /** 模板加载中 */
+  templatesLoading: boolean;
+  /** 加载模板列表 */
+  loadTemplates: () => Promise<void>;
+  /** 创建模板 */
+  createTemplate: (params: CreateTemplateParams) => Promise<PromptTemplate>;
+  /** 更新模板 */
+  updateTemplate: (template: PromptTemplate) => Promise<PromptTemplate>;
+  /** 删除模板 */
+  deleteTemplate: (id: string) => Promise<void>;
+  /** 切换模板启用状态 */
+  toggleTemplate: (id: string, enabled: boolean) => Promise<void>;
+  /** 构建提示词（应用模板） */
+  buildPrompt: (templateId: string, taskName: string, userPrompt: string) => Promise<string>;
 }
 
 export const useSchedulerStore = create<SchedulerState>((set, get) => ({
@@ -181,6 +201,8 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
   executions: new Map<string, TaskExecutionInfo>(),
   activeTaskId: null,
   drawerOpen: false,
+  templates: [],
+  templatesLoading: false,
 
   // === 任务列表操作 ===
 
@@ -391,7 +413,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
   },
 
   handleTaskDue: async (event) => {
-    const { taskId, engineId, workDir, prompt } = event;
+    const { taskId, engineId, workDir, prompt, taskName, templateId } = event;
     const store = get();
 
     if (store.runningTaskIds.has(taskId)) {
@@ -403,10 +425,21 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       // 执行任务（不订阅日志）
       await store.runTask(taskId, { subscribe: false });
 
+      // 如果有模板，先构建提示词
+      let finalPrompt = prompt;
+      if (templateId) {
+        try {
+          finalPrompt = await store.buildPrompt(templateId, taskName, prompt);
+          console.log('[Scheduler] 已应用模板，最终提示词长度:', finalPrompt.length);
+        } catch (e) {
+          console.error('[Scheduler] 应用模板失败，使用原始提示词:', e);
+        }
+      }
+
       // 调用 AI 引擎
       const { invoke } = await import('@tauri-apps/api/core');
       const sessionId = await invoke<string>('start_chat', {
-        message: prompt,
+        message: finalPrompt,
         options: {
           workDir,
           contextId: `scheduler-${taskId}`,
@@ -591,5 +624,48 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
   getExecutingTasks: () => {
     const state = get();
     return Array.from(state.executions.values());
+  },
+
+  // === 模板管理 ===
+
+  loadTemplates: async () => {
+    set({ templatesLoading: true });
+    try {
+      const templates = await tauri.schedulerListTemplates();
+      set({ templates, templatesLoading: false });
+    } catch (e) {
+      console.error('加载模板失败:', e);
+      set({ templatesLoading: false });
+    }
+  },
+
+  createTemplate: async (params) => {
+    const template = await tauri.schedulerCreateTemplate(params);
+    const templates = await tauri.schedulerListTemplates();
+    set({ templates });
+    return template;
+  },
+
+  updateTemplate: async (template) => {
+    const updated = await tauri.schedulerUpdateTemplate(template);
+    const templates = await tauri.schedulerListTemplates();
+    set({ templates });
+    return updated;
+  },
+
+  deleteTemplate: async (id) => {
+    await tauri.schedulerDeleteTemplate(id);
+    const templates = await tauri.schedulerListTemplates();
+    set({ templates });
+  },
+
+  toggleTemplate: async (id, enabled) => {
+    await tauri.schedulerToggleTemplate(id, enabled);
+    const templates = await tauri.schedulerListTemplates();
+    set({ templates });
+  },
+
+  buildPrompt: async (templateId, taskName, userPrompt) => {
+    return await tauri.schedulerBuildPrompt(templateId, taskName, userPrompt);
   },
 }));

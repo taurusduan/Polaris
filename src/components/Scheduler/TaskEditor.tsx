@@ -5,8 +5,9 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ScheduledTask, CreateTaskParams, TriggerType } from '../../types/scheduler';
+import { TEMPLATE_VARIABLES } from '../../types/scheduler';
 import { TriggerConfig } from './TriggerConfig';
-import { useToastStore, useWorkspaceStore, useConfigStore } from '../../stores';
+import { useToastStore, useWorkspaceStore, useConfigStore, useSchedulerStore } from '../../stores';
 
 export interface TaskEditorProps {
   /** 编辑的任务（可选，不传则为新建） */
@@ -32,6 +33,7 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
   const toast = useToastStore();
   const { getCurrentWorkspace, workspaces } = useWorkspaceStore();
   const { config } = useConfigStore();
+  const { templates, loadTemplates } = useSchedulerStore();
 
   // OpenAI Providers
   const openaiProviders = config?.openaiProviders || [];
@@ -52,6 +54,31 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
 
   // 引擎配置
   const [engineId, setEngineId] = useState(task?.engineId || 'claude-code');
+
+  // 模板配置
+  const [templateId, setTemplateId] = useState<string | null>(task?.templateId || null);
+
+  // 加载模板
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
+
+  // 获取选中的模板
+  const selectedTemplate = templates.find((t) => t.id === templateId);
+
+  // 生成预览
+  const getPreview = () => {
+    if (!selectedTemplate) return null;
+    const now = new Date();
+    const previewPrompt = prompt || t('editor.promptPreviewPlaceholder');
+    return selectedTemplate.content
+      .replace(/\{\{prompt\}\}/g, previewPrompt)
+      .replace(/\{\{taskName\}\}/g, name || t('editor.taskNamePlaceholder'))
+      .replace(/\{\{date\}\}/g, now.toISOString().split('T')[0])
+      .replace(/\{\{time\}\}/g, now.toTimeString().slice(0, 5))
+      .replace(/\{\{datetime\}\}/g, `${now.toISOString().split('T')[0]} ${now.toTimeString().slice(0, 5)}`)
+      .replace(/\{\{weekday\}\}/g, ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][now.getDay()]);
+  };
 
   // 验证并保存
   const handleSave = () => {
@@ -74,6 +101,7 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
       engineId,
       workDir: workDir.trim() || undefined,
       enabled: task?.enabled ?? true,
+      templateId: templateId || undefined,
     });
   };
 
@@ -98,6 +126,9 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
   // 检测失效的 Provider
   const selectedProvider = openaiProviders.find((p) => p.id === providerId);
   const providerInvalid = baseEngine === 'openai' && providerId && (!selectedProvider || !selectedProvider.enabled);
+
+  // 启用的模板列表
+  const enabledTemplates = templates.filter((t) => t.enabled);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -274,6 +305,33 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
             </div>
           </div>
 
+          {/* 提示词模板 */}
+          <div>
+            <label className="block text-sm text-text-secondary mb-1">
+              {t('editor.promptTemplate')}
+            </label>
+            <select
+              value={templateId || ''}
+              onChange={(e) => setTemplateId(e.target.value || null)}
+              className="w-full px-3 py-2 bg-background-surface border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="">{t('editor.noTemplate')}</option>
+              {enabledTemplates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            {selectedTemplate && (
+              <div className="mt-2 text-xs text-text-muted">
+                {selectedTemplate.description && (
+                  <p className="mb-1">{selectedTemplate.description}</p>
+                )}
+                <p>{t('editor.templateVariables')}: {TEMPLATE_VARIABLES.map((v) => v.key).join(', ')}</p>
+              </div>
+            )}
+          </div>
+
           {/* 提示词 */}
           <div>
             <label className="block text-sm text-text-secondary mb-1">
@@ -287,6 +345,18 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
               className="w-full px-3 py-2 bg-background-surface border border-border-subtle rounded-lg text-text-primary resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
+
+          {/* 模板预览 */}
+          {selectedTemplate && (
+            <div>
+              <label className="block text-sm text-text-secondary mb-1">
+                {t('editor.templatePreview')}
+              </label>
+              <div className="p-3 bg-background-surface border border-border-subtle rounded-lg text-sm text-text-secondary whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">
+                {getPreview()}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 底部按钮 */}

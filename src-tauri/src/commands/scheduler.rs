@@ -358,3 +358,88 @@ pub async fn scheduler_update_run_status(
 
     Ok(task)
 }
+
+// ============================================================================
+// Template Commands
+// ============================================================================
+
+use crate::models::scheduler::{CreateTemplateParams, PromptTemplate};
+
+/// 列出所有模板
+#[tauri::command]
+pub async fn scheduler_list_templates(
+    workspace_path: Option<String>,
+    app: AppHandle,
+) -> Result<Vec<PromptTemplate>> {
+    let repository = get_repository(&app, workspace_path)?;
+    repository.list_templates()
+}
+
+/// 获取单个模板
+#[tauri::command]
+pub async fn scheduler_get_template(
+    id: String,
+    workspace_path: Option<String>,
+    app: AppHandle,
+) -> Result<Option<PromptTemplate>> {
+    let repository = get_repository(&app, workspace_path)?;
+    repository.get_template(&id)
+}
+
+/// 创建模板
+#[tauri::command]
+pub async fn scheduler_create_template(
+    params: CreateTemplateParams,
+    workspace_path: Option<String>,
+    app: AppHandle,
+) -> Result<PromptTemplate> {
+    let repository = get_repository(&app, workspace_path)?;
+    repository.create_template(params)
+}
+
+/// 更新模板
+#[tauri::command]
+pub async fn scheduler_update_template(
+    template: PromptTemplate,
+    workspace_path: Option<String>,
+    app: AppHandle,
+) -> Result<PromptTemplate> {
+    let repository = get_repository(&app, workspace_path)?;
+    repository.update_template(template)
+}
+
+/// 删除模板
+#[tauri::command]
+pub async fn scheduler_delete_template(
+    id: String,
+    workspace_path: Option<String>,
+    app: AppHandle,
+) -> Result<()> {
+    let repository = get_repository(&app, workspace_path)?;
+    repository.delete_template(&id)
+}
+
+/// 切换模板启用状态
+#[tauri::command]
+pub async fn scheduler_toggle_template(
+    id: String,
+    enabled: bool,
+    workspace_path: Option<String>,
+    app: AppHandle,
+) -> Result<PromptTemplate> {
+    let repository = get_repository(&app, workspace_path)?;
+    repository.toggle_template(&id, enabled)
+}
+
+/// 构建提示词（应用模板）
+#[tauri::command]
+pub async fn scheduler_build_prompt(
+    template_id: String,
+    task_name: String,
+    user_prompt: String,
+    workspace_path: Option<String>,
+    app: AppHandle,
+) -> Result<String> {
+    let repository = get_repository(&app, workspace_path)?;
+    repository.build_prompt_with_template(&template_id, &task_name, &user_prompt)
+}

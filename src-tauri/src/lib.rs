@@ -80,6 +80,10 @@ use commands::scheduler::{
     scheduler_get_lock_status, scheduler_acquire_lock, scheduler_release_lock,
     scheduler_run_task, scheduler_update_run_status,
     scheduler_get_status, scheduler_start, scheduler_stop,
+    // Template commands
+    scheduler_list_templates, scheduler_get_template, scheduler_create_template,
+    scheduler_update_template, scheduler_delete_template, scheduler_toggle_template,
+    scheduler_build_prompt,
 };
 use commands::terminal::{
     terminal_create, terminal_write, terminal_resize,
@@ -456,6 +460,14 @@ pub fn run() {
             scheduler_get_status,
             scheduler_start,
             scheduler_stop,
+            // Template 相关
+            scheduler_list_templates,
+            scheduler_get_template,
+            scheduler_create_template,
+            scheduler_update_template,
+            scheduler_delete_template,
+            scheduler_toggle_template,
+            scheduler_build_prompt,
             // 终端相关
             terminal_create,
             terminal_write,

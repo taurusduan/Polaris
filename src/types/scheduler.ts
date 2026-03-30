@@ -13,6 +13,48 @@ export type TaskStatus = 'running' | 'success' | 'failed';
 /** 间隔单位 */
 export type IntervalUnit = 's' | 'm' | 'h' | 'd';
 
+// ============ 提示词模板 ============
+
+/** 提示词模板 */
+export interface PromptTemplate {
+  /** 模板 ID */
+  id: string;
+  /** 模板名称 */
+  name: string;
+  /** 模板描述 */
+  description?: string;
+  /** 模板内容，支持占位符：{{prompt}}, {{taskName}}, {{date}}, {{time}}, {{datetime}}, {{weekday}} */
+  content: string;
+  /** 是否启用 */
+  enabled: boolean;
+  /** 创建时间 (Unix 时间戳，秒) */
+  createdAt: number;
+  /** 更新时间 (Unix 时间戳，秒) */
+  updatedAt: number;
+}
+
+/** 创建模板参数 */
+export interface CreateTemplateParams {
+  /** 模板名称 */
+  name: string;
+  /** 模板描述 */
+  description?: string;
+  /** 模板内容 */
+  content: string;
+  /** 是否启用 */
+  enabled?: boolean;
+}
+
+/** 模板支持的变量 */
+export const TEMPLATE_VARIABLES = [
+  { key: '{{prompt}}', description: '用户输入的提示词' },
+  { key: '{{taskName}}', description: '任务名称' },
+  { key: '{{date}}', description: '当前日期 (YYYY-MM-DD)' },
+  { key: '{{time}}', description: '当前时间 (HH:MM)' },
+  { key: '{{datetime}}', description: '当前日期时间 (YYYY-MM-DD HH:MM)' },
+  { key: '{{weekday}}', description: '星期几 (中文)' },
+] as const;
+
 // ============ 任务模型 ============
 
 /** 定时任务 */
@@ -49,6 +91,8 @@ export interface ScheduledTask {
   workspacePath?: string;
   /** 所属工作区名称 */
   workspaceName?: string;
+  /** 提示词模板 ID */
+  templateId?: string;
 }
 
 /** 创建任务参数 */
@@ -69,6 +113,8 @@ export interface CreateTaskParams {
   workDir?: string;
   /** 任务描述 */
   description?: string;
+  /** 提示词模板 ID */
+  templateId?: string;
 }
 
 // ============ 调度器状态 ============
@@ -152,6 +198,8 @@ export interface TaskDueEvent {
   workDir?: string;
   /** 提示词 */
   prompt: string;
+  /** 模板 ID */
+  templateId?: string;
 }
 
 // ============ 常量 ============

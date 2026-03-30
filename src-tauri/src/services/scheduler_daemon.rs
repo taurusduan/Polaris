@@ -50,6 +50,8 @@ pub struct TaskDueEvent {
     pub work_dir: Option<String>,
     /// 提示词
     pub prompt: String,
+    /// 模板 ID
+    pub template_id: Option<String>,
 }
 
 impl SchedulerDaemon {
@@ -177,6 +179,7 @@ async fn check_and_notify_due_tasks(
                     engine_id: task.engine_id.clone(),
                     work_dir: task.work_dir.clone(),
                     prompt: task.prompt.clone(),
+                    template_id: task.template_id.clone(),
                 };
 
                 // 发送全局事件

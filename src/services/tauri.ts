@@ -912,3 +912,48 @@ export async function schedulerUpdateRunStatus(id: string, status: 'success' | '
   return invoke<ScheduledTask>('scheduler_update_run_status', { id, status });
 }
 
+// ============================================================================
+// 模板相关命令
+// ============================================================================
+
+import type { PromptTemplate, CreateTemplateParams } from '../types/scheduler';
+
+/** 列出所有模板 */
+export async function schedulerListTemplates(): Promise<PromptTemplate[]> {
+  return invoke<PromptTemplate[]>('scheduler_list_templates');
+}
+
+/** 获取单个模板 */
+export async function schedulerGetTemplate(id: string): Promise<PromptTemplate | null> {
+  return invoke<PromptTemplate | null>('scheduler_get_template', { id });
+}
+
+/** 创建模板 */
+export async function schedulerCreateTemplate(params: CreateTemplateParams): Promise<PromptTemplate> {
+  return invoke<PromptTemplate>('scheduler_create_template', { params });
+}
+
+/** 更新模板 */
+export async function schedulerUpdateTemplate(template: PromptTemplate): Promise<PromptTemplate> {
+  return invoke<PromptTemplate>('scheduler_update_template', { template });
+}
+
+/** 删除模板 */
+export async function schedulerDeleteTemplate(id: string): Promise<void> {
+  return invoke('scheduler_delete_template', { id });
+}
+
+/** 切换模板启用状态 */
+export async function schedulerToggleTemplate(id: string, enabled: boolean): Promise<PromptTemplate> {
+  return invoke<PromptTemplate>('scheduler_toggle_template', { id, enabled });
+}
+
+/** 构建提示词（应用模板） */
+export async function schedulerBuildPrompt(
+  templateId: string,
+  taskName: string,
+  userPrompt: string
+): Promise<string> {
+  return invoke<string>('scheduler_build_prompt', { templateId, taskName, userPrompt });
+}
+

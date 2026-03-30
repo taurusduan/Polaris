@@ -5,7 +5,8 @@
 
 use crate::error::{AppError, Result};
 use crate::models::scheduler::{
-    CreateTaskParams, ScheduledTask, TaskStatus, TaskStore, TriggerType,
+    CreateTaskParams, CreateTemplateParams, PromptTemplate, ScheduledTask, TaskStatus, TaskStore,
+    TemplateStore, TriggerType,
 };
 use chrono::Utc;
 use std::collections::BTreeMap;
@@ -15,6 +16,7 @@ use uuid::Uuid;
 const TASKS_FILE_NAME: &str = "tasks.json";
 const SCHEDULER_FILE_VERSION: &str = "1.0.0";
 const WORKSPACES_FILE_NAME: &str = "workspaces.json";
+const TEMPLATES_FILE_NAME: &str = "templates.json";
 
 /// Unified repository for managing scheduled tasks in a single global storage
 pub struct UnifiedSchedulerRepository {
@@ -52,6 +54,7 @@ pub struct TaskUpdateParams {
     pub prompt: Option<String>,
     pub work_dir: Option<String>,
     pub description: Option<String>,
+    pub template_id: Option<String>,
     /// 下次执行时间（Unix 时间戳，秒）
     pub next_run_at: Option<i64>,
     /// 上次执行时间（Unix 时间戳，秒）
@@ -163,6 +166,7 @@ impl UnifiedSchedulerRepository {
             updated_at: now,
             workspace_path,
             workspace_name,
+            template_id: params.template_id,
         };
 
         data.tasks.push(task.clone());
@@ -212,6 +216,10 @@ impl UnifiedSchedulerRepository {
 
         if updates.description.is_some() {
             task.description = sanitize_optional_string(updates.description);
+        }
+
+        if updates.template_id.is_some() {
+            task.template_id = updates.template_id;
         }
 
         // 更新执行时间字段
@@ -289,6 +297,107 @@ impl UnifiedSchedulerRepository {
     }
 
     // =========================================================================
+    // Template Management
+    // =========================================================================
+
+    /// List all templates
+    pub fn list_templates(&self) -> Result<Vec<PromptTemplate>> {
+        let templates_data = self.read_templates_file()?;
+        Ok(templates_data.templates)
+    }
+
+    /// Get a single template by ID
+    pub fn get_template(&self, id: &str) -> Result<Option<PromptTemplate>> {
+        let templates_data = self.read_templates_file()?;
+        Ok(templates_data.templates.into_iter().find(|t| t.id == id))
+    }
+
+    /// Create a new template
+    pub fn create_template(&self, params: CreateTemplateParams) -> Result<PromptTemplate> {
+        let name = params.name.trim();
+        if name.is_empty() {
+            return Err(AppError::ValidationError("模板名称不能为空".to_string()));
+        }
+
+        let mut templates_data = self.read_templates_file()?;
+        let now = Utc::now().timestamp();
+        let id = Uuid::new_v4().to_string();
+
+        let template = PromptTemplate {
+            id: id.clone(),
+            name: name.to_string(),
+            description: sanitize_optional_string(params.description),
+            content: params.content,
+            enabled: params.enabled,
+            created_at: now,
+            updated_at: now,
+        };
+
+        templates_data.templates.push(template.clone());
+        self.write_templates_file(&templates_data)?;
+        Ok(template)
+    }
+
+    /// Update a template
+    pub fn update_template(&self, template: PromptTemplate) -> Result<PromptTemplate> {
+        let mut templates_data = self.read_templates_file()?;
+        let existing = templates_data
+            .templates
+            .iter_mut()
+            .find(|t| t.id == template.id)
+            .ok_or_else(|| AppError::ValidationError(format!("模板不存在: {}", template.id)))?;
+
+        existing.name = template.name;
+        existing.description = template.description;
+        existing.content = template.content;
+        existing.enabled = template.enabled;
+        existing.updated_at = Utc::now().timestamp();
+
+        let result = existing.clone();
+        self.write_templates_file(&templates_data)?;
+        Ok(result)
+    }
+
+    /// Delete a template
+    pub fn delete_template(&self, id: &str) -> Result<()> {
+        let mut templates_data = self.read_templates_file()?;
+        let index = templates_data
+            .templates
+            .iter()
+            .position(|t| t.id == id)
+            .ok_or_else(|| AppError::ValidationError(format!("模板不存在: {}", id)))?;
+
+        templates_data.templates.remove(index);
+        self.write_templates_file(&templates_data)?;
+        Ok(())
+    }
+
+    /// Toggle template enabled state
+    pub fn toggle_template(&self, id: &str, enabled: bool) -> Result<PromptTemplate> {
+        let mut templates_data = self.read_templates_file()?;
+        let template = templates_data
+            .templates
+            .iter_mut()
+            .find(|t| t.id == id)
+            .ok_or_else(|| AppError::ValidationError(format!("模板不存在: {}", id)))?;
+
+        template.enabled = enabled;
+        template.updated_at = Utc::now().timestamp();
+
+        let result = template.clone();
+        self.write_templates_file(&templates_data)?;
+        Ok(result)
+    }
+
+    /// Get a template and apply it to build the final prompt
+    pub fn build_prompt_with_template(&self, template_id: &str, task_name: &str, user_prompt: &str) -> Result<String> {
+        let template = self.get_template(template_id)?
+            .ok_or_else(|| AppError::ValidationError(format!("模板不存在: {}", template_id)))?;
+
+        Ok(crate::models::scheduler::apply_template(&template.content, task_name, user_prompt))
+    }
+
+    // =========================================================================
     // Private helpers
     // =========================================================================
 
@@ -314,6 +423,32 @@ impl UnifiedSchedulerRepository {
         std::fs::create_dir_all(&self.storage_dir)?;
 
         let file_path = self.storage_dir.join(TASKS_FILE_NAME);
+        let content = serde_json::to_string_pretty(data)?;
+        std::fs::write(&file_path, format!("{}\n", content))?;
+        Ok(())
+    }
+
+    fn read_templates_file(&self) -> Result<TemplateStore> {
+        let file_path = self.storage_dir.join(TEMPLATES_FILE_NAME);
+
+        if !file_path.exists() {
+            let empty = create_empty_template_store();
+            self.write_templates_file(&empty)?;
+            return Ok(empty);
+        }
+
+        let content = std::fs::read_to_string(&file_path)?;
+        let data: TemplateStore = serde_json::from_str(&content).unwrap_or_else(|_| create_empty_template_store());
+        Ok(data)
+    }
+
+    fn write_templates_file(&self, data: &TemplateStore) -> Result<()> {
+        if let Some(parent) = self.storage_dir.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::create_dir_all(&self.storage_dir)?;
+
+        let file_path = self.storage_dir.join(TEMPLATES_FILE_NAME);
         let content = serde_json::to_string_pretty(data)?;
         std::fs::write(&file_path, format!("{}\n", content))?;
         Ok(())
@@ -400,6 +535,7 @@ fn normalize_task_item(value: &serde_json::Value) -> Option<ScheduledTask> {
         updated_at: object.get("updatedAt").and_then(|v| v.as_i64()).unwrap_or(now),
         workspace_path: optional_string_field(object.get("workspacePath")),
         workspace_name: optional_string_field(object.get("workspaceName")),
+        template_id: optional_string_field(object.get("templateId")),
     })
 }
 
@@ -438,6 +574,13 @@ fn sanitize_optional_string(value: Option<String>) -> Option<String> {
             Some(trimmed.to_string())
         }
     })
+}
+
+fn create_empty_template_store() -> TemplateStore {
+    TemplateStore {
+        version: SCHEDULER_FILE_VERSION.to_string(),
+        templates: Vec::new(),
+    }
 }
 
 fn now_iso() -> String {

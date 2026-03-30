@@ -2,6 +2,7 @@
 //!
 //! Simplified data models for scheduled task management.
 
+use chrono::Datelike;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -28,6 +29,55 @@ pub enum TaskStatus {
     Running,
     Success,
     Failed,
+}
+
+// ============================================================================
+// Prompt Template
+// ============================================================================
+
+/// 提示词模板
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptTemplate {
+    /// 模板 ID
+    pub id: String,
+    /// 模板名称
+    pub name: String,
+    /// 模板描述
+    #[serde(default)]
+    pub description: Option<String>,
+    /// 模板内容，支持占位符：{{prompt}}, {{taskName}}, {{date}}, {{time}}, {{datetime}}, {{weekday}}
+    pub content: String,
+    /// 是否启用
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    /// 创建时间
+    pub created_at: i64,
+    /// 更新时间
+    pub updated_at: i64,
+}
+
+/// 创建模板参数
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateTemplateParams {
+    /// 模板名称
+    pub name: String,
+    /// 模板描述
+    #[serde(default)]
+    pub description: Option<String>,
+    /// 模板内容
+    pub content: String,
+    /// 是否启用
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+}
+
+/// 模板存储
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TemplateStore {
+    pub version: String,
+    pub templates: Vec<PromptTemplate>,
 }
 
 // ============================================================================
@@ -79,6 +129,9 @@ pub struct ScheduledTask {
     /// 所属工作区名称
     #[serde(default)]
     pub workspace_name: Option<String>,
+    /// 提示词模板 ID
+    #[serde(default)]
+    pub template_id: Option<String>,
 }
 
 /// 创建任务参数（精简版）
@@ -102,6 +155,9 @@ pub struct CreateTaskParams {
     pub work_dir: Option<String>,
     /// 任务描述（可选）
     pub description: Option<String>,
+    /// 提示词模板 ID
+    #[serde(default)]
+    pub template_id: Option<String>,
 }
 
 fn default_enabled() -> bool {
@@ -172,6 +228,33 @@ pub fn parse_interval(value: &str) -> Option<i64> {
     };
 
     Some(num * multiplier)
+}
+
+/// 星期几中文名称
+fn weekday_name(weekday: chrono::Weekday) -> &'static str {
+    match weekday {
+        chrono::Weekday::Mon => "星期一",
+        chrono::Weekday::Tue => "星期二",
+        chrono::Weekday::Wed => "星期三",
+        chrono::Weekday::Thu => "星期四",
+        chrono::Weekday::Fri => "星期五",
+        chrono::Weekday::Sat => "星期六",
+        chrono::Weekday::Sun => "星期日",
+    }
+}
+
+/// 应用模板变量替换
+/// 支持的变量：{{prompt}}, {{taskName}}, {{date}}, {{time}}, {{datetime}}, {{weekday}}
+pub fn apply_template(template: &str, task_name: &str, user_prompt: &str) -> String {
+    let now = chrono::Utc::now();
+
+    template
+        .replace("{{prompt}}", user_prompt)
+        .replace("{{taskName}}", task_name)
+        .replace("{{date}}", &now.format("%Y-%m-%d").to_string())
+        .replace("{{time}}", &now.format("%H:%M").to_string())
+        .replace("{{datetime}}", &now.format("%Y-%m-%d %H:%M").to_string())
+        .replace("{{weekday}}", weekday_name(now.weekday()))
 }
 
 #[cfg(test)]

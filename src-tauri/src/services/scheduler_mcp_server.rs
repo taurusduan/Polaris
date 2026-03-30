@@ -349,6 +349,7 @@ fn execute_create_task(arguments: Value, repository: &UnifiedSchedulerRepository
         prompt,
         work_dir: optional_trimmed_string(arguments.get("workDir")),
         description: optional_trimmed_string(arguments.get("description")),
+        template_id: None,
     };
 
     let task = repository.create_task(params)?;
