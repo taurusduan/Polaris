@@ -2,6 +2,8 @@
  * 集成模块类型定义
  */
 
+import type { IntegrationDisplayMode } from './config';
+
 /** 平台类型 */
 export type Platform = 'qqbot' | 'wechat' | 'telegram';
 
@@ -9,7 +11,7 @@ export type Platform = 'qqbot' | 'wechat' | 'telegram';
 export type InstanceId = string;
 
 /** QQ Bot 实例配置（用于实例管理，与 config.ts 中的 QQBotInstanceConfig 对应） */
-export interface QQBotInstanceConfig {
+export interface QQBotInstanceConfigData {
   /** 实例 ID */
   id: InstanceId;
   /** 显示名称 */

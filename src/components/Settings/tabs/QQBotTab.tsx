@@ -209,12 +209,20 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
       }
       // 将配置转换为 QQBotConfig 格式
       const qqbotConfig = {
-        enabled: editingInstance.config.enabled,
-        appId: editingInstance.config.appId,
-        clientSecret: editingInstance.config.clientSecret,
-        sandbox: editingInstance.config.sandbox,
-        displayMode: editingInstance.config.displayMode,
-        autoConnect: editingInstance.config.autoConnect,
+        enabled: true,
+        instances: [{
+          id: editingInstance.id,
+          name: editingInstance.name,
+          enabled: editingInstance.enabled,
+          appId: editingInstance.config.appId,
+          clientSecret: editingInstance.config.clientSecret,
+          sandbox: editingInstance.config.sandbox,
+          displayMode: editingInstance.config.displayMode,
+          autoConnect: editingInstance.config.autoConnect,
+          createdAt: editingInstance.createdAt,
+          lastActive: editingInstance.lastActive,
+        }],
+        activeInstanceId: editingInstance.id,
       };
       await startPlatform('qqbot', qqbotConfig);
     } catch (error) {

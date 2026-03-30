@@ -225,14 +225,19 @@ function App() {
 
         // 初始化集成管理器并自动连接 QQ Bot（如果配置了）
         const qqbotConfig = config?.qqbot;
-        if (qqbotConfig?.enabled && qqbotConfig?.appId && qqbotConfig?.clientSecret) {
+        if (qqbotConfig?.enabled && qqbotConfig.instances.length > 0) {
           log.info('QQ Bot 已启用，开始初始化...');
           try {
             const { initialize, startPlatform } = useIntegrationStore.getState();
             await initialize(qqbotConfig);
 
-            // 如果配置了自动连接，则启动连接
-            if (qqbotConfig.autoConnect !== false) {
+            // 查找激活实例或第一个启用的实例
+            const activeInstance = qqbotConfig.activeInstanceId
+              ? qqbotConfig.instances.find(i => i.id === qqbotConfig.activeInstanceId)
+              : qqbotConfig.instances.find(i => i.enabled);
+
+            // 如果实例配置了自动连接，则启动连接
+            if (activeInstance && activeInstance.autoConnect !== false) {
               log.info('自动连接 QQ Bot...');
               await startPlatform('qqbot');
             }
