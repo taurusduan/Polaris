@@ -4,9 +4,10 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ScheduledTask, CreateTaskParams, TriggerType, TaskMode, TaskCategory } from '../../types/scheduler';
+import type { ScheduledTask, CreateTaskParams, TriggerType, TaskMode, TaskCategory, ProtocolTemplate } from '../../types/scheduler';
 import { TEMPLATE_VARIABLES, TASK_MODE_LABELS, TASK_CATEGORY_LABELS } from '../../types/scheduler';
 import { TriggerConfig } from './TriggerConfig';
+import { ProtocolTemplateSelector, TemplateParamsForm } from './ProtocolTemplateSelector';
 import { useToastStore, useWorkspaceStore, useConfigStore, useSchedulerStore } from '../../stores';
 
 export interface TaskEditorProps {
@@ -62,6 +63,11 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
   // 模板配置
   const [templateId, setTemplateId] = useState<string | null>(task?.templateId || null);
 
+  // 协议模板配置
+  const [protocolTemplateId, setProtocolTemplateId] = useState<string | null>(null);
+  const [selectedProtocolTemplate, setSelectedProtocolTemplate] = useState<ProtocolTemplate | null>(null);
+  const [templateParams, setTemplateParams] = useState<Record<string, string>>({});
+
   // 协议模式字段
   const [mission, setMission] = useState(task?.mission || '');
   const [group, setGroup] = useState(task?.group || '');
@@ -76,6 +82,12 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
   useEffect(() => {
     loadTemplates();
   }, [loadTemplates]);
+
+  // 加载协议模板
+  const { loadProtocolTemplates } = useSchedulerStore();
+  useEffect(() => {
+    loadProtocolTemplates();
+  }, [loadProtocolTemplates]);
 
   // 获取选中的模板
   const selectedTemplate = templates.find((t) => t.id === templateId);
@@ -113,6 +125,10 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
       return;
     }
 
+    // 处理协议模板参数
+    const finalTemplateId = mode === 'protocol' ? protocolTemplateId : templateId;
+    const finalTemplateParams = mode === 'protocol' ? templateParams : undefined;
+
     onSave({
       name: name.trim(),
       description: description.trim() || undefined,
@@ -125,7 +141,8 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
       // 任务模式
       mode,
       category,
-      templateId: templateId || undefined,
+      templateId: finalTemplateId || undefined,
+      templateParams: finalTemplateParams,
       // 协议模式
       mission: mode === 'protocol' ? mission.trim() : undefined,
       // 执行控制
@@ -245,6 +262,47 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
           {mode === 'protocol' && (
             <div className="space-y-4 p-4 bg-background-surface rounded-lg border border-border-subtle">
               <h4 className="text-sm font-medium text-text-primary">{t('editor.protocolConfig')}</h4>
+
+              {/* 协议模板选择 */}
+              <div>
+                <label className="block text-sm text-text-secondary mb-1">
+                  {t('editor.protocolTemplate')}
+                </label>
+                <ProtocolTemplateSelector
+                  value={protocolTemplateId || undefined}
+                  onChange={(id, template) => {
+                    setProtocolTemplateId(id);
+                    setSelectedProtocolTemplate(template);
+                    // 重置参数值
+                    if (template) {
+                      const defaults: Record<string, string> = {};
+                      template.params.forEach((p) => {
+                        if (p.defaultValue) {
+                          defaults[p.key] = p.defaultValue;
+                        }
+                      });
+                      setTemplateParams(defaults);
+                    } else {
+                      setTemplateParams({});
+                    }
+                  }}
+                  category={category}
+                />
+              </div>
+
+              {/* 模板参数配置 */}
+              {selectedProtocolTemplate && selectedProtocolTemplate.params.length > 0 && (
+                <div>
+                  <label className="block text-sm text-text-secondary mb-1">
+                    {t('editor.templateParams')}
+                  </label>
+                  <TemplateParamsForm
+                    params={selectedProtocolTemplate.params}
+                    values={templateParams}
+                    onChange={setTemplateParams}
+                  />
+                </div>
+              )}
 
               {/* 任务目标 */}
               <div>

@@ -15,6 +15,9 @@ import type {
   LogEntryType,
   PromptTemplate,
   CreateTemplateParams,
+  ProtocolTemplate,
+  CreateProtocolTemplateParams,
+  TaskCategory,
 } from '../types/scheduler';
 import * as tauri from '../services/tauri';
 import { getEventRouter } from '../services/eventRouter';
@@ -187,6 +190,28 @@ interface SchedulerState {
   toggleTemplate: (id: string, enabled: boolean) => Promise<void>;
   /** 构建提示词（应用模板） */
   buildPrompt: (templateId: string, taskName: string, userPrompt: string) => Promise<string>;
+
+  // === 协议模板管理 ===
+  /** 协议模板列表 */
+  protocolTemplates: ProtocolTemplate[];
+  /** 协议模板加载中 */
+  protocolTemplatesLoading: boolean;
+  /** 加载协议模板列表 */
+  loadProtocolTemplates: () => Promise<void>;
+  /** 按分类加载协议模板 */
+  loadProtocolTemplatesByCategory: (category: TaskCategory) => Promise<void>;
+  /** 获取单个协议模板 */
+  getProtocolTemplate: (id: string) => Promise<ProtocolTemplate | null>;
+  /** 创建协议模板 */
+  createProtocolTemplate: (params: CreateProtocolTemplateParams) => Promise<ProtocolTemplate>;
+  /** 更新协议模板 */
+  updateProtocolTemplate: (id: string, params: CreateProtocolTemplateParams) => Promise<ProtocolTemplate | null>;
+  /** 删除协议模板 */
+  deleteProtocolTemplate: (id: string) => Promise<boolean>;
+  /** 切换协议模板启用状态 */
+  toggleProtocolTemplate: (id: string, enabled: boolean) => Promise<void>;
+  /** 使用模板生成协议文档 */
+  renderProtocolDocument: (template: ProtocolTemplate, params: Record<string, string>) => Promise<string>;
 }
 
 export const useSchedulerStore = create<SchedulerState>((set, get) => ({
@@ -203,6 +228,8 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
   drawerOpen: false,
   templates: [],
   templatesLoading: false,
+  protocolTemplates: [],
+  protocolTemplatesLoading: false,
 
   // === 任务列表操作 ===
 
@@ -667,5 +694,66 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
 
   buildPrompt: async (templateId, taskName, userPrompt) => {
     return await tauri.schedulerBuildPrompt(templateId, taskName, userPrompt);
+  },
+
+  // === 协议模板管理 ===
+
+  loadProtocolTemplates: async () => {
+    set({ protocolTemplatesLoading: true });
+    try {
+      const protocolTemplates = await tauri.schedulerListProtocolTemplates();
+      set({ protocolTemplates, protocolTemplatesLoading: false });
+    } catch (e) {
+      console.error('加载协议模板失败:', e);
+      set({ protocolTemplatesLoading: false });
+    }
+  },
+
+  loadProtocolTemplatesByCategory: async (category) => {
+    set({ protocolTemplatesLoading: true });
+    try {
+      const protocolTemplates = await tauri.schedulerListProtocolTemplatesByCategory(category);
+      set({ protocolTemplates, protocolTemplatesLoading: false });
+    } catch (e) {
+      console.error('加载协议模板失败:', e);
+      set({ protocolTemplatesLoading: false });
+    }
+  },
+
+  getProtocolTemplate: async (id) => {
+    return await tauri.schedulerGetProtocolTemplate(id);
+  },
+
+  createProtocolTemplate: async (params) => {
+    const template = await tauri.schedulerCreateProtocolTemplate(params);
+    const protocolTemplates = await tauri.schedulerListProtocolTemplates();
+    set({ protocolTemplates });
+    return template;
+  },
+
+  updateProtocolTemplate: async (id, params) => {
+    const updated = await tauri.schedulerUpdateProtocolTemplate(id, params);
+    const protocolTemplates = await tauri.schedulerListProtocolTemplates();
+    set({ protocolTemplates });
+    return updated;
+  },
+
+  deleteProtocolTemplate: async (id) => {
+    const result = await tauri.schedulerDeleteProtocolTemplate(id);
+    if (result) {
+      const protocolTemplates = await tauri.schedulerListProtocolTemplates();
+      set({ protocolTemplates });
+    }
+    return result;
+  },
+
+  toggleProtocolTemplate: async (id, enabled) => {
+    await tauri.schedulerToggleProtocolTemplate(id, enabled);
+    const protocolTemplates = await tauri.schedulerListProtocolTemplates();
+    set({ protocolTemplates });
+  },
+
+  renderProtocolDocument: async (template, params) => {
+    return await tauri.schedulerRenderProtocolDocument(template, params);
   },
 }));
