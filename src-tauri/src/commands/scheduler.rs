@@ -663,3 +663,95 @@ pub fn scheduler_needs_backup(content: String) -> bool {
 pub fn scheduler_extract_user_content(content: String) -> String {
     ProtocolTaskService::extract_user_content(&content)
 }
+
+// ============================================================================
+// Protocol Template Commands
+// ============================================================================
+
+use crate::models::scheduler::{CreateProtocolTemplateParams, ProtocolTemplate};
+use crate::services::scheduler::ProtocolTemplateService;
+
+fn get_template_service(app: &AppHandle) -> Result<ProtocolTemplateService> {
+    let config_dir = get_config_dir(app)?;
+    Ok(ProtocolTemplateService::new(&config_dir))
+}
+
+/// 列出所有协议模板（内置 + 自定义）
+#[tauri::command]
+pub async fn scheduler_list_protocol_templates(
+    app: AppHandle,
+) -> Result<Vec<ProtocolTemplate>> {
+    let service = get_template_service(&app)?;
+    service.list_templates()
+}
+
+/// 按分类列出协议模板
+#[tauri::command]
+pub async fn scheduler_list_protocol_templates_by_category(
+    category: TaskCategory,
+    app: AppHandle,
+) -> Result<Vec<ProtocolTemplate>> {
+    let service = get_template_service(&app)?;
+    service.list_templates_by_category(category)
+}
+
+/// 获取单个协议模板
+#[tauri::command]
+pub async fn scheduler_get_protocol_template(
+    id: String,
+    app: AppHandle,
+) -> Result<Option<ProtocolTemplate>> {
+    let service = get_template_service(&app)?;
+    service.get_template(&id)
+}
+
+/// 创建自定义协议模板
+#[tauri::command]
+pub async fn scheduler_create_protocol_template(
+    params: CreateProtocolTemplateParams,
+    app: AppHandle,
+) -> Result<ProtocolTemplate> {
+    let service = get_template_service(&app)?;
+    service.create_template(params)
+}
+
+/// 更新自定义协议模板
+#[tauri::command]
+pub async fn scheduler_update_protocol_template(
+    id: String,
+    params: CreateProtocolTemplateParams,
+    app: AppHandle,
+) -> Result<Option<ProtocolTemplate>> {
+    let service = get_template_service(&app)?;
+    service.update_template(&id, params)
+}
+
+/// 删除自定义协议模板
+#[tauri::command]
+pub async fn scheduler_delete_protocol_template(
+    id: String,
+    app: AppHandle,
+) -> Result<bool> {
+    let service = get_template_service(&app)?;
+    service.delete_template(&id)
+}
+
+/// 切换协议模板启用状态
+#[tauri::command]
+pub async fn scheduler_toggle_protocol_template(
+    id: String,
+    enabled: bool,
+    app: AppHandle,
+) -> Result<Option<ProtocolTemplate>> {
+    let service = get_template_service(&app)?;
+    service.toggle_template(&id, enabled)
+}
+
+/// 使用模板生成协议文档
+#[tauri::command]
+pub fn scheduler_render_protocol_document(
+    template: ProtocolTemplate,
+    params: std::collections::HashMap<String, String>,
+) -> String {
+    crate::models::scheduler::generate_protocol_document(&template, &params)
+}

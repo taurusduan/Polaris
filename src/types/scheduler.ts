@@ -19,7 +19,133 @@ export type TaskMode = 'simple' | 'protocol';
 /** 任务分类 */
 export type TaskCategory = 'development' | 'review' | 'news' | 'monitor' | 'custom';
 
-// ============ 提示词模板 ============
+// ============ 协议模板类型 ============
+
+/** 模板参数类型 */
+export type TemplateParamType = 'text' | 'textarea' | 'select' | 'number' | 'date';
+
+/** 模板选择选项 */
+export interface SelectOption {
+  /** 选项值 */
+  value: string;
+  /** 选项标签 */
+  label: string;
+}
+
+/** 协议模板参数定义 */
+export interface TemplateParam {
+  /** 参数键（用于占位符匹配） */
+  key: string;
+  /** 显示标签 */
+  label: string;
+  /** 参数类型 */
+  type: TemplateParamType;
+  /** 是否必填 */
+  required: boolean;
+  /** 默认值 */
+  defaultValue?: string;
+  /** 占位提示 */
+  placeholder?: string;
+  /** 选择选项（select 类型使用） */
+  options?: SelectOption[];
+}
+
+/** 区块位置 */
+export type SectionPosition = 'beforeRules' | 'afterRules' | 'afterMemory';
+
+/** 自定义区块 */
+export interface CustomSection {
+  /** 区块标题 */
+  title: string;
+  /** 区块模板内容 */
+  template: string;
+  /** 区块位置 */
+  position?: SectionPosition;
+}
+
+/** 协议模板配置 */
+export interface ProtocolTemplateConfig {
+  /** 任务目标模板 */
+  missionTemplate: string;
+  /** 执行规则模板（可选） */
+  executionRules?: string;
+  /** 记忆规则模板（可选） */
+  memoryRules?: string;
+  /** 自定义区块模板（可选） */
+  customSections?: CustomSection[];
+}
+
+/** 协议任务模板 */
+export interface ProtocolTemplate {
+  /** 模板 ID */
+  id: string;
+  /** 模板名称 */
+  name: string;
+  /** 模板描述 */
+  description?: string;
+  /** 模板分类 */
+  category: TaskCategory;
+  /** 是否为内置模板 */
+  builtin: boolean;
+  /** 协议模板配置 */
+  protocolConfig: ProtocolTemplateConfig;
+  /** 提示词模板（用于生成最终 prompt） */
+  promptTemplate?: string;
+  /** 模板参数定义 */
+  params: TemplateParam[];
+  /** 默认触发类型 */
+  defaultTriggerType?: TriggerType;
+  /** 默认触发值 */
+  defaultTriggerValue?: string;
+  /** 默认引擎 ID */
+  defaultEngineId?: string;
+  /** 默认最大执行次数 */
+  defaultMaxRuns?: number;
+  /** 默认超时时间（分钟） */
+  defaultTimeoutMinutes?: number;
+  /** 是否启用 */
+  enabled: boolean;
+  /** 创建时间 (Unix 时间戳，秒) */
+  createdAt: number;
+  /** 更新时间 (Unix 时间戳，秒) */
+  updatedAt: number;
+}
+
+/** 创建协议模板参数 */
+export interface CreateProtocolTemplateParams {
+  /** 模板名称 */
+  name: string;
+  /** 模板描述 */
+  description?: string;
+  /** 模板分类 */
+  category: TaskCategory;
+  /** 协议模板配置 */
+  protocolConfig: ProtocolTemplateConfig;
+  /** 提示词模板 */
+  promptTemplate?: string;
+  /** 模板参数定义 */
+  params?: TemplateParam[];
+  /** 默认触发类型 */
+  defaultTriggerType?: TriggerType;
+  /** 默认触发值 */
+  defaultTriggerValue?: string;
+  /** 默认引擎 ID */
+  defaultEngineId?: string;
+  /** 默认最大执行次数 */
+  defaultMaxRuns?: number;
+  /** 默认超时时间 */
+  defaultTimeoutMinutes?: number;
+  /** 是否启用 */
+  enabled?: boolean;
+}
+
+/** 协议模板存储 */
+export interface ProtocolTemplateStore {
+  version: string;
+  templates: ProtocolTemplate[];
+}
+
+// ============ 提示词模板（简单模式） ============
 
 /** 提示词模板 */
 export interface PromptTemplate {
@@ -376,3 +502,140 @@ export interface ProtocolDocuments {
   /** 记忆任务 */
   memoryTasks: string;
 }
+
+// ============ 协议模板工具函数 ============
+
+/** 格式化日期时间（用于模板） */
+export function formatDateTimeForTemplate(): string {
+  const now = new Date();
+  return now.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/** 格式化日期（用于模板） */
+export function formatDateForTemplate(): string {
+  const now = new Date();
+  return now.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+}
+
+/** 格式化时间（用于模板） */
+export function formatTimeForTemplate(): string {
+  const now = new Date();
+  return now.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/** 渲染协议模板 */
+export function renderProtocolTemplate(
+  template: string,
+  params: Record<string, string>
+): string {
+  let result = template;
+
+  // 替换系统占位符
+  result = result.replace(/{dateTime}/g, formatDateTimeForTemplate());
+  result = result.replace(/{date}/g, formatDateForTemplate());
+  result = result.replace(/{time}/g, formatTimeForTemplate());
+
+  // 替换用户参数占位符
+  Object.entries(params).forEach(([key, value]) => {
+    const placeholder = `{${key}}`;
+    result = result.split(placeholder).join(value || '');
+  });
+
+  return result;
+}
+
+/** 从模板中提取占位符列表 */
+export function extractPlaceholders(template: string): string[] {
+  const regex = /\{(\w+)\}/g;
+  const placeholders: string[] = [];
+  let match;
+  while ((match = regex.exec(template)) !== null) {
+    if (!placeholders.includes(match[1])) {
+      placeholders.push(match[1]);
+    }
+  }
+  return placeholders;
+}
+
+/** 生成协议文档 */
+export function generateProtocolDocument(
+  template: ProtocolTemplate,
+  params: Record<string, string>
+): string {
+  const now = new Date();
+  const dateTime = now.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+
+  // 渲染任务目标
+  const mission = renderProtocolTemplate(template.protocolConfig.missionTemplate, params);
+
+  let doc = `# 任务协议
+
+> 任务ID: {taskId}
+> 创建时间: ${dateTime}
+> 模板类型: ${template.category}
+> 版本: 1.0.0
+
+---
+
+## 任务目标
+
+${mission}
+
+---
+
+## 工作区
+
+\`\`\`
+{workspacePath}
+\`\`\`
+
+---
+
+## 执行规则
+
+${template.protocolConfig.executionRules || '按需执行任务'}
+`;
+
+  // 添加自定义区块
+  if (template.protocolConfig.customSections) {
+    for (const section of template.protocolConfig.customSections) {
+      const content = renderProtocolTemplate(section.template, params);
+      doc += `\n---\n\n## ${section.title}\n\n${content}\n`;
+    }
+  }
+
+  // 添加记忆规则
+  if (template.protocolConfig.memoryRules) {
+    const rules = renderProtocolTemplate(template.protocolConfig.memoryRules, params);
+    doc += `\n---\n\n${rules}\n`;
+  }
+
+  // 添加补充部分
+  doc += `\n---\n\n## 补充\n\n> 用于临时调整任务方向或补充要求\n`;
+
+  // 添加协议更新说明
+  doc += `\n---\n\n## 协议更新\n\n可修改本协议，修改时记录：\n- 修改内容\n- 修改原因\n- 预期效果\n`;
+
+  return doc;
+}
+

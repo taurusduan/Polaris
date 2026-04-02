@@ -799,7 +799,7 @@ export async function updateIntegrationInstance(
 // 定时任务相关命令（精简版）
 // ============================================================================
 
-import type { ScheduledTask, TriggerType, CreateTaskParams, TaskCategory, TaskMode } from '../types/scheduler';
+import type { ScheduledTask, TriggerType, CreateTaskParams, TaskCategory, TaskMode, ProtocolTemplate, CreateProtocolTemplateParams } from '../types/scheduler';
 
 /** 获取所有任务 */
 export async function schedulerGetTasks(): Promise<ScheduledTask[]> {
@@ -1064,5 +1064,60 @@ export function schedulerNeedsBackup(content: string): boolean {
 /** 提取用户补充内容 */
 export function schedulerExtractUserContent(content: string): string {
   return invoke<string>('scheduler_extract_user_content', { content }) as unknown as string;
+}
+
+// ============ Protocol Template API ============
+
+/** 列出所有协议模板（内置 + 自定义） */
+export async function schedulerListProtocolTemplates(): Promise<ProtocolTemplate[]> {
+  return invoke<ProtocolTemplate[]>('scheduler_list_protocol_templates');
+}
+
+/** 按分类列出协议模板 */
+export async function schedulerListProtocolTemplatesByCategory(
+  category: TaskCategory
+): Promise<ProtocolTemplate[]> {
+  return invoke<ProtocolTemplate[]>('scheduler_list_protocol_templates_by_category', { category });
+}
+
+/** 获取单个协议模板 */
+export async function schedulerGetProtocolTemplate(id: string): Promise<ProtocolTemplate | null> {
+  return invoke<ProtocolTemplate | null>('scheduler_get_protocol_template', { id });
+}
+
+/** 创建自定义协议模板 */
+export async function schedulerCreateProtocolTemplate(
+  params: CreateProtocolTemplateParams
+): Promise<ProtocolTemplate> {
+  return invoke<ProtocolTemplate>('scheduler_create_protocol_template', { params });
+}
+
+/** 更新自定义协议模板 */
+export async function schedulerUpdateProtocolTemplate(
+  id: string,
+  params: CreateProtocolTemplateParams
+): Promise<ProtocolTemplate | null> {
+  return invoke<ProtocolTemplate | null>('scheduler_update_protocol_template', { id, params });
+}
+
+/** 删除自定义协议模板 */
+export async function schedulerDeleteProtocolTemplate(id: string): Promise<boolean> {
+  return invoke<boolean>('scheduler_delete_protocol_template', { id });
+}
+
+/** 切换协议模板启用状态 */
+export async function schedulerToggleProtocolTemplate(
+  id: string,
+  enabled: boolean
+): Promise<ProtocolTemplate | null> {
+  return invoke<ProtocolTemplate | null>('scheduler_toggle_protocol_template', { id, enabled });
+}
+
+/** 使用模板生成协议文档 */
+export async function schedulerRenderProtocolDocument(
+  template: ProtocolTemplate,
+  params: Record<string, string>
+): Promise<string> {
+  return invoke<string>('scheduler_render_protocol_document', { template, params });
 }
 

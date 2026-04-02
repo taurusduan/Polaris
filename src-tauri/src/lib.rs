@@ -90,6 +90,11 @@ use commands::scheduler::{
     scheduler_update_memory_index, scheduler_update_memory_tasks, scheduler_clear_supplement,
     scheduler_backup_supplement, scheduler_backup_document, scheduler_has_supplement_content,
     scheduler_needs_backup, scheduler_extract_user_content,
+    // Protocol template commands
+    scheduler_list_protocol_templates, scheduler_list_protocol_templates_by_category,
+    scheduler_get_protocol_template, scheduler_create_protocol_template,
+    scheduler_update_protocol_template, scheduler_delete_protocol_template,
+    scheduler_toggle_protocol_template, scheduler_render_protocol_document,
 };
 use commands::terminal::{
     terminal_create, terminal_write, terminal_resize,
@@ -489,6 +494,15 @@ pub fn run() {
             scheduler_has_supplement_content,
             scheduler_needs_backup,
             scheduler_extract_user_content,
+            // Protocol Template 相关
+            scheduler_list_protocol_templates,
+            scheduler_list_protocol_templates_by_category,
+            scheduler_get_protocol_template,
+            scheduler_create_protocol_template,
+            scheduler_update_protocol_template,
+            scheduler_delete_protocol_template,
+            scheduler_toggle_protocol_template,
+            scheduler_render_protocol_document,
             // 终端相关
             terminal_create,
             terminal_write,
