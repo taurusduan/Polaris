@@ -253,6 +253,66 @@ impl LocalFileStorage {
     }
 }
 
+/// Validate trigger value based on trigger type
+fn validate_trigger_value(trigger_type: &TriggerType, value: &str) -> Result<()> {
+    match trigger_type {
+        TriggerType::Interval => {
+            // Validate interval format (e.g., "1h", "30m", "1d")
+            let value = value.trim();
+            if value.is_empty() {
+                return Err(AppError::ValidationError("间隔时间不能为空".to_string()));
+            }
+
+            // Parse the interval string
+            let num_part: String = value.chars().take_while(|c| c.is_ascii_digit()).collect();
+            let unit_part: String = value.chars().skip_while(|c| c.is_ascii_digit()).collect();
+
+            if num_part.is_empty() || unit_part.is_empty() {
+                return Err(AppError::ValidationError(
+                    "间隔时间格式无效，请使用如 '1h', '30m', '1d' 的格式".to_string()
+                ));
+            }
+
+            let num: u64 = num_part.parse().map_err(|_| {
+                AppError::ValidationError("间隔时间数字部分无效".to_string())
+            })?;
+
+            if num == 0 {
+                return Err(AppError::ValidationError("间隔时间不能为零".to_string()));
+            }
+
+            if !matches!(unit_part.as_str(), "s" | "m" | "h" | "d" | "w") {
+                return Err(AppError::ValidationError(
+                    "间隔时间单位无效，请使用 s(秒), m(分), h(时), d(天), w(周)".to_string()
+                ));
+            }
+        }
+        TriggerType::Cron => {
+            // Validate cron expression
+            let value = value.trim();
+            if value.is_empty() {
+                return Err(AppError::ValidationError("Cron 表达式不能为空".to_string()));
+            }
+
+            // Basic cron validation: 5 or 6 fields
+            let fields: Vec<&str> = value.split_whitespace().collect();
+            if fields.len() < 5 || fields.len() > 6 {
+                return Err(AppError::ValidationError(
+                    "Cron 表达式格式无效，应为 5 或 6 个字段".to_string()
+                ));
+            }
+        }
+        TriggerType::Once => {
+            // For one-time tasks, validate the timestamp or relative time
+            let value = value.trim();
+            if value.is_empty() {
+                return Err(AppError::ValidationError("触发时间不能为空".to_string()));
+            }
+        }
+    }
+    Ok(())
+}
+
 impl TaskStorage for LocalFileStorage {
     // =========================================================================
     // Task Operations
@@ -290,7 +350,7 @@ impl TaskStorage for LocalFileStorage {
         }
 
         // Validate trigger value format
-        if let Err(e) = Self::validate_trigger_value(&params.trigger_type, &params.trigger_value) {
+        if let Err(e) = validate_trigger_value(&params.trigger_type, &params.trigger_value) {
             return Err(e);
         }
 
@@ -338,66 +398,6 @@ impl TaskStorage for LocalFileStorage {
         Ok(task)
     }
 
-    /// Validate trigger value based on trigger type
-    fn validate_trigger_value(trigger_type: &TriggerType, value: &str) -> Result<()> {
-        match trigger_type {
-            TriggerType::Interval => {
-                // Validate interval format (e.g., "1h", "30m", "1d")
-                let value = value.trim();
-                if value.is_empty() {
-                    return Err(AppError::ValidationError("间隔时间不能为空".to_string()));
-                }
-
-                // Parse the interval string
-                let num_part: String = value.chars().take_while(|c| c.is_ascii_digit()).collect();
-                let unit_part: String = value.chars().skip_while(|c| c.is_ascii_digit()).collect();
-
-                if num_part.is_empty() || unit_part.is_empty() {
-                    return Err(AppError::ValidationError(
-                        "间隔时间格式无效，请使用如 '1h', '30m', '1d' 的格式".to_string()
-                    ));
-                }
-
-                let num: u64 = num_part.parse().map_err(|_| {
-                    AppError::ValidationError("间隔时间数字部分无效".to_string())
-                })?;
-
-                if num == 0 {
-                    return Err(AppError::ValidationError("间隔时间不能为零".to_string()));
-                }
-
-                if !matches!(unit_part.as_str(), "s" | "m" | "h" | "d" | "w") {
-                    return Err(AppError::ValidationError(
-                        "间隔时间单位无效，请使用 s(秒), m(分), h(时), d(天), w(周)".to_string()
-                    ));
-                }
-            }
-            TriggerType::Cron => {
-                // Validate cron expression
-                let value = value.trim();
-                if value.is_empty() {
-                    return Err(AppError::ValidationError("Cron 表达式不能为空".to_string()));
-                }
-
-                // Basic cron validation: 5 or 6 fields
-                let fields: Vec<&str> = value.split_whitespace().collect();
-                if fields.len() < 5 || fields.len() > 6 {
-                    return Err(AppError::ValidationError(
-                        "Cron 表达式格式无效，应为 5 或 6 个字段".to_string()
-                    ));
-                }
-            }
-            TriggerType::Once => {
-                // For one-time tasks, validate the timestamp or relative time
-                let value = value.trim();
-                if value.is_empty() {
-                    return Err(AppError::ValidationError("触发时间不能为空".to_string()));
-                }
-            }
-        }
-        Ok(())
-    }
-
     fn update_task(&self, id: &str, updates: TaskUpdateParams) -> Result<ScheduledTask> {
         let mut data = self.read_tasks_file()?;
         let task = data
@@ -420,7 +420,7 @@ impl TaskStorage for LocalFileStorage {
 
         // Validate trigger value if being updated
         if let (Some(trigger_type), Some(trigger_value)) = (&updates.trigger_type, &updates.trigger_value) {
-            Self::validate_trigger_value(trigger_type, trigger_value)?;
+            validate_trigger_value(trigger_type, trigger_value)?;
         }
 
         if let Some(trigger_type) = updates.trigger_type {
@@ -695,7 +695,12 @@ impl TaskStorage for LocalFileStorage {
 
     fn build_prompt_with_template(&self, template_id: &str, task_name: &str, user_prompt: &str) -> Result<String> {
         let template = self.get_template(template_id)?
-            .ok_or_else(|| AppError::ValidationError(format!("模板不存在: {}", template_id)))?;
+            .ok_or_else(|| AppError::template_error(template_id, "模板不存在"))?;
+
+        // Validate template is enabled
+        if !template.enabled {
+            return Err(AppError::template_error(template_id, "模板已禁用"));
+        }
 
         Ok(apply_template(&template.content, task_name, user_prompt))
     }

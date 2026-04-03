@@ -3,10 +3,10 @@
 //! Manages protocol templates for document-driven task workflows.
 //! Supports both built-in templates and user-defined custom templates.
 
-use crate::error::Result;
+use crate::error::{AppError, Result};
 use crate::models::scheduler::{
     CreateProtocolTemplateParams, ProtocolTemplate, ProtocolTemplateStore,
-    TaskCategory, TriggerType, get_builtin_protocol_templates,
+    TaskCategory, get_builtin_protocol_templates,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -97,6 +97,18 @@ impl ProtocolTemplateService {
 
     /// Create a custom template
     pub fn create_template(&self, params: CreateProtocolTemplateParams) -> Result<ProtocolTemplate> {
+        // Validate template name
+        let name = params.name.trim();
+        if name.is_empty() {
+            return Err(AppError::ValidationError("模板名称不能为空".to_string()));
+        }
+
+        // Validate protocol config mission template
+        let mission_template = params.protocol_config.mission_template.trim();
+        if mission_template.is_empty() {
+            return Err(AppError::ValidationError("任务目标模板不能为空".to_string()));
+        }
+
         let mut store = self.load_store()?;
 
         // Generate ID
@@ -104,8 +116,8 @@ impl ProtocolTemplateService {
         let id = format!("custom-{}", now);
 
         let template = ProtocolTemplate {
-            id,
-            name: params.name,
+            id: id.clone(),
+            name: name.to_string(),
             description: params.description,
             category: params.category,
             builtin: false,
@@ -132,14 +144,26 @@ impl ProtocolTemplateService {
     pub fn update_template(&self, id: &str, params: CreateProtocolTemplateParams) -> Result<Option<ProtocolTemplate>> {
         // Cannot update built-in templates
         if self.is_builtin_template(id) {
-            return Ok(None);
+            return Err(AppError::template_error(id, "内置模板不能修改"));
+        }
+
+        // Validate template name
+        let name = params.name.trim();
+        if name.is_empty() {
+            return Err(AppError::ValidationError("模板名称不能为空".to_string()));
+        }
+
+        // Validate protocol config mission template
+        let mission_template = params.protocol_config.mission_template.trim();
+        if mission_template.is_empty() {
+            return Err(AppError::ValidationError("任务目标模板不能为空".to_string()));
         }
 
         let mut store = self.load_store()?;
         let now = chrono::Utc::now().timestamp();
 
         if let Some(template) = store.templates.iter_mut().find(|t| t.id == id) {
-            template.name = params.name;
+            template.name = name.to_string();
             template.description = params.description;
             template.category = params.category;
             template.protocol_config = params.protocol_config;
@@ -156,7 +180,7 @@ impl ProtocolTemplateService {
             self.save_store(&store)?;
             Ok(Some(updated))
         } else {
-            Ok(None)
+            Err(AppError::template_error(id, "模板不存在"))
         }
     }
 
@@ -164,7 +188,7 @@ impl ProtocolTemplateService {
     pub fn delete_template(&self, id: &str) -> Result<bool> {
         // Cannot delete built-in templates
         if self.is_builtin_template(id) {
-            return Ok(false);
+            return Err(AppError::template_error(id, "内置模板不能删除"));
         }
 
         let mut store = self.load_store()?;
@@ -175,7 +199,7 @@ impl ProtocolTemplateService {
             self.save_store(&store)?;
             Ok(true)
         } else {
-            Ok(false)
+            Err(AppError::template_error(id, "模板不存在"))
         }
     }
 
@@ -183,8 +207,12 @@ impl ProtocolTemplateService {
     pub fn toggle_template(&self, id: &str, enabled: bool) -> Result<Option<ProtocolTemplate>> {
         // Built-in templates cannot be disabled (they're always enabled)
         if self.is_builtin_template(id) {
-            let builtins = get_builtin_protocol_templates();
-            return Ok(builtins.into_iter().find(|t| t.id == id));
+            if enabled {
+                let builtins = get_builtin_protocol_templates();
+                return Ok(builtins.into_iter().find(|t| t.id == id));
+            } else {
+                return Err(AppError::template_error(id, "内置模板不能禁用"));
+            }
         }
 
         let mut store = self.load_store()?;
@@ -198,7 +226,7 @@ impl ProtocolTemplateService {
             self.save_store(&store)?;
             Ok(Some(updated))
         } else {
-            Ok(None)
+            Err(AppError::template_error(id, "模板不存在"))
         }
     }
 
@@ -211,7 +239,7 @@ impl ProtocolTemplateService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::scheduler::{ProtocolTemplateConfig, TemplateParam, TemplateParamType};
+    use crate::models::scheduler::{ProtocolTemplateConfig, TemplateParam, TemplateParamType, TriggerType};
     use tempfile::TempDir;
 
     fn temp_config_dir() -> (TempDir, PathBuf) {
@@ -307,7 +335,12 @@ mod tests {
             name: "修改内置模板".to_string(),
             description: None,
             category: TaskCategory::Development,
-            protocol_config: ProtocolTemplateConfig::default(),
+            protocol_config: ProtocolTemplateConfig {
+                mission_template: "测试任务目标".to_string(),
+                execution_rules: None,
+                memory_rules: None,
+                custom_sections: None,
+            },
             prompt_template: None,
             params: vec![],
             default_trigger_type: Some(TriggerType::Interval),
@@ -319,7 +352,8 @@ mod tests {
         };
 
         let result = service.update_template("dev-feature", params);
-        assert!(result.unwrap().is_none());
+        // Should return error for built-in template
+        assert!(result.is_err());
     }
 
     #[test]
@@ -328,7 +362,8 @@ mod tests {
         let service = ProtocolTemplateService::new(&config_dir);
 
         let result = service.delete_template("dev-feature");
-        assert!(!result.unwrap());
+        // Should return error for built-in template
+        assert!(result.is_err());
     }
 
     #[test]
@@ -341,7 +376,12 @@ mod tests {
             name: "原始名称".to_string(),
             description: None,
             category: TaskCategory::Development,
-            protocol_config: ProtocolTemplateConfig::default(),
+            protocol_config: ProtocolTemplateConfig {
+                mission_template: "任务目标: {{task}}".to_string(),
+                execution_rules: None,
+                memory_rules: None,
+                custom_sections: None,
+            },
             prompt_template: None,
             params: vec![],
             default_trigger_type: Some(TriggerType::Interval),
@@ -358,7 +398,12 @@ mod tests {
             name: "更新后的名称".to_string(),
             description: Some("更新描述".to_string()),
             category: TaskCategory::Development,
-            protocol_config: ProtocolTemplateConfig::default(),
+            protocol_config: ProtocolTemplateConfig {
+                mission_template: "更新后的任务目标: {{task}}".to_string(),
+                execution_rules: None,
+                memory_rules: None,
+                custom_sections: None,
+            },
             prompt_template: None,
             params: vec![],
             default_trigger_type: Some(TriggerType::Interval),
@@ -384,7 +429,12 @@ mod tests {
             name: "待删除模板".to_string(),
             description: None,
             category: TaskCategory::Development,
-            protocol_config: ProtocolTemplateConfig::default(),
+            protocol_config: ProtocolTemplateConfig {
+                mission_template: "任务目标: {{task}}".to_string(),
+                execution_rules: None,
+                memory_rules: None,
+                custom_sections: None,
+            },
             prompt_template: None,
             params: vec![],
             default_trigger_type: Some(TriggerType::Interval),
@@ -415,7 +465,12 @@ mod tests {
             name: "测试模板".to_string(),
             description: None,
             category: TaskCategory::Development,
-            protocol_config: ProtocolTemplateConfig::default(),
+            protocol_config: ProtocolTemplateConfig {
+                mission_template: "任务目标: {{task}}".to_string(),
+                execution_rules: None,
+                memory_rules: None,
+                custom_sections: None,
+            },
             prompt_template: None,
             params: vec![],
             default_trigger_type: Some(TriggerType::Interval),
@@ -462,10 +517,8 @@ mod tests {
         let (_temp_dir, config_dir) = temp_config_dir();
         let service = ProtocolTemplateService::new(&config_dir);
 
-        // Try to disable a built-in template
-        let result = service.toggle_template("dev-feature", false).unwrap();
-        assert!(result.is_some());
-        // Built-in templates should remain enabled
-        assert!(result.unwrap().enabled);
+        // Try to disable a built-in template - should return error
+        let result = service.toggle_template("dev-feature", false);
+        assert!(result.is_err());
     }
 }
