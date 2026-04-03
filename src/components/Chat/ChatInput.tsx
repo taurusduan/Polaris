@@ -352,7 +352,8 @@ export function ChatInput({
         const items = buildSuggestionItems(workspaces, [], query)
         setSuggestionItems(items)
         setSelectedIndex(0)
-        setShowSuggestions(items.length > 0)
+        // 始终显示建议浮窗，因为文件搜索可能返回结果
+        setShowSuggestions(true)
         setFileWorkspace(null)
         // 同时搜索当前工作区文件
         searchFiles(query)
@@ -387,8 +388,6 @@ export function ChatInput({
 
   // 当 fileMatches 更新时，合并到 suggestionItems
   useEffect(() => {
-    if (!showSuggestions) return
-
     // 重新构建建议列表，包含工作区和文件
     const workspaceItems = suggestionItems.filter(i => i.type === 'workspace')
     const fileItems: SuggestionItem[] = fileMatches.map(f => ({ type: 'file' as const, data: f }))
@@ -396,6 +395,11 @@ export function ChatInput({
 
     if (newItems.length > 0) {
       setSuggestionItems(newItems)
+      // 如果有结果但当前未显示，则显示建议浮窗
+      if (!showSuggestions) {
+        setShowSuggestions(true)
+        setSelectedIndex(0)
+      }
     }
   }, [fileMatches])
 
