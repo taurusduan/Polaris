@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ProtocolDocumentViewer } from './ProtocolDocumentViewer';
 import type { ScheduledTask } from '../../types/scheduler';
 
@@ -233,5 +233,72 @@ describe('ProtocolDocumentViewer', () => {
     await waitFor(() => {
       expect(tauri.schedulerBackupDocument).toHaveBeenCalled();
     });
+  });
+
+  it('supplement tab has direct edit mode with save button', async () => {
+    render(<ProtocolDocumentViewer task={mockTask} onClose={mockOnClose} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('测试任务')).toBeInTheDocument();
+    });
+
+    // 切换到用户补充 Tab
+    const supplementTab = screen.getByRole('button', { name: '用户补充' });
+    fireEvent.click(supplementTab);
+
+    // 应该显示直接编辑模式的保存按钮（没有编辑按钮）
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '清空补充' })).toBeInTheDocument();
+    });
+
+    // 不应该有编辑按钮
+    expect(screen.queryByRole('button', { name: '编辑' })).not.toBeInTheDocument();
+  });
+
+  it('supplement tab allows editing and saving content', async () => {
+    render(<ProtocolDocumentViewer task={mockTask} onClose={mockOnClose} />);
+
+    // Wait for the component to load
+    await waitFor(() => {
+      expect(screen.getByText('测试任务')).toBeInTheDocument();
+    });
+
+    // Wait for content to be loaded (protocol tab by default)
+    await waitFor(() => {
+      expect(screen.getByText(/任务目标: 完成测试/)).toBeInTheDocument();
+    });
+
+    // 切换到用户补充 Tab
+    const supplementTab = screen.getByRole('button', { name: '用户补充' });
+    fireEvent.click(supplementTab);
+
+    // 等待用户补充 Tab 的直接编辑模式出现
+    const textarea = await screen.findByPlaceholderText('输入用户补充内容，保存后生效...');
+    expect(textarea).toHaveValue('用户补充内容');
+
+    // 修改内容 - 使用用户事件来更好地模拟用户输入
+    fireEvent.change(textarea, { target: { value: '新的用户补充内容' } });
+
+    // 验证 textarea 内容已更新
+    await waitFor(() => {
+      expect(textarea).toHaveValue('新的用户补充内容');
+    });
+
+    // 点击保存按钮应该调用 API
+    const saveButton = screen.getByRole('button', { name: '保存' });
+    fireEvent.click(saveButton);
+
+    // 验证保存函数被调用
+    await waitFor(() => {
+      expect(tauri.schedulerUpdateSupplement).toHaveBeenCalled();
+    });
+
+    // 验证调用参数包含正确的路径和工作目录
+    expect(tauri.schedulerUpdateSupplement).toHaveBeenCalledWith(
+      '/path/to/task',
+      '/workspace',
+      expect.any(String)
+    );
   });
 });
