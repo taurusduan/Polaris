@@ -8,11 +8,11 @@
  * - 文件引用 (@/path)
  */
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconSend, IconStop, IconPaperclip } from '../Common/Icons'
 import { useWorkspaceStore, useChatInputStore, useEventChatStore } from '../../stores'
-import { FileSuggestion, WorkspaceSuggestion } from './FileSuggestion'
+import { UnifiedSuggestion, type SuggestionItem } from './FileSuggestion'
 import { AttachmentPreview } from './AttachmentPreview'
 import { AutoResizingTextarea } from './AutoResizingTextarea'
 import { useFileSearch } from '../../hooks/useFileSearch'
@@ -34,8 +34,6 @@ interface ChatInputProps {
   currentWorkDir?: string | null
 }
 
-type SuggestionMode = 'workspace' | 'file' | null
-
 export function ChatInput({
   onSend,
   disabled = false,
@@ -52,16 +50,11 @@ export function ChatInput({
   // 附件状态
   const [attachments, setAttachments] = useState<Attachment[]>([])
 
-  // 工作区建议状态
-  const [showWorkspaceSuggestions, setShowWorkspaceSuggestions] = useState(false)
-  const [selectedWorkspaceIndex, setSelectedWorkspaceIndex] = useState(0)
-  const [workspaceQuery, setWorkspaceQuery] = useState('')
-  const [workspacePosition, setWorkspacePosition] = useState({ top: 0, left: 0 })
-
-  // 文件建议状态
-  const [showFileSuggestions, setShowFileSuggestions] = useState(false)
-  const [selectedFileIndex, setSelectedFileIndex] = useState(0)
-  const [filePosition, setFilePosition] = useState({ top: 0, left: 0 })
+  // 统一建议状态
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestionItems, setSuggestionItems] = useState<SuggestionItem[]>([])
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [suggestionPosition, setSuggestionPosition] = useState({ top: 0, left: 0 })
   const [fileWorkspace, setFileWorkspace] = useState<Workspace | null>(null)
 
   const { currentWorkspaceId, workspaces } = useWorkspaceStore()
@@ -149,25 +142,10 @@ export function ChatInput({
     setAttachmentCount(attachments.length)
   }, [attachments.length, setAttachmentCount])
 
-  // 过滤工作区列表
-  const filteredWorkspaces = useMemo(
-    () => workspaces.filter(w =>
-      w.name.toLowerCase().includes(workspaceQuery.toLowerCase())
-    ),
-    [workspaces, workspaceQuery]
-  )
-
-  // 当前建议模式
-  const suggestionMode: SuggestionMode = useMemo(() => {
-    if (showWorkspaceSuggestions) return 'workspace'
-    if (showFileSuggestions) return 'file'
-    return null
-  }, [showWorkspaceSuggestions, showFileSuggestions])
-
   // 同步建议模式到 store
   useEffect(() => {
-    setSuggestionMode(suggestionMode)
-  }, [suggestionMode, setSuggestionMode])
+    setSuggestionMode(showSuggestions ? 'file' : null)
+  }, [showSuggestions, setSuggestionMode])
 
   // 智能定位建议框
   const calculateSuggestionPosition = useCallback(() => {
@@ -176,7 +154,7 @@ export function ChatInput({
 
     const rect = textarea.getBoundingClientRect()
     const spaceBelow = window.innerHeight - rect.bottom
-    const suggestionHeight = 260
+    const suggestionHeight = 320
     const shouldShowAbove = spaceBelow < suggestionHeight
 
     return {
@@ -274,6 +252,30 @@ export function ChatInput({
     fileInputRef.current?.click()
   }, [])
 
+  // 构建统一建议列表
+  const buildSuggestionItems = useCallback((
+    workspaceList: Workspace[],
+    fileList: FileMatch[],
+    filterQuery?: string
+  ): SuggestionItem[] => {
+    const items: SuggestionItem[] = []
+
+    // 添加工作区
+    const filteredWorkspaces = filterQuery
+      ? workspaceList.filter(w => w.name.toLowerCase().includes(filterQuery.toLowerCase()))
+      : workspaceList
+    filteredWorkspaces.forEach(w => {
+      items.push({ type: 'workspace', data: w })
+    })
+
+    // 添加文件
+    fileList.forEach(f => {
+      items.push({ type: 'file', data: f })
+    })
+
+    return items
+  }, [])
+
   // 检测触发符
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value
@@ -285,22 +287,22 @@ export function ChatInput({
     const cursorPosition = textarea.selectionStart
     const textBeforeCursor = newValue.slice(0, cursorPosition)
 
-    // 1. 检测跨工作区引用 (@workspace:path 或 @/path)
-    // @/path 语法用于在其他工作区中搜索文件
+    // 1. 检测跨工作区引用 (@/path)
     const crossWorkspaceMatch = textBeforeCursor.match(/@\/([^\s]*)$/)
     if (crossWorkspaceMatch) {
       const pathPart = crossWorkspaceMatch[1] || ''
-      setShowWorkspaceSuggestions(true)
-      setShowFileSuggestions(false)
-      setWorkspaceQuery(pathPart)
-      setSelectedWorkspaceIndex(0)
+      const items = buildSuggestionItems(workspaces, [], pathPart)
+      setSuggestionItems(items)
+      setSelectedIndex(0)
+      setShowSuggestions(items.length > 0)
+      setFileWorkspace(null)
 
       const position = calculateSuggestionPosition()
-      setWorkspacePosition({ top: position.top, left: position.left })
+      setSuggestionPosition({ top: position.top, left: position.left })
       return
     }
 
-    // @workspace:path 语法用于指定工作区
+    // 2. 检测 @workspace:path 语法（已指定工作区）
     const workspaceMatch = textBeforeCursor.match(/@([\w\u4e00-\u9fa5-]+):([^\s]*)$/)
     if (workspaceMatch) {
       const workspaceName = workspaceMatch[1]
@@ -311,89 +313,94 @@ export function ChatInput({
       )
 
       if (matchedWorkspace) {
-        setShowWorkspaceSuggestions(false)
-        setShowFileSuggestions(true)
+        // 找到匹配的工作区，显示该工作区的文件
         setFileWorkspace(matchedWorkspace)
-        setSelectedFileIndex(0)
         searchFiles(pathPart, matchedWorkspace)
       } else {
-        setShowWorkspaceSuggestions(true)
-        setShowFileSuggestions(false)
-        setWorkspaceQuery(workspaceName)
-        setSelectedWorkspaceIndex(0)
+        // 未找到工作区，显示工作区列表
+        const items = buildSuggestionItems(workspaces, [], workspaceName)
+        setSuggestionItems(items)
+        setSelectedIndex(0)
+        setShowSuggestions(items.length > 0)
+        setFileWorkspace(null)
       }
 
       const position = calculateSuggestionPosition()
-      setWorkspacePosition({ top: position.top, left: position.left })
+      setSuggestionPosition({ top: position.top, left: position.left })
       return
     }
 
-    // 2. 检测用户正在输入工作区名或文件路径（无冒号）
+    // 3. 检测用户正在输入工作区名或文件路径（无冒号）
     const partialMatch = textBeforeCursor.match(/@([\w\u4e00-\u9fa5-\u4e00-\u9fa5/.\\_-]*)$/)
     if (partialMatch) {
       const query = partialMatch[1]
 
       // 如果包含路径分隔符，说明是在输入当前工作区的文件路径
       if (query.includes('/') || query.includes('\\') || query.includes('.')) {
-        setShowWorkspaceSuggestions(false)
-        setShowFileSuggestions(true)
+        setShowSuggestions(false)
+        setSuggestionItems([])
         setFileWorkspace(null)
-        setSelectedFileIndex(0)
         searchFiles(query)
 
         const position = calculateSuggestionPosition()
-        setFilePosition({ top: position.top, left: position.left })
+        setSuggestionPosition({ top: position.top, left: position.left })
         return
       }
 
-      // 输入中但不含路径分隔符，可能是：
-      // 1. 正在输入工作区名（选择其他工作区）
-      // 2. 正在输入当前工作区文件名的开头（如 @App → App.tsx）
       // 同时显示工作区和当前工作区文件建议
       if (query.length > 0) {
-        setShowWorkspaceSuggestions(true)
-        setShowFileSuggestions(true)
+        const items = buildSuggestionItems(workspaces, [], query)
+        setSuggestionItems(items)
+        setSelectedIndex(0)
+        setShowSuggestions(items.length > 0)
         setFileWorkspace(null)
-        setWorkspaceQuery(query)
-        setSelectedWorkspaceIndex(0)
-        setSelectedFileIndex(0)
-        // 搜索当前工作区文件
+        // 同时搜索当前工作区文件
         searchFiles(query)
 
         const position = calculateSuggestionPosition()
-        setWorkspacePosition({ top: position.top, left: position.left })
-        setFilePosition({ top: position.top, left: position.left })
+        setSuggestionPosition({ top: position.top, left: position.left })
         return
       }
     }
 
-    // 3. 检测单独的 @ 符号（显示工作区列表和当前工作区文件提示）
+    // 4. 检测单独的 @ 符号（显示工作区列表和当前工作区文件提示）
     const atOnlyMatch = textBeforeCursor.match(/@$/)
     if (atOnlyMatch) {
-      // 同时显示工作区建议和当前工作区文件建议
-      setShowWorkspaceSuggestions(true)
-      setShowFileSuggestions(true)
+      const items = buildSuggestionItems(workspaces, [])
+      setSuggestionItems(items)
+      setSelectedIndex(0)
+      setShowSuggestions(items.length > 0)
       setFileWorkspace(null)
-      setWorkspaceQuery('')
-      setSelectedWorkspaceIndex(0)
-      setSelectedFileIndex(0)
       // 搜索当前工作区文件（空查询显示所有）
       searchFiles('')
 
       const position = calculateSuggestionPosition()
-      setWorkspacePosition({ top: position.top, left: position.left })
-      setFilePosition({ top: position.top, left: position.left })
+      setSuggestionPosition({ top: position.top, left: position.left })
       return
     }
 
     // 隐藏所有建议
-    setShowWorkspaceSuggestions(false)
-    setShowFileSuggestions(false)
+    setShowSuggestions(false)
+    setSuggestionItems([])
     clearResults()
-  }, [workspaces, searchFiles, clearResults, calculateSuggestionPosition])
+  }, [workspaces, searchFiles, clearResults, calculateSuggestionPosition, buildSuggestionItems])
 
-  // 选择工作区
-  const selectWorkspace = useCallback((workspace: Workspace) => {
+  // 当 fileMatches 更新时，合并到 suggestionItems
+  useEffect(() => {
+    if (!showSuggestions) return
+
+    // 重新构建建议列表，包含工作区和文件
+    const workspaceItems = suggestionItems.filter(i => i.type === 'workspace')
+    const fileItems: SuggestionItem[] = fileMatches.map(f => ({ type: 'file' as const, data: f }))
+    const newItems = [...workspaceItems, ...fileItems]
+
+    if (newItems.length > 0) {
+      setSuggestionItems(newItems)
+    }
+  }, [fileMatches])
+
+  // 选择建议项
+  const selectSuggestion = useCallback((item: SuggestionItem) => {
     const textarea = textareaRef.current
     if (!textarea) return
 
@@ -401,44 +408,31 @@ export function ChatInput({
     const textBeforeCursor = value.slice(0, cursorPosition)
     const textAfterCursor = value.slice(cursorPosition)
 
-    const newText = textBeforeCursor.replace(/@[\w\u4e00-\u9fa5-]*$/, `@${workspace.name}:`) + textAfterCursor
+    let newText: string
+
+    if (item.type === 'workspace') {
+      const workspace = item.data as Workspace
+      newText = textBeforeCursor.replace(/@[\w\u4e00-\u9fa5-/]*$/, `@${workspace.name}:`) + textAfterCursor
+    } else {
+      const file = item.data as FileMatch
+      if (fileWorkspace) {
+        // 跨工作区引用: @workspace:path
+        newText = textBeforeCursor.replace(/@[\w\u4e00-\u9fa5-]+:[^\s]*$/, `@${fileWorkspace.name}:${file.relativePath} `) + textAfterCursor
+      } else {
+        // 当前工作区引用: @path
+        newText = textBeforeCursor.replace(/@[^\s]*$/, `@${file.relativePath} `) + textAfterCursor
+      }
+    }
+
     setValue(newText)
-    setShowWorkspaceSuggestions(false)
+    setShowSuggestions(false)
+    setSuggestionItems([])
+    setFileWorkspace(null)
 
     setTimeout(() => {
       textarea.focus()
       const newCursorPos = newText.length - textAfterCursor.length
       textarea.setSelectionRange(newCursorPos, newCursorPos)
-      const inputEvent = new Event('input', { bubbles: true })
-      textarea.dispatchEvent(inputEvent)
-    }, 0)
-  }, [value])
-
-  // 选择文件
-  const selectFile = useCallback((file: FileMatch) => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-
-    const cursorPosition = textarea.selectionStart
-    const textBeforeCursor = value.slice(0, cursorPosition)
-    const textAfterCursor = value.slice(cursorPosition)
-
-    let replacement: string
-    if (fileWorkspace) {
-      // 跨工作区引用: @workspace:path
-      replacement = textBeforeCursor.replace(/@[\w\u4e00-\u9fa5-]+:[^\s]*$/, `@${fileWorkspace.name}:${file.relativePath} `)
-    } else {
-      // 当前工作区引用: @path
-      replacement = textBeforeCursor.replace(/@[^\s]*$/, `@${file.relativePath} `)
-    }
-
-    const newText = replacement + textAfterCursor
-    setValue(newText)
-    setShowFileSuggestions(false)
-
-    setTimeout(() => {
-      textarea.focus()
-      textarea.setSelectionRange(newText.length - textAfterCursor.length, newText.length - textAfterCursor.length)
     }, 0)
   }, [value, fileWorkspace])
 
@@ -454,8 +448,8 @@ export function ChatInput({
   const resetInput = useCallback(() => {
     setValue('')
     setAttachments([])
-    setShowWorkspaceSuggestions(false)
-    setShowFileSuggestions(false)
+    setShowSuggestions(false)
+    setSuggestionItems([])
     clearResults()
   }, [clearResults])
 
@@ -463,19 +457,9 @@ export function ChatInput({
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       // 如果建议框打开，选择建议
-      if (showWorkspaceSuggestions) {
+      if (showSuggestions && suggestionItems.length > 0) {
         e.preventDefault()
-        if (filteredWorkspaces.length > 0) {
-          selectWorkspace(filteredWorkspaces[selectedWorkspaceIndex])
-        }
-        return
-      }
-
-      if (showFileSuggestions) {
-        e.preventDefault()
-        if (fileMatches.length > 0) {
-          selectFile(fileMatches[selectedFileIndex])
-        }
+        selectSuggestion(suggestionItems[selectedIndex])
         return
       }
 
@@ -486,26 +470,13 @@ export function ChatInput({
     }
 
     // 上下箭头选择建议
-    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && suggestionMode) {
+    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && showSuggestions && suggestionItems.length > 0) {
       e.preventDefault()
 
-      let items: unknown[] = []
-      let setState: ((fn: (prev: number) => number) => void) | undefined
-
-      if (showWorkspaceSuggestions) {
-        items = filteredWorkspaces
-        setState = setSelectedWorkspaceIndex
-      } else if (showFileSuggestions) {
-        items = fileMatches
-        setState = setSelectedFileIndex
-      }
-
-      if (items.length === 0 || !setState) return
-
-      const maxIndex = items.length - 1
+      const maxIndex = suggestionItems.length - 1
       const direction = e.key === 'ArrowUp' ? -1 : 1
 
-      setState(prev => {
+      setSelectedIndex(prev => {
         const newIndex = prev + direction
         if (newIndex < 0) return maxIndex
         if (newIndex > maxIndex) return 0
@@ -516,32 +487,22 @@ export function ChatInput({
 
     // ESC 关闭建议
     if (e.key === 'Escape') {
-      setShowWorkspaceSuggestions(false)
-      setShowFileSuggestions(false)
+      setShowSuggestions(false)
+      setSuggestionItems([])
       clearResults()
       return
     }
 
     // Tab 选择建议
-    if (e.key === 'Tab' && !e.shiftKey && suggestionMode) {
+    if (e.key === 'Tab' && !e.shiftKey && showSuggestions && suggestionItems.length > 0) {
       e.preventDefault()
-
-      if (showWorkspaceSuggestions && filteredWorkspaces.length > 0) {
-        selectWorkspace(filteredWorkspaces[selectedWorkspaceIndex])
-      } else if (showFileSuggestions && fileMatches.length > 0) {
-        selectFile(fileMatches[selectedFileIndex])
-      }
+      selectSuggestion(suggestionItems[selectedIndex])
     }
   }, [
-    showWorkspaceSuggestions,
-    showFileSuggestions,
-    suggestionMode,
-    filteredWorkspaces,
-    fileMatches,
-    selectedWorkspaceIndex,
-    selectedFileIndex,
-    selectWorkspace,
-    selectFile,
+    showSuggestions,
+    suggestionItems,
+    selectedIndex,
+    selectSuggestion,
     clearResults,
     handleSend,
   ])
@@ -549,8 +510,8 @@ export function ChatInput({
   // 点击外部关闭建议
   useEffect(() => {
     const handleClickOutside = () => {
-      setShowWorkspaceSuggestions(false)
-      setShowFileSuggestions(false)
+      setShowSuggestions(false)
+      setSuggestionItems([])
     }
 
     document.addEventListener('click', handleClickOutside)
@@ -633,31 +594,15 @@ export function ChatInput({
         </div>
       </div>
 
-      {/* 工作区建议 */}
-      {showWorkspaceSuggestions && filteredWorkspaces.length > 0 && (
-        <WorkspaceSuggestion
-          workspaces={filteredWorkspaces}
+      {/* 统一建议浮窗 */}
+      {showSuggestions && suggestionItems.length > 0 && (
+        <UnifiedSuggestion
+          items={suggestionItems}
+          selectedIndex={selectedIndex}
+          onSelect={selectSuggestion}
+          onHover={setSelectedIndex}
+          position={suggestionPosition}
           currentWorkspaceId={currentWorkspaceId}
-          selectedIndex={selectedWorkspaceIndex}
-          onSelect={selectWorkspace}
-          onHover={setSelectedWorkspaceIndex}
-          position={workspacePosition}
-        />
-      )}
-
-      {/* 文件建议 */}
-      {showFileSuggestions && fileMatches.length > 0 && (
-        <FileSuggestion
-          files={fileMatches}
-          selectedIndex={selectedFileIndex}
-          onSelect={selectFile}
-          onHover={setSelectedFileIndex}
-          position={{
-            top: showWorkspaceSuggestions && filteredWorkspaces.length > 0
-              ? workspacePosition.top + Math.min(filteredWorkspaces.length, 5) * 40 + 50
-              : filePosition.top,
-            left: filePosition.left,
-          }}
         />
       )}
     </div>
