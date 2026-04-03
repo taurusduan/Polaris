@@ -330,7 +330,8 @@ export function ChatInput({
     }
 
     // 3. 检测当前工作区文件引用 (@/path)
-    const fileMatch = textBeforeCursor.match(/@\/(.*)$/)
+    // 使用 [^\s]* 确保只匹配最后一个 @/ 开始的路径，避免匹配到前面已有路径的内容
+    const fileMatch = textBeforeCursor.match(/@\/([^\s]*)$/)
     if (fileMatch) {
       setShowWorkspaceSuggestions(false)
       setShowFileSuggestions(true)
