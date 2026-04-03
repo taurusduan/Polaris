@@ -284,6 +284,16 @@ impl TaskStorage for LocalFileStorage {
             return Err(AppError::ValidationError("任务名称不能为空".to_string()));
         }
 
+        // Validate trigger value
+        if params.trigger_value.trim().is_empty() {
+            return Err(AppError::ValidationError("触发表达式不能为空".to_string()));
+        }
+
+        // Validate trigger value format
+        if let Err(e) = Self::validate_trigger_value(&params.trigger_type, &params.trigger_value) {
+            return Err(e);
+        }
+
         let mut data = self.read_tasks_file()?;
         let now = Utc::now().timestamp();
         let id = Uuid::new_v4().to_string();
@@ -328,23 +338,89 @@ impl TaskStorage for LocalFileStorage {
         Ok(task)
     }
 
+    /// Validate trigger value based on trigger type
+    fn validate_trigger_value(trigger_type: &TriggerType, value: &str) -> Result<()> {
+        match trigger_type {
+            TriggerType::Interval => {
+                // Validate interval format (e.g., "1h", "30m", "1d")
+                let value = value.trim();
+                if value.is_empty() {
+                    return Err(AppError::ValidationError("间隔时间不能为空".to_string()));
+                }
+
+                // Parse the interval string
+                let num_part: String = value.chars().take_while(|c| c.is_ascii_digit()).collect();
+                let unit_part: String = value.chars().skip_while(|c| c.is_ascii_digit()).collect();
+
+                if num_part.is_empty() || unit_part.is_empty() {
+                    return Err(AppError::ValidationError(
+                        "间隔时间格式无效，请使用如 '1h', '30m', '1d' 的格式".to_string()
+                    ));
+                }
+
+                let num: u64 = num_part.parse().map_err(|_| {
+                    AppError::ValidationError("间隔时间数字部分无效".to_string())
+                })?;
+
+                if num == 0 {
+                    return Err(AppError::ValidationError("间隔时间不能为零".to_string()));
+                }
+
+                if !matches!(unit_part.as_str(), "s" | "m" | "h" | "d" | "w") {
+                    return Err(AppError::ValidationError(
+                        "间隔时间单位无效，请使用 s(秒), m(分), h(时), d(天), w(周)".to_string()
+                    ));
+                }
+            }
+            TriggerType::Cron => {
+                // Validate cron expression
+                let value = value.trim();
+                if value.is_empty() {
+                    return Err(AppError::ValidationError("Cron 表达式不能为空".to_string()));
+                }
+
+                // Basic cron validation: 5 or 6 fields
+                let fields: Vec<&str> = value.split_whitespace().collect();
+                if fields.len() < 5 || fields.len() > 6 {
+                    return Err(AppError::ValidationError(
+                        "Cron 表达式格式无效，应为 5 或 6 个字段".to_string()
+                    ));
+                }
+            }
+            TriggerType::Once => {
+                // For one-time tasks, validate the timestamp or relative time
+                let value = value.trim();
+                if value.is_empty() {
+                    return Err(AppError::ValidationError("触发时间不能为空".to_string()));
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn update_task(&self, id: &str, updates: TaskUpdateParams) -> Result<ScheduledTask> {
         let mut data = self.read_tasks_file()?;
         let task = data
             .tasks
             .iter_mut()
             .find(|t| t.id == id)
-            .ok_or_else(|| AppError::ValidationError(format!("任务不存在: {}", id)))?;
+            .ok_or_else(|| AppError::task_error(id, "任务不存在"))?;
 
         if let Some(name) = updates.name.as_ref() {
             let trimmed = name.trim();
-            if !trimmed.is_empty() {
-                task.name = trimmed.to_string();
+            if trimmed.is_empty() {
+                return Err(AppError::ValidationError("任务名称不能为空".to_string()));
             }
+            task.name = trimmed.to_string();
         }
 
         if let Some(enabled) = updates.enabled {
             task.enabled = enabled;
+        }
+
+        // Validate trigger value if being updated
+        if let (Some(trigger_type), Some(trigger_value)) = (&updates.trigger_type, &updates.trigger_value) {
+            Self::validate_trigger_value(trigger_type, trigger_value)?;
         }
 
         if let Some(trigger_type) = updates.trigger_type {
@@ -352,7 +428,11 @@ impl TaskStorage for LocalFileStorage {
         }
 
         if let Some(trigger_value) = updates.trigger_value.as_ref() {
-            task.trigger_value = trigger_value.clone();
+            let trimmed = trigger_value.trim();
+            if trimmed.is_empty() {
+                return Err(AppError::ValidationError("触发表达式不能为空".to_string()));
+            }
+            task.trigger_value = trimmed.to_string();
         }
 
         if let Some(engine_id) = updates.engine_id.as_ref() {
@@ -452,7 +532,7 @@ impl TaskStorage for LocalFileStorage {
             .tasks
             .iter()
             .position(|t| t.id == id)
-            .ok_or_else(|| AppError::ValidationError(format!("任务不存在: {}", id)))?;
+            .ok_or_else(|| AppError::task_error(id, "任务不存在"))?;
         let removed = data.tasks.remove(index);
         self.write_tasks_file(&data)?;
         Ok(removed)
@@ -464,7 +544,7 @@ impl TaskStorage for LocalFileStorage {
             .tasks
             .iter_mut()
             .find(|t| t.id == id)
-            .ok_or_else(|| AppError::ValidationError(format!("任务不存在: {}", id)))?;
+            .ok_or_else(|| AppError::task_error(id, "任务不存在"))?;
 
         let now = Utc::now().timestamp();
         task.last_run_at = Some(now);
@@ -530,6 +610,11 @@ impl TaskStorage for LocalFileStorage {
             return Err(AppError::ValidationError("模板名称不能为空".to_string()));
         }
 
+        // Validate template content
+        if params.content.trim().is_empty() {
+            return Err(AppError::ValidationError("模板内容不能为空".to_string()));
+        }
+
         let mut templates_data = self.read_templates_file()?;
         let now = Utc::now().timestamp();
         let id = Uuid::new_v4().to_string();
@@ -550,14 +635,25 @@ impl TaskStorage for LocalFileStorage {
     }
 
     fn update_template(&self, template: PromptTemplate) -> Result<PromptTemplate> {
+        // Validate template name
+        let name = template.name.trim();
+        if name.is_empty() {
+            return Err(AppError::ValidationError("模板名称不能为空".to_string()));
+        }
+
+        // Validate template content
+        if template.content.trim().is_empty() {
+            return Err(AppError::ValidationError("模板内容不能为空".to_string()));
+        }
+
         let mut templates_data = self.read_templates_file()?;
         let existing = templates_data
             .templates
             .iter_mut()
             .find(|t| t.id == template.id)
-            .ok_or_else(|| AppError::ValidationError(format!("模板不存在: {}", template.id)))?;
+            .ok_or_else(|| AppError::template_error(&template.id, "模板不存在"))?;
 
-        existing.name = template.name;
+        existing.name = name.to_string();
         existing.description = template.description;
         existing.content = template.content;
         existing.enabled = template.enabled;
@@ -574,7 +670,7 @@ impl TaskStorage for LocalFileStorage {
             .templates
             .iter()
             .position(|t| t.id == id)
-            .ok_or_else(|| AppError::ValidationError(format!("模板不存在: {}", id)))?;
+            .ok_or_else(|| AppError::template_error(id, "模板不存在"))?;
 
         templates_data.templates.remove(index);
         self.write_templates_file(&templates_data)?;
@@ -587,7 +683,7 @@ impl TaskStorage for LocalFileStorage {
             .templates
             .iter_mut()
             .find(|t| t.id == id)
-            .ok_or_else(|| AppError::ValidationError(format!("模板不存在: {}", id)))?;
+            .ok_or_else(|| AppError::template_error(id, "模板不存在"))?;
 
         template.enabled = enabled;
         template.updated_at = Utc::now().timestamp();

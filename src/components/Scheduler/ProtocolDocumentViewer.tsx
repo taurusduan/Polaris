@@ -28,9 +28,6 @@ export function ProtocolDocumentViewer({ task, onClose }: ProtocolDocumentViewer
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [saving, setSaving] = useState(false);
-  // 用户补充 Tab 的直接编辑模式
-  const [supplementContent, setSupplementContent] = useState('');
-  const [supplementSaving, setSupplementSaving] = useState(false);
 
   // 加载文档
   useEffect(() => {
@@ -47,7 +44,6 @@ export function ProtocolDocumentViewer({ task, onClose }: ProtocolDocumentViewer
           task.workDir || ''
         );
         setDocuments(docs);
-        setSupplementContent(docs.supplement || '');
       } catch (e) {
         console.error('加载协议文档失败:', e);
         toast.error(t('protocolDoc.loadFailed', '加载协议文档失败'), e instanceof Error ? e.message : '');
@@ -89,9 +85,6 @@ export function ProtocolDocumentViewer({ task, onClose }: ProtocolDocumentViewer
     memory: t('protocolDoc.memory', '记忆索引'),
     tasks: t('protocolDoc.tasks', '任务队列'),
   };
-
-  // 是否是用户补充 Tab（支持直接编辑模式）
-  const isSupplementTab = activeTab === 'supplement';
 
   // 开始编辑
   const handleStartEdit = () => {
@@ -152,30 +145,12 @@ export function ProtocolDocumentViewer({ task, onClose }: ProtocolDocumentViewer
         task.workDir || ''
       );
       setDocuments(docs);
-      setSupplementContent('');
       toast.success(t('protocolDoc.clearSuccess', '已清空用户补充'));
     } catch (e) {
       console.error('清空用户补充失败:', e);
       toast.error(t('protocolDoc.clearFailed', '清空失败'), e instanceof Error ? e.message : '');
     } finally {
       setSaving(false);
-    }
-  };
-
-  // 保存用户补充（直接编辑模式）
-  const handleSaveSupplement = async () => {
-    if (!task.taskPath) return;
-
-    setSupplementSaving(true);
-    try {
-      await tauri.schedulerUpdateSupplement(task.taskPath, task.workDir || '', supplementContent);
-      setDocuments((prev) => prev ? { ...prev, supplement: supplementContent } : null);
-      toast.success(t('protocolDoc.saveSuccess', '保存成功'));
-    } catch (e) {
-      console.error('保存用户补充失败:', e);
-      toast.error(t('protocolDoc.saveFailed', '保存失败'), e instanceof Error ? e.message : '');
-    } finally {
-      setSupplementSaving(false);
     }
   };
 
@@ -298,41 +273,6 @@ export function ProtocolDocumentViewer({ task, onClose }: ProtocolDocumentViewer
                 </button>
               </div>
             </div>
-          ) : isSupplementTab ? (
-            // 用户补充 Tab：直接编辑模式
-            <div className="flex-1 min-h-0 flex flex-col">
-              <textarea
-                value={supplementContent}
-                onChange={(e) => setSupplementContent(e.target.value)}
-                className="flex-1 min-h-0 w-full p-4 bg-background-base text-text-primary font-mono text-sm resize-none focus:outline-none overflow-auto"
-                placeholder={t('protocolDoc.supplementPlaceholder', '输入用户补充内容，保存后生效...')}
-              />
-              <div className="px-5 py-3 border-t border-border-subtle flex justify-between shrink-0">
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleClearSupplement}
-                    disabled={saving || supplementSaving}
-                    className="px-3 py-1.5 text-sm bg-warning-faint text-warning hover:bg-warning/20 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {t('protocolDoc.clearSupplement', '清空补充')}
-                  </button>
-                  <button
-                    onClick={handleBackup}
-                    disabled={saving || supplementSaving}
-                    className="px-3 py-1.5 text-sm bg-info-faint text-info hover:bg-info/20 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {t('protocolDoc.backup', '备份文档')}
-                  </button>
-                </div>
-                <button
-                  onClick={handleSaveSupplement}
-                  disabled={supplementSaving}
-                  className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors text-sm disabled:opacity-50"
-                >
-                  {supplementSaving ? t('protocolDoc.saving', '保存中...') : t('editor.save', '保存')}
-                </button>
-              </div>
-            </div>
           ) : (
             <div className="flex-1 min-h-0 flex flex-col">
               <div className="flex-1 min-h-0 overflow-auto p-4">
@@ -342,6 +282,15 @@ export function ProtocolDocumentViewer({ task, onClose }: ProtocolDocumentViewer
               </div>
               <div className="px-5 py-3 border-t border-border-subtle flex justify-between shrink-0">
                 <div className="flex gap-2">
+                  {activeTab === 'supplement' && (
+                    <button
+                      onClick={handleClearSupplement}
+                      disabled={saving}
+                      className="px-3 py-1.5 text-sm bg-warning-faint text-warning hover:bg-warning/20 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {t('protocolDoc.clearSupplement', '清空补充')}
+                    </button>
+                  )}
                   <button
                     onClick={handleBackup}
                     disabled={saving}

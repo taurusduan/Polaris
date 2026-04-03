@@ -81,6 +81,37 @@ pub enum AppError {
     #[error("State error: {0}")]
     StateError(String),
 
+    /// 调度器错误
+    #[error("Scheduler error: {0}")]
+    SchedulerError(String),
+
+    /// 任务错误
+    #[error("Task error: {task_id}: {message}")]
+    TaskError {
+        /// 任务 ID
+        task_id: String,
+        /// 错误信息
+        message: String,
+    },
+
+    /// 模板错误
+    #[error("Template error: {template_id}: {message}")]
+    TemplateError {
+        /// 模板 ID
+        template_id: String,
+        /// 错误信息
+        message: String,
+    },
+
+    /// 协议错误
+    #[error("Protocol error: {message}")]
+    ProtocolError {
+        /// 错误信息
+        message: String,
+        /// 任务路径（可选）
+        task_path: Option<String>,
+    },
+
     /// 其他错误
     #[error("Unknown error: {0}")]
     Unknown(String),
@@ -105,7 +136,41 @@ impl AppError {
             AppError::ApiError(e) => format!("API 错误: {}", e),
             AppError::ValidationError(e) => format!("验证错误: {}", e),
             AppError::StateError(e) => format!("状态错误: {}", e),
+            AppError::SchedulerError(e) => format!("调度器错误: {}", e),
+            AppError::TaskError { task_id, message } => format!("任务错误 [{}]: {}", task_id, message),
+            AppError::TemplateError { template_id, message } => format!("模板错误 [{}]: {}", template_id, message),
+            AppError::ProtocolError { message, task_path } => {
+                if let Some(path) = task_path {
+                    format!("协议错误 [{}]: {}", path, message)
+                } else {
+                    format!("协议错误: {}", message)
+                }
+            }
             AppError::Unknown(e) => format!("未知错误: {}", e),
+        }
+    }
+
+    /// 创建任务错误
+    pub fn task_error(task_id: impl Into<String>, message: impl Into<String>) -> Self {
+        AppError::TaskError {
+            task_id: task_id.into(),
+            message: message.into(),
+        }
+    }
+
+    /// 创建模板错误
+    pub fn template_error(template_id: impl Into<String>, message: impl Into<String>) -> Self {
+        AppError::TemplateError {
+            template_id: template_id.into(),
+            message: message.into(),
+        }
+    }
+
+    /// 创建协议错误
+    pub fn protocol_error(message: impl Into<String>, task_path: Option<String>) -> Self {
+        AppError::ProtocolError {
+            message: message.into(),
+            task_path,
         }
     }
 }
