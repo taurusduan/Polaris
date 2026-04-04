@@ -16,10 +16,14 @@ import type {
   SessionManagerActions,
   SessionMetadata,
   CreateSessionOptions,
+  StoreDeps,
 } from './types'
 import { createConversationStore } from './createConversationStore'
 import { useEventChatStore } from '../eventChatStore'
 import { handleAIEvent as oldHandleAIEvent } from '../eventChatStore/utils'
+import { getEventRouter } from '../../services/eventRouter'
+import { useConfigStore } from '../configStore'
+import { useWorkspaceStore } from '../workspaceStore'
 import { useMemo } from 'react'
 
 // ============================================================================
@@ -69,8 +73,23 @@ function createSessionManagerStore() {
         updatedAt: timestamp,
       }
 
-      // 创建独立的 ConversationStore
-      const conversationStore = createConversationStore(sessionId)
+      // 构建依赖注入
+      const contextId = `session-${sessionId}`
+      const deps: StoreDeps = {
+        getConfig: () => {
+          const state = useConfigStore.getState()
+          return state.config as { defaultEngine?: string } | null
+        },
+        getWorkspace: () => {
+          const state = useWorkspaceStore.getState()
+          return state.getCurrentWorkspace()
+        },
+        getEventRouter: () => getEventRouter(),
+        contextId,
+      }
+
+      // 创建独立的 ConversationStore（注入依赖）
+      const conversationStore = createConversationStore(sessionId, deps)
 
       set((state) => {
         const newStores = new Map(state.stores)

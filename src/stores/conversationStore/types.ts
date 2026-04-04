@@ -8,6 +8,7 @@ import type {
   ChatMessage,
   ContentBlock,
   ToolStatus,
+  Workspace,
 } from '../../types'
 import type {
   CurrentAssistantMessage,
@@ -16,6 +17,27 @@ import type {
 } from '../eventChatStore/types'
 import type { AIEvent } from '../../ai-runtime'
 import type { StoreApi, UseBoundStore } from 'zustand'
+import type { EventRouter } from '../../services/eventRouter'
+
+// ============================================================================
+// 依赖注入接口
+// ============================================================================
+
+/**
+ * ConversationStore 外部依赖
+ *
+ * 通过依赖注入解耦与全局 Store 的直接依赖
+ */
+export interface StoreDeps {
+  /** 获取配置（简化版，只关心 defaultEngine） */
+  getConfig: () => { defaultEngine?: string } | null
+  /** 获取当前工作区 */
+  getWorkspace: () => Workspace | null
+  /** 获取事件路由器 */
+  getEventRouter: () => EventRouter
+  /** 事件路由标识（独立 contextId） */
+  contextId: string
+}
 
 // ============================================================================
 // 会话状态

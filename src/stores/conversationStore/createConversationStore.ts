@@ -6,8 +6,10 @@
 
 import { create, StoreApi, UseBoundStore } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
-import type { ConversationStore, ConversationState } from './types'
+import { invoke } from '@tauri-apps/api/core'
+import type { ConversationStore, ConversationState, StoreDeps } from './types'
 import { handleAIEvent } from './eventHandler'
+import { toAppError, ErrorSource } from '../../types/errors'
 
 /**
  * ConversationStore 实例类型（包含 getState 方法）
@@ -58,8 +60,14 @@ function createInitialState(sessionId: string): ConversationState {
  * - 流式构建状态
  * - 会话 ID 和错误状态
  * - 事件处理能力
+ *
+ * @param sessionId 会话唯一标识（前端生成）
+ * @param deps 外部依赖注入
  */
-export function createConversationStore(sessionId: string): ConversationStoreInstance {
+export function createConversationStore(
+  sessionId: string,
+  deps: StoreDeps
+): ConversationStoreInstance {
   const initialState = createInitialState(sessionId)
 
   const store = create<ConversationStore>()(
@@ -583,14 +591,115 @@ export function createConversationStore(sessionId: string): ConversationStoreIns
       handleAIEvent: (event) => handleAIEvent(event, set, get),
 
       // ===== 主动操作 =====
-      sendMessage: async (_content, _workspaceDir?, _attachments?) => {
-        // TODO: 实现发送消息
-        console.log('[ConversationStore] sendMessage not implemented yet')
+
+      sendMessage: async (content, workspaceDir?, attachments?) => {
+        const { conversationId, sessionId } = get()
+        const config = deps.getConfig()
+        const engine = config?.defaultEngine || 'claude-code'
+
+        // 获取工作区路径（提前声明，用于错误处理）
+        const actualWorkspaceDir = workspaceDir || deps.getWorkspace()?.path
+
+        // 构建用户消息
+        const userMessage = {
+          id: crypto.randomUUID(),
+          type: 'user' as const,
+          content,
+          timestamp: new Date().toISOString(),
+          attachments: attachments?.map(a => ({
+            id: a.id,
+            type: a.type,
+            fileName: a.fileName,
+            fileSize: a.fileSize,
+            preview: a.preview,
+          })),
+        }
+        get().addMessage(userMessage)
+
+        // 设置流式状态
+        set({
+          isStreaming: true,
+          error: null,
+          currentMessage: null,
+          toolBlockMap: new Map(),
+        })
+
+        try {
+          // 初始化事件路由器
+          const router = deps.getEventRouter()
+          await router.initialize()
+
+          // 准备附件数据
+          const attachmentsForBackend = attachments?.map(a => ({
+            type: a.type,
+            fileName: a.fileName,
+            mimeType: a.mimeType,
+            content: a.content,
+          }))
+
+          // 调用后端 API
+          if (conversationId) {
+            // 继续会话
+            await invoke('continue_chat', {
+              sessionId: conversationId,
+              message: content,
+              options: {
+                workDir: actualWorkspaceDir,
+                contextId: deps.contextId,
+                engineId: engine,
+                enableMcpTools: engine === 'claude-code',
+                attachments: attachmentsForBackend,
+              },
+            })
+          } else {
+            // 新会话
+            const newSessionId = await invoke<string>('start_chat', {
+              message: content,
+              options: {
+                workDir: actualWorkspaceDir,
+                contextId: deps.contextId,
+                engineId: engine,
+                enableMcpTools: engine === 'claude-code',
+                attachments: attachmentsForBackend,
+              },
+            })
+            // 注意：这里设置的是临时 sessionId，真实的会话 ID 通过 session_start 事件设置
+            set({ conversationId: newSessionId })
+          }
+        } catch (e) {
+          const appError = toAppError(e, {
+            source: ErrorSource.AI,
+            context: { sessionId, workspaceDir: actualWorkspaceDir }
+          })
+
+          set({
+            error: appError.getUserMessage(),
+            isStreaming: false,
+            currentMessage: null,
+            progressMessage: null,
+          })
+        }
       },
 
       interrupt: async () => {
-        // TODO: 实现中断
-        console.log('[ConversationStore] interrupt not implemented yet')
+        const { conversationId, isStreaming } = get()
+        if (!conversationId || !isStreaming) return
+
+        const config = deps.getConfig()
+        const engine = config?.defaultEngine || 'claude-code'
+
+        try {
+          await invoke('interrupt_chat', {
+            sessionId: conversationId,
+            engineId: engine,
+          })
+          set({ isStreaming: false })
+          get().finishMessage()
+        } catch (e) {
+          console.error('[ConversationStore] interrupt failed:', e)
+          // 即使中断失败，也停止流式状态
+          set({ isStreaming: false })
+        }
       },
 
       regenerateResponse: async (_assistantMessageId) => {
