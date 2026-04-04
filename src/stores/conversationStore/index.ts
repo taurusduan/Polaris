@@ -20,6 +20,13 @@ export {
   useCompletedNotifications,
   useSessionManagerActions,
 } from './sessionStoreManager'
+export {
+  useActiveSession,
+  useActiveSessionChat,
+  useActiveSessionMessages,
+  useActiveSessionStreaming,
+  useActiveSessionActions,
+} from './useActiveSession'
 
 export type {
   ConversationStore,

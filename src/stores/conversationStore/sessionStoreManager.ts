@@ -403,6 +403,12 @@ export const sessionStoreManager = createSessionManagerStore()
 
 /**
  * 获取当前活跃会话的 Store
+ *
+ * 注意：此 hook 返回的 store 实例不会自动触发重渲染
+ * 如需响应状态变化，请使用：
+ * - useActiveSessionMessages() - 订阅消息列表
+ * - useActiveSessionStreaming() - 订阅流式状态
+ * - useActiveSessionActions() - 获取操作方法
  */
 export function useActiveConversationStore(): ConversationStore | undefined {
   const sessionId = useStore(sessionStoreManager, (state) => state.activeSessionId)
