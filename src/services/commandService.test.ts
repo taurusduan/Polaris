@@ -8,7 +8,7 @@
  * - 帮助信息生成
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeAll } from 'vitest'
 import {
   parseCommandInput,
   convertCommandToPrompt,
@@ -18,6 +18,34 @@ import {
 } from './commandService'
 import type { Command, ParsedCommand } from '../types/command'
 import { builtinCommands } from '../types/command'
+
+// Mock i18n 模块
+vi.mock('../i18n', () => ({
+  default: {
+    t: (key: string) => {
+      // 翻译映射 - 与 commands.json 一致
+      const translations: Record<string, string> = {
+        'commands:list.title': '可用命令',
+        'commands:list.builtin': '内置命令',
+        'commands:list.custom': '自定义命令',
+        'commands:list.usage': '使用 `/命令名 参数` 来执行命令。',
+        'commands:help.title': '帮助',
+        'commands:help.slashCommands': '斜杠命令',
+        'commands:help.slashCommandsHint': '输入 `/` 可以快速访问命令',
+        'commands:help.commandsCmd': '`/commands` - 列出所有可用命令',
+        'commands:help.helpCmd': '`/help` - 显示此帮助信息',
+        'commands:help.fileReferences': '文件引用',
+        'commands:help.fileReferencesHint': '使用 `@文件名` 可以引用工作区中的文件',
+        'commands:help.fileReferencesExample': '例如: `@README.md 请解释这个项目` 会引用该文件内容',
+        'commands:help.examples': '示例',
+        'commands:help.exampleHelp': '`/help` - 显示帮助',
+        'commands:help.exampleCommands': '`/commands` - 列出所有命令',
+        'commands:help.exampleFileRef': '`@README.md 请解释这个项目` - 引用文件并提问',
+      }
+      return translations[key] || key
+    },
+  },
+}))
 
 // ============================================================
 // parseCommandInput 测试
