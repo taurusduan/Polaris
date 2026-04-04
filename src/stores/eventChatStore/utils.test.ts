@@ -788,12 +788,11 @@ describe('handleAIEvent', () => {
     it('应更新问题块的答案', () => {
       const event: AIEvent = {
         type: 'question_answered',
-        callId: 'q-1',
-        answer: {
-          selected: ['a', 'b'],
-          customInput: undefined,
-        },
-      } as any
+        sessionId: 'test-session',
+        questionId: 'q-1',
+        selected: ['a', 'b'],
+        customInput: undefined,
+      }
 
       handleAIEvent(event, mockStore.set, mockStore.get)
 
@@ -806,12 +805,11 @@ describe('handleAIEvent', () => {
     it('应支持自定义输入答案', () => {
       const event: AIEvent = {
         type: 'question_answered',
-        callId: 'q-1',
-        answer: {
-          selected: [],
-          customInput: 'My custom answer',
-        },
-      } as any
+        sessionId: 'test-session',
+        questionId: 'q-1',
+        selected: [],
+        customInput: 'My custom answer',
+      }
 
       handleAIEvent(event, mockStore.set, mockStore.get)
 
@@ -1454,11 +1452,10 @@ describe('handleAIEvent', () => {
       it('question_answered 事件应触发 updateQuestionBlock', () => {
         const event: AIEvent = {
           type: 'question_answered',
-          callId: 'q-1',
-          answer: {
-            selected: ['a'],
-            customInput: undefined,
-          },
+          sessionId: 'test-session',
+          questionId: 'q-1',
+          selected: ['a'],
+          customInput: undefined,
         }
 
         handleAIEvent(event, mockStore.set, mockStore.get)

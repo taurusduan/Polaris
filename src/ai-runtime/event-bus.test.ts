@@ -266,6 +266,8 @@ describe('NamespacedEventBus', () => {
 })
 
 describe('EventBus (Singleton)', () => {
+  const testSessionId = 'test-session'
+
   describe('getInstance()', () => {
     it('should return same instance', () => {
       const instance1 = EventBus.getInstance()
@@ -289,10 +291,10 @@ describe('EventBus (Singleton)', () => {
       const listener = vi.fn()
 
       bus.on('token', listener)
-      bus.emit(createTokenEvent('hello'))
+      bus.emit(createTokenEvent(testSessionId, 'hello'))
 
       expect(listener).toHaveBeenCalledTimes(1)
-      expect(listener).toHaveBeenCalledWith(createTokenEvent('hello'))
+      expect(listener).toHaveBeenCalledWith(createTokenEvent(testSessionId, 'hello'))
     })
 
     it('should support wildcard listener via onAny', () => {
@@ -300,8 +302,8 @@ describe('EventBus (Singleton)', () => {
       const listener = vi.fn()
 
       bus.onAny(listener)
-      bus.emit(createTokenEvent('test'))
-      bus.emit(createErrorEvent('error'))
+      bus.emit(createTokenEvent(testSessionId, 'test'))
+      bus.emit(createErrorEvent(testSessionId, 'error'))
 
       expect(listener).toHaveBeenCalledTimes(2)
     })
@@ -313,8 +315,8 @@ describe('EventBus (Singleton)', () => {
       const listener = vi.fn()
 
       bus.once('token', listener)
-      bus.emit(createTokenEvent('test1'))
-      bus.emit(createTokenEvent('test2'))
+      bus.emit(createTokenEvent(testSessionId, 'test1'))
+      bus.emit(createTokenEvent(testSessionId, 'test2'))
 
       expect(listener).toHaveBeenCalledTimes(1)
     })
@@ -324,21 +326,21 @@ describe('EventBus (Singleton)', () => {
     it('should store emitted events in history', () => {
       const bus = EventBus.getInstance()
 
-      bus.emit(createTokenEvent('test1'))
-      bus.emit(createErrorEvent('error1'))
+      bus.emit(createTokenEvent(testSessionId, 'test1'))
+      bus.emit(createErrorEvent(testSessionId, 'error1'))
 
       const history = bus.getHistory()
       expect(history.length).toBe(2)
-      expect(history[0]).toEqual(createTokenEvent('test1'))
-      expect(history[1]).toEqual(createErrorEvent('error1'))
+      expect(history[0]).toEqual(createTokenEvent(testSessionId, 'test1'))
+      expect(history[1]).toEqual(createErrorEvent(testSessionId, 'error1'))
     })
 
     it('should filter history', () => {
       const bus = EventBus.getInstance()
 
-      bus.emit(createTokenEvent('test1'))
-      bus.emit(createErrorEvent('error1'))
-      bus.emit(createTokenEvent('test2'))
+      bus.emit(createTokenEvent(testSessionId, 'test1'))
+      bus.emit(createErrorEvent(testSessionId, 'error1'))
+      bus.emit(createTokenEvent(testSessionId, 'test2'))
 
       const tokenHistory = bus.getHistory((e) => e.type === 'token')
       expect(tokenHistory.length).toBe(2)
@@ -347,9 +349,9 @@ describe('EventBus (Singleton)', () => {
     it('should get history by type', () => {
       const bus = EventBus.getInstance()
 
-      bus.emit(createTokenEvent('test1'))
-      bus.emit(createErrorEvent('error1'))
-      bus.emit(createTokenEvent('test2'))
+      bus.emit(createTokenEvent(testSessionId, 'test1'))
+      bus.emit(createErrorEvent(testSessionId, 'error1'))
+      bus.emit(createTokenEvent(testSessionId, 'test2'))
 
       const tokenHistory = bus.getHistoryByType('token')
       expect(tokenHistory.length).toBe(2)
@@ -361,7 +363,7 @@ describe('EventBus (Singleton)', () => {
       const bus = EventBus.getInstance({ maxHistory: 3 })
 
       for (let i = 0; i < 5; i++) {
-        bus.emit(createTokenEvent(`test${i}`))
+        bus.emit(createTokenEvent('session-id', `test${i}`))
       }
 
       const history = bus.getHistory()
@@ -377,12 +379,12 @@ describe('EventBus (Singleton)', () => {
       const listener = vi.fn()
 
       bus.on('token', listener)
-      bus.emit(createTokenEvent('test'))
+      bus.emit(createTokenEvent(testSessionId, 'test'))
       bus.clearHistory()
 
       expect(bus.getHistory().length).toBe(0)
       // 监听器仍然存在
-      bus.emit(createTokenEvent('test2'))
+      bus.emit(createTokenEvent(testSessionId, 'test2'))
       expect(listener).toHaveBeenCalledTimes(2)
     })
   })
@@ -393,7 +395,7 @@ describe('EventBus (Singleton)', () => {
       const listener = vi.fn()
 
       bus.on('token', listener)
-      bus.emitBatch([createTokenEvent('test1'), createTokenEvent('test2')])
+      bus.emitBatch([createTokenEvent(testSessionId, 'test1'), createTokenEvent(testSessionId, 'test2')])
 
       expect(listener).toHaveBeenCalledTimes(2)
     })
@@ -405,7 +407,7 @@ describe('EventBus (Singleton)', () => {
       const listener = vi.fn()
 
       bus.on('token', listener)
-      bus.emit(createTokenEvent('test'))
+      bus.emit(createTokenEvent(testSessionId, 'test'))
       bus.clear()
 
       expect(bus.getHistory().length).toBe(0)
@@ -427,12 +429,12 @@ describe('EventBus (Singleton)', () => {
       const listener = vi.fn()
 
       channel.on('token', listener)
-      bus.emit(createTokenEvent('test'))
+      bus.emit(createTokenEvent(testSessionId, 'test'))
 
       expect(listener).toHaveBeenCalledTimes(1)
 
       channel.clear()
-      bus.emit(createTokenEvent('test2'))
+      bus.emit(createTokenEvent(testSessionId, 'test2'))
 
       expect(listener).toHaveBeenCalledTimes(1)
     })
@@ -440,6 +442,7 @@ describe('EventBus (Singleton)', () => {
 })
 
 describe('EventChannel', () => {
+  const testSessionId = 'test-session'
   let bus: EventBus
   let channel: EventChannel
 
@@ -452,7 +455,7 @@ describe('EventChannel', () => {
     const listener = vi.fn()
     channel.on('token', listener)
 
-    bus.emit(createTokenEvent('test'))
+    bus.emit(createTokenEvent(testSessionId, 'test'))
 
     expect(listener).toHaveBeenCalledTimes(1)
   })
@@ -461,7 +464,7 @@ describe('EventChannel', () => {
     const listener = vi.fn()
     bus.onAny(listener)
 
-    channel.emit(createTokenEvent('test'))
+    channel.emit(createTokenEvent(testSessionId, 'test'))
 
     expect(listener).toHaveBeenCalledTimes(1)
     const event = listener.mock.calls[0][0] as AIEvent & { _namespace: string }
@@ -474,6 +477,8 @@ describe('EventChannel', () => {
 })
 
 describe('getEventBus() and resetEventBus()', () => {
+  const testSessionId = 'test-session'
+
   it('getEventBus should return singleton', () => {
     const bus1 = getEventBus()
     const bus2 = getEventBus()
@@ -483,7 +488,7 @@ describe('getEventBus() and resetEventBus()', () => {
 
   it('resetEventBus should reset singleton', () => {
     const bus1 = getEventBus()
-    bus1.emit(createTokenEvent('test'))
+    bus1.emit(createTokenEvent(testSessionId, 'test'))
 
     resetEventBus()
 
@@ -497,7 +502,7 @@ describe('getEventBus() and resetEventBus()', () => {
     const bus = getEventBus({ maxHistory: 5, debug: true })
 
     for (let i = 0; i < 10; i++) {
-      bus.emit(createTokenEvent(`test${i}`))
+      bus.emit(createTokenEvent(testSessionId, `test${i}`))
     }
 
     expect(bus.getHistory().length).toBe(5)
