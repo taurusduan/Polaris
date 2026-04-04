@@ -160,6 +160,33 @@ function createSessionManagerStore() {
       // 如果新会话在后台运行列表中，移出（用户主动切换回来了）
       get().removeFromBackground(sessionId)
 
+      // 同步新会话的状态到旧架构（EventChatStore）
+      // 这确保UI组件能显示正确的消息
+      try {
+        const storeState = store.getState()
+        useEventChatStore.setState({
+          messages: storeState.messages,
+          archivedMessages: storeState.archivedMessages,
+          currentMessage: storeState.currentMessage,
+          isStreaming: storeState.isStreaming,
+          error: storeState.error,
+          conversationId: storeState.conversationId,
+          toolBlockMap: storeState.toolBlockMap,
+          questionBlockMap: storeState.questionBlockMap,
+          planBlockMap: storeState.planBlockMap,
+          activePlanId: storeState.activePlanId,
+          agentRunBlockMap: storeState.agentRunBlockMap,
+          activeTaskId: storeState.activeTaskId,
+          toolGroupBlockMap: storeState.toolGroupBlockMap,
+          pendingToolGroup: storeState.pendingToolGroup,
+          permissionRequestBlockMap: storeState.permissionRequestBlockMap,
+          activePermissionRequestId: storeState.activePermissionRequestId,
+        })
+        console.log('[SessionStoreManager] 同步会话状态到旧架构:', sessionId)
+      } catch (e) {
+        console.warn('[SessionStoreManager] 同步会话状态失败:', e)
+      }
+
       console.log('[SessionStoreManager] 切换会话:', sessionId)
     },
 
@@ -183,9 +210,10 @@ function createSessionManagerStore() {
 
     dispatchEvent: (event: AIEvent & { sessionId: string }) => {
       const { sessionId } = event
+      let activeSessionId = get().activeSessionId
       let store = get().stores.get(sessionId)
 
-      // 如果会话不存在，自动创建（兼容旧架构）
+      // 如果会话不存在，自动创建
       if (!store) {
         console.log('[SessionStoreManager] 事件路由时自动创建会话:', sessionId)
         get().createSession({
@@ -194,6 +222,7 @@ function createSessionManagerStore() {
           title: '新对话',
         })
         store = get().stores.get(sessionId)
+        activeSessionId = get().activeSessionId // 更新活跃会话ID
 
         if (!store) {
           console.error('[SessionStoreManager] 自动创建会话失败:', sessionId)
@@ -201,18 +230,21 @@ function createSessionManagerStore() {
         }
       }
 
-      // 调用该会话的事件处理器
+      // 调用新架构的事件处理器
       store.getState().handleAIEvent(event)
 
-      // 同时触发旧架构的事件处理（兼容过渡期）
-      // 这确保 UI 在新架构完全迁移前仍然可以正常更新
-      try {
-        const oldStore = useEventChatStore
-        const oldState = oldStore.getState()
-        const workspacePath = oldState.getWorkspaceActions?.()?.getCurrentWorkspace()?.path
-        oldHandleAIEvent(event, oldStore.setState, oldStore.getState, workspacePath)
-      } catch (e) {
-        console.warn('[SessionStoreManager] 旧架构事件处理失败:', e)
+      // 对于活跃会话，同步事件到旧架构（EventChatStore）
+      // 这确保当前显示的UI组件能正确更新
+      // 注意：如果activeSessionId为null（首次创建），也同步到旧架构
+      if (sessionId === activeSessionId || !activeSessionId) {
+        try {
+          const oldStore = useEventChatStore
+          const oldState = oldStore.getState()
+          const workspacePath = oldState.getWorkspaceActions?.()?.getCurrentWorkspace()?.path
+          oldHandleAIEvent(event, oldStore.setState, oldStore.getState, workspacePath)
+        } catch (e) {
+          console.warn('[SessionStoreManager] 旧架构事件处理失败:', e)
+        }
       }
 
       // 更新元数据状态

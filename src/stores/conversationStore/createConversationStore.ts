@@ -47,7 +47,6 @@ function createInitialState(sessionId: string): ConversationState {
 
     // 元数据
     sessionId,
-    externalSessionId: null,
   }
 }
 
@@ -576,7 +575,6 @@ export function createConversationStore(sessionId: string): ConversationStoreIns
 
       // ===== 会话控制 =====
       setConversationId: (id) => set({ conversationId: id }),
-      setExternalSessionId: (id) => set({ externalSessionId: id }),
       setStreaming: (streaming) => set({ isStreaming: streaming }),
       setError: (error) => set({ error }),
       setProgressMessage: (message) => set({ progressMessage: message }),

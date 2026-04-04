@@ -58,8 +58,7 @@ export interface ConversationState {
   providerSessionCache: ProviderSessionCache | null
 
   // ===== 元数据 =====
-  sessionId: string // 对应 SessionStore 中的 session.id
-  externalSessionId: string | null // AI 引擎的真实 sessionId
+  sessionId: string // 会话唯一标识，由后端返回或前端生成
 }
 
 // ============================================================================
@@ -115,7 +114,6 @@ export interface ConversationActions {
 
   // ===== 会话控制 =====
   setConversationId: (id: string | null) => void
-  setExternalSessionId: (id: string | null) => void
   setStreaming: (streaming: boolean) => void
   setError: (error: string | null) => void
   setProgressMessage: (message: string | null) => void

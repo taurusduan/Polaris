@@ -20,7 +20,6 @@ export function handleAIEvent(
   switch (event.type) {
     case 'session_start':
       set({
-        externalSessionId: event.sessionId,
         conversationId: event.sessionId,
         isStreaming: true,
         error: null,
