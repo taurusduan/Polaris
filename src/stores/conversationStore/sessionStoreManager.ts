@@ -227,28 +227,34 @@ function createSessionManagerStore() {
 
     // ===== 事件分发 =====
 
-    dispatchEvent: (event: AIEvent & { sessionId: string }) => {
-      const { sessionId } = event
-      let store = get().stores.get(sessionId)
+    dispatchEvent: (event: AIEvent & { sessionId?: string; _routeSessionId?: string }) => {
+      // 使用 _routeSessionId（前端 sessionId）进行路由，如果没有则使用 sessionId
+      // 如果都没有，使用当前活跃会话 ID
+      const routeSessionId = event._routeSessionId || event.sessionId || get().activeSessionId
+      if (!routeSessionId) {
+        console.warn('[SessionStoreManager] 无法确定路由目标，缺少 sessionId 和 activeSessionId')
+        return
+      }
+      let store = get().stores.get(routeSessionId)
 
       // 如果会话不存在，自动创建
       if (!store) {
-        console.log('[SessionStoreManager] 事件路由时自动创建会话:', sessionId)
+        console.log('[SessionStoreManager] 事件路由时自动创建会话:', routeSessionId)
         get().createSession({
-          id: sessionId,
+          id: routeSessionId,
           type: 'free',
           title: '新对话',
         })
-        store = get().stores.get(sessionId)
+        store = get().stores.get(routeSessionId)
 
         if (!store) {
-          console.error('[SessionStoreManager] 自动创建会话失败:', sessionId)
+          console.error('[SessionStoreManager] 自动创建会话失败:', routeSessionId)
           return
         }
       }
 
       // 调用新架构的事件处理器
-      // 注意：事件总是路由到 event.sessionId 对应的会话，而不是当前活跃会话
+      // 注意：事件总是路由到 routeSessionId 对应的会话，而不是当前活跃会话
       // 这是多会话并行的核心：每个会话独立处理自己的事件
       store.getState().handleAIEvent(event)
 
@@ -258,11 +264,10 @@ function createSessionManagerStore() {
 
       // 仅当事件属于当前活跃会话时，同步到旧架构
       // 这确保 UI 组件（依赖旧架构）能正确显示当前会话的消息
-      if (sessionId === currentActiveSessionId) {
+      if (routeSessionId === currentActiveSessionId) {
         try {
           const oldStore = useEventChatStore
-          const oldState = oldStore.getState()
-          const workspacePath = oldState.getWorkspaceActions?.()?.getCurrentWorkspace()?.path
+          const workspacePath = oldStore.getState().getWorkspaceActions?.()?.getCurrentWorkspace()?.path
           oldHandleAIEvent(event, oldStore.setState, oldStore.getState, workspacePath)
         } catch (e) {
           console.warn('[SessionStoreManager] 旧架构事件处理失败:', e)
@@ -270,7 +275,7 @@ function createSessionManagerStore() {
       }
 
       // 更新元数据状态
-      const metadata = get().sessionMetadata.get(sessionId)
+      const metadata = get().sessionMetadata.get(routeSessionId)
       if (metadata) {
         let newStatus: SessionMetadata['status'] = 'idle'
 
@@ -280,9 +285,9 @@ function createSessionManagerStore() {
           newStatus = 'idle'
 
           // 如果是后台运行的会话，添加通知
-          if (get().backgroundSessionIds.includes(sessionId)) {
-            get().addToNotifications(sessionId)
-            get().removeFromBackground(sessionId)
+          if (get().backgroundSessionIds.includes(routeSessionId)) {
+            get().addToNotifications(routeSessionId)
+            get().removeFromBackground(routeSessionId)
           }
         } else if (event.type === 'error') {
           newStatus = 'error'
@@ -290,7 +295,7 @@ function createSessionManagerStore() {
 
         set((state) => {
           const newMetadata = new Map(state.sessionMetadata)
-          newMetadata.set(sessionId, { ...metadata, status: newStatus, updatedAt: new Date().toISOString() })
+          newMetadata.set(routeSessionId, { ...metadata, status: newStatus, updatedAt: new Date().toISOString() })
           return { sessionMetadata: newMetadata }
         })
       }

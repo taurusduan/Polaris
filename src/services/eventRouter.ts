@@ -34,6 +34,19 @@ function extractSessionId(payload: unknown): string | null {
   return null
 }
 
+/**
+ * 从 contextId 中提取前端 sessionId
+ * contextId 格式: "session-{sessionId}" 或 "main" 或其他自定义格式
+ */
+function extractFrontendSessionId(contextId: ContextId): string | null {
+  // 格式: "session-{sessionId}"
+  if (contextId.startsWith('session-')) {
+    return contextId.substring('session-'.length)
+  }
+  // 其他格式（如 "main"、"git-commit"）返回 null
+  return null
+}
+
 export class EventRouter {
   private handlers: Map<ContextId, Set<EventHandler>> = new Map()
   private unlisten: UnlistenFn | null = null
@@ -85,18 +98,32 @@ export class EventRouter {
           }
         }
 
-        // 尝试使用 sessionId 路由（新架构）
+        // 多会话路由策略：
+        // 1. 首先尝试从 contextId 提取前端 sessionId（最可靠）
+        // 2. 如果 contextId 不包含前端 sessionId，再尝试从 payload.sessionId 路由
+        // 3. 最后回退到旧架构的 contextId 路由
+
+        const frontendSessionId = extractFrontendSessionId(routedEvent.contextId)
+
+        if (frontendSessionId && this.useSessionIdRouting) {
+          // 使用 contextId 中的前端 sessionId 路由（最可靠）
+          log.debug('使用 contextId 路由到前端会话', { contextId: routedEvent.contextId, frontendSessionId })
+          this.dispatchToSession(frontendSessionId, routedEvent.payload as AIEvent)
+          return
+        }
+
+        // 如果 contextId 不包含前端 sessionId，尝试使用 payload.sessionId 路由
         if (this.useSessionIdRouting) {
-          const sessionId = extractSessionId(routedEvent.payload)
-          if (sessionId) {
-            log.debug('使用 sessionId 路由', { sessionId })
-            this.dispatchToSession(sessionId, routedEvent.payload as AIEvent)
+          const backendSessionId = extractSessionId(routedEvent.payload)
+          if (backendSessionId) {
+            log.debug('使用 payload.sessionId 路由', { backendSessionId })
+            this.dispatchToSession(backendSessionId, routedEvent.payload as AIEvent)
             return
           }
         }
 
         // 回退到 contextId 路由（旧架构兼容）
-        console.log('[EventRouter] 路由事件到:', routedEvent.contextId, 'payload类型:', typeof routedEvent.payload)
+        console.log('[EventRouter] 回退到 contextId 路由:', routedEvent.contextId, 'payload类型:', typeof routedEvent.payload)
         this.dispatch(routedEvent)
       } catch (e) {
         console.error('[EventRouter] Failed to parse event:', e)
@@ -108,17 +135,21 @@ export class EventRouter {
 
   /**
    * 将事件分发到指定的会话 Store
+   *
+   * @param frontendSessionId 前端 sessionId（用于路由到正确的 store）
+   * @param event AI 事件（包含后端 sessionId，用于 API 调用）
    */
-  private dispatchToSession(sessionId: string, event: AIEvent): void {
+  private dispatchToSession(frontendSessionId: string, event: AIEvent): void {
     try {
-      // 事件可能已经有 sessionId，确保传递正确的值
-      const eventWithSessionId = {
+      // 使用 _routeSessionId 字段传递路由用的前端 sessionId
+      // 不覆盖 event.sessionId（后端 sessionId），保持 API 调用正确
+      const eventWithRouteId = {
         ...event,
-        sessionId,
-      } as AIEvent & { sessionId: string }
-      sessionStoreManager.getState().dispatchEvent(eventWithSessionId)
+        _routeSessionId: frontendSessionId,
+      } as AIEvent & { _routeSessionId: string }
+      sessionStoreManager.getState().dispatchEvent(eventWithRouteId)
     } catch (e) {
-      log.error('分发事件到会话失败', e as Error, { sessionId })
+      log.error('分发事件到会话失败', e as Error, { frontendSessionId })
     }
   }
 

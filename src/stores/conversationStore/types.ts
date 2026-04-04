@@ -227,7 +227,7 @@ export interface SessionManagerActions {
   getActiveSessionId: () => string | null
 
   // ===== 事件分发 =====
-  dispatchEvent: (event: AIEvent & { sessionId: string }) => void
+  dispatchEvent: (event: AIEvent & { sessionId?: string; _routeSessionId?: string }) => void
 
   // ===== 后台运行管理 =====
   addToBackground: (sessionId: string) => void
