@@ -14,7 +14,8 @@
  */
 
 import { useEventChatStore } from './eventChatStore'
-import { useSessionStore } from './sessionStore'
+import { useSessionStore, getSessionEffectiveWorkspace } from './sessionStore'
+import { useWorkspaceStore } from './workspaceStore'
 import type { ChatMessage } from '../types'
 import type { CreateSessionOptions } from '../types/session'
 import { createLogger } from '../utils/logger'
@@ -243,6 +244,11 @@ export function initializeSessionSync(): void {
       },
       updateSessionExternalId: (sessionId: string, externalSessionId: string) => {
         useSessionStore.getState().updateSessionExternalId(sessionId, externalSessionId)
+      },
+      getSessionEffectiveWorkspace: (sessionId: string) => {
+        const session = useSessionStore.getState().sessions.get(sessionId)
+        if (!session) return null
+        return getSessionEffectiveWorkspace(session, useWorkspaceStore.getState().currentWorkspaceId)
       },
     },
   })

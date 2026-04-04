@@ -8,10 +8,12 @@
  * - 关联工作区可随时添加/移除
  */
 
+import { useState } from 'react'
 import { cn } from '@/utils/cn'
-import { Check, Plus, Settings, Lock, X } from 'lucide-react'
+import { Check, Plus, Settings, Lock, X, FolderPlus } from 'lucide-react'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useSessionStore, getSessionEffectiveWorkspace } from '@/stores/sessionStore'
+import { CreateWorkspaceModal } from '@/components/Workspace/CreateWorkspaceModal'
 
 interface WorkspaceMenuProps {
   sessionId: string
@@ -25,6 +27,9 @@ export function WorkspaceMenu({ sessionId, onClose }: WorkspaceMenuProps) {
   const switchSessionWorkspace = useSessionStore((state) => state.switchSessionWorkspace)
   const addContextWorkspace = useSessionStore((state) => state.addContextWorkspace)
   const removeContextWorkspace = useSessionStore((state) => state.removeContextWorkspace)
+
+  // 新增工作区弹窗状态
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   // 获取当前会话
   const session = sessions.get(sessionId)
@@ -190,7 +195,18 @@ export function WorkspaceMenu({ sessionId, onClose }: WorkspaceMenuProps) {
 
       {/* 底部操作 */}
       <div className="mx-2 my-2 border-t border-border" />
-      <div className="px-2">
+      <div className="px-2 space-y-1">
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className={cn(
+            'w-full flex items-center gap-2 px-3 py-2 rounded-lg',
+            'text-sm text-text-secondary hover:text-text-primary',
+            'hover:bg-background-hover transition-colors'
+          )}
+        >
+          <FolderPlus className="w-4 h-4" />
+          新增工作区
+        </button>
         <button
           onClick={() => {
             // TODO: 打开工作区管理
@@ -206,6 +222,11 @@ export function WorkspaceMenu({ sessionId, onClose }: WorkspaceMenuProps) {
           工作区管理
         </button>
       </div>
+
+      {/* 新增工作区弹窗 */}
+      {showCreateModal && (
+        <CreateWorkspaceModal onClose={() => setShowCreateModal(false)} />
+      )}
     </div>
   )
 }

@@ -29,6 +29,41 @@ import { createLogger } from '../../utils/logger'
 const log = createLogger('EventChatStore')
 
 /**
+ * 获取会话有效工作区
+ * 优先级：会话工作区 > 全局工作区
+ */
+function getEffectiveWorkspace(
+  sessionSyncActions: {
+    getActiveSessionId: () => string | null
+    getSessionEffectiveWorkspace: (sessionId: string) => string | null
+  } | undefined,
+  workspaceActions: {
+    getCurrentWorkspace: () => { id: string; path: string; name: string } | null
+    getWorkspaceById: (id: string) => { id: string; path: string; name: string } | null
+  } | undefined
+): { id: string; path: string; name: string } | null {
+  // 1. 尝试获取会话有效工作区
+  const activeSessionId = sessionSyncActions?.getActiveSessionId()
+  if (activeSessionId) {
+    const effectiveWorkspaceId = sessionSyncActions?.getSessionEffectiveWorkspace(activeSessionId)
+    if (effectiveWorkspaceId) {
+      const workspace = workspaceActions?.getWorkspaceById(effectiveWorkspaceId)
+      if (workspace) {
+        log.debug('使用会话有效工作区', { sessionId: activeSessionId, workspaceId: effectiveWorkspaceId, path: workspace.path })
+        return workspace
+      }
+    }
+  }
+
+  // 2. 回退到全局工作区
+  const globalWorkspace = workspaceActions?.getCurrentWorkspace()
+  if (globalWorkspace) {
+    log.debug('使用全局工作区', { path: globalWorkspace.path })
+  }
+  return globalWorkspace || null
+}
+
+/**
  * 创建事件处理 Slice
  */
 export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
@@ -106,9 +141,10 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
     const router = getEventRouter()
     await router.initialize()
 
-    // 使用依赖注入获取工作区
+    // 使用依赖注入获取会话有效工作区
+    const sessionSyncActions = get().getSessionSyncActions()
     const workspaceActions = get().getWorkspaceActions()
-    const currentWorkspace = workspaceActions?.getCurrentWorkspace()
+    const currentWorkspace = getEffectiveWorkspace(sessionSyncActions, workspaceActions)
 
     if (!currentWorkspace) {
       set({ error: '请先创建或选择一个工作区' })
@@ -405,10 +441,12 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
     const router = getEventRouter()
     await router.initialize()
 
-    // 使用依赖注入获取工作区和配置
+    // 使用依赖注入获取会话有效工作区和配置
+    const sessionSyncActions = get().getSessionSyncActions()
     const workspaceActions = get().getWorkspaceActions()
     const configActions = get().getConfigActions()
-    const actualWorkspaceDir = workspaceActions?.getCurrentWorkspace()?.path
+    const currentWorkspace = getEffectiveWorkspace(sessionSyncActions, workspaceActions)
+    const actualWorkspaceDir = currentWorkspace?.path
     const config = configActions?.getConfig()
     const currentEngine = config?.defaultEngine || 'claude-code'
 
@@ -572,8 +610,9 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
       const config = configActions?.getConfig()
       const currentEngine = config?.defaultEngine || 'claude-code'
 
+      const sessionSyncActions = get().getSessionSyncActions()
       const workspaceActions = get().getWorkspaceActions()
-      const currentWorkspace = workspaceActions?.getCurrentWorkspace()
+      const currentWorkspace = getEffectiveWorkspace(sessionSyncActions, workspaceActions)
       const actualWorkspaceDir = currentWorkspace?.path
 
       // 构建系统提示
@@ -749,8 +788,9 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
       const config = configActions?.getConfig()
       const currentEngine = config?.defaultEngine || 'claude-code'
 
+      const sessionSyncActions = get().getSessionSyncActions()
       const workspaceActions = get().getWorkspaceActions()
-      const currentWorkspace = workspaceActions?.getCurrentWorkspace()
+      const currentWorkspace = getEffectiveWorkspace(sessionSyncActions, workspaceActions)
       const actualWorkspaceDir = currentWorkspace?.path
 
       // 构建系统提示

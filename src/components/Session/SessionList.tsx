@@ -3,10 +3,9 @@
  */
 
 import { cn } from '@/utils/cn'
-import { Plus, Settings } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useSessionStore, getSessionEffectiveWorkspace } from '@/stores/sessionStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
-import { useViewStore } from '@/stores/viewStore'
 import { switchSessionWithSync } from '@/stores/sessionSync'
 import { SessionListItem } from './SessionListItem'
 
@@ -22,8 +21,6 @@ export function SessionList({ onClose, onCreateSession }: SessionListProps) {
 
   const workspaces = useWorkspaceStore((state) => state.workspaces)
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId)
-
-  const setLeftPanelType = useViewStore((state) => state.setLeftPanelType)
 
   // 获取最近会话（最多 5 个）
   const recentSessions = recentSessionIds
@@ -49,12 +46,6 @@ export function SessionList({ onClose, onCreateSession }: SessionListProps) {
     if (success) {
       onClose()
     }
-  }
-
-  // 打开会话管理面板
-  const handleOpenManage = () => {
-    setLeftPanelType('sessions')
-    onClose()
   }
 
   return (
@@ -100,19 +91,6 @@ export function SessionList({ onClose, onCreateSession }: SessionListProps) {
         >
           <Plus className="w-4 h-4" />
           新建会话
-        </button>
-
-        <button
-          onClick={handleOpenManage}
-          className={cn(
-            'flex items-center justify-center gap-1.5',
-            'px-3 py-2 rounded-lg text-sm',
-            'bg-background-surface text-text-secondary hover:bg-background-hover',
-            'border border-border transition-colors'
-          )}
-          title="管理会话"
-        >
-          <Settings className="w-4 h-4" />
         </button>
       </div>
     </div>

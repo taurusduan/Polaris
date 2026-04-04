@@ -136,6 +136,8 @@ export interface WorkspaceActions {
   getContextWorkspaces: () => Workspace[]
   /** 获取当前工作区 ID */
   getCurrentWorkspaceId: () => string | null
+  /** 根据 ID 获取工作区 */
+  getWorkspaceById: (id: string) => Workspace | null
 }
 
 /**
@@ -161,6 +163,8 @@ export interface SessionSyncActions {
   updateSessionStatus: (sessionId: string, status: 'idle' | 'running' | 'waiting' | 'error') => void
   /** 更新会话的外部 ID（Claude Code 真实 sessionId） */
   updateSessionExternalId: (sessionId: string, externalSessionId: string) => void
+  /** 获取会话的有效工作区 ID（优先级：临时 > 绑定 > 全局） */
+  getSessionEffectiveWorkspace: (sessionId: string) => string | null
 }
 
 /**

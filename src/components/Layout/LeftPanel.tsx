@@ -70,7 +70,6 @@ export function LeftPanelContent({
   terminalContent,
   toolsContent,
   developerContent,
-  sessionsContent,
   currentType,
 }: {
   filesContent: ReactNode
@@ -82,7 +81,6 @@ export function LeftPanelContent({
   terminalContent?: ReactNode
   toolsContent?: ReactNode
   developerContent?: ReactNode
-  sessionsContent?: ReactNode
   currentType?: LeftPanelType
 }) {
   // Hook 必须在条件之外调用
@@ -107,8 +105,6 @@ export function LeftPanelContent({
     return <>{toolsContent}</>
   } else if (type === 'developer') {
     return <>{developerContent}</>
-  } else if (type === 'sessions') {
-    return <>{sessionsContent}</>
   }
 
   return null

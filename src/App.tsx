@@ -21,7 +21,7 @@ import { TerminalPanel } from './components/Terminal/TerminalPanel';
 const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then(m => ({ default: m.SettingsModal })));
 const DeveloperPanel = lazy(() => import('./components/Developer/DeveloperPanel').then(m => ({ default: m.DeveloperPanel })));
 const CreateWorkspaceModal = lazy(() => import('./components/Workspace/CreateWorkspaceModal').then(m => ({ default: m.CreateWorkspaceModal })));
-import { useConfigStore, useEventChatStore, useViewStore, useWorkspaceStore, useTabStore, useIntegrationStore, useToolPanelStore, useGitStore, useSessionStore } from './stores';
+import { useConfigStore, useEventChatStore, useViewStore, useWorkspaceStore, useTabStore, useIntegrationStore, useToolPanelStore, useGitStore, useSessionStore, getSessionEffectiveWorkspace } from './stores';
 import { useWindowSize } from './hooks';
 import * as tauri from './services/tauri';
 import { bootstrapEngines, bootstrapOpenAIProviders } from './core/engine-bootstrap';
@@ -209,6 +209,7 @@ function App() {
             getWorkspaces: () => useWorkspaceStore.getState().workspaces,
             getContextWorkspaces: () => useWorkspaceStore.getState().getContextWorkspaces(),
             getCurrentWorkspaceId: () => useWorkspaceStore.getState().currentWorkspaceId,
+            getWorkspaceById: (id: string) => useWorkspaceStore.getState().workspaces.find(w => w.id === id) || null,
           },
           sessionSyncActions: {
             getActiveSessionId: () => useSessionStore.getState().activeSessionId,
@@ -228,6 +229,11 @@ function App() {
             },
             updateSessionExternalId: (sessionId: string, externalSessionId: string) => {
               useSessionStore.getState().updateSessionExternalId(sessionId, externalSessionId)
+            },
+            getSessionEffectiveWorkspace: (sessionId: string) => {
+              const session = useSessionStore.getState().sessions.get(sessionId)
+              if (!session) return null
+              return getSessionEffectiveWorkspace(session, useWorkspaceStore.getState().currentWorkspaceId)
             },
           },
         });
