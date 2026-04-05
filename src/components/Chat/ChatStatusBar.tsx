@@ -14,7 +14,7 @@
 import { useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEventChatStore, useConfigStore, useChatInputStore } from '../../stores';
-import { useActiveSessionActions } from '../../stores/conversationStore/useActiveSession';
+import { useActiveSessionActions, useActiveSessionMessages, useActiveSessionStreaming } from '../../stores/conversationStore/useActiveSession';
 import { MessageSquare, Wrench, Clock, Paperclip, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { IconMic, IconVolume, IconVolumeX } from '../Common/Icons';
@@ -53,9 +53,8 @@ function formatDuration(startTime: string | null, t: (key: string, options?: Rec
  */
 export function ChatStatusBar({ compact = false }: ChatStatusBarProps) {
   const { t } = useTranslation('chat');
-  const messages = useEventChatStore(state => state.messages);
-  const currentMessage = useEventChatStore(state => state.currentMessage);
-  const isStreaming = useEventChatStore(state => state.isStreaming);
+  const { messages, currentMessage } = useActiveSessionMessages();
+  const isStreaming = useActiveSessionStreaming();
   const { interrupt } = useActiveSessionActions();
   const { config, healthStatus, updateConfig } = useConfigStore();
   const {

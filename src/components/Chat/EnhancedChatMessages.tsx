@@ -19,6 +19,7 @@ import { clsx } from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
 import type { ChatMessage, UserChatMessage, AssistantChatMessage, ContentBlock, TextBlock, ThinkingBlock, ToolCallBlock } from '../../types';
 import { useEventChatStore, useGitStore, useWorkspaceStore, useTabStore, useToastStore } from '../../stores';
+import { useActiveSessionMessages, useActiveSessionStreaming } from '../../stores/conversationStore/useActiveSession';
 import { getToolConfig, extractToolKeyInfo, getToolShortName } from '../../utils/toolConfig';
 import { markdownCache } from '../../utils/cache';
 import { useThrottle } from '../../hooks/useThrottle';
@@ -2189,7 +2190,9 @@ const EmptyState = memo(function EmptyState() {
  * - 避免 50ms 一次的整个消息列表重渲染
  */
 export function EnhancedChatMessages() {
-  const { messages, archivedMessages, loadMoreArchivedMessages, currentMessage, isStreaming } = useEventChatStore();
+  const { messages, archivedMessages, currentMessage } = useActiveSessionMessages();
+  const isStreaming = useActiveSessionStreaming();
+  const { loadMoreArchivedMessages } = useEventChatStore();
 
   // 性能优化：流式阶段合并 currentMessage 到消息列表
   // 这样就不需要频繁更新 messages 数组，避免整个列表重渲染

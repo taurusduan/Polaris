@@ -10,6 +10,7 @@ import type {
   ToolStatus,
   Workspace,
 } from '../../types'
+import type { Attachment } from '../../types/attachment'
 import type {
   CurrentAssistantMessage,
   PendingToolGroup,
@@ -18,6 +19,20 @@ import type {
 import type { AIEvent } from '../../ai-runtime'
 import type { StoreApi, UseBoundStore } from 'zustand'
 import type { EventRouter } from '../../services/eventRouter'
+
+// ============================================================================
+// 输入草稿类型
+// ============================================================================
+
+/**
+ * 输入草稿
+ *
+ * 保存用户正在编辑的消息内容和附件
+ */
+export interface InputDraft {
+  text: string
+  attachments: Attachment[]
+}
 
 // ============================================================================
 // 依赖注入接口
@@ -81,6 +96,12 @@ export interface ConversationState {
 
   // ===== 元数据 =====
   sessionId: string // 会话唯一标识，由后端返回或前端生成
+
+  // ===== 输入草稿 =====
+  inputDraft: InputDraft
+
+  // ===== 工作区关联 =====
+  workspaceId: string | null
 }
 
 // ============================================================================
@@ -94,6 +115,10 @@ export interface ConversationActions {
   editMessage: (messageId: string, newContent: string) => void
   clearMessages: () => void
   finishMessage: () => void
+
+  // ===== 输入草稿 =====
+  updateInputDraft: (draft: InputDraft) => void
+  clearInputDraft: () => void
 
   // ===== 流式构建 =====
   appendTextBlock: (content: string) => void
@@ -178,6 +203,7 @@ export interface SessionMetadata {
   title: string
   type: 'project' | 'free'
   workspaceId: string | null
+  workspaceName?: string // 工作区名称（用于显示）
   status: 'idle' | 'running' | 'waiting' | 'error' | 'background-running'
   createdAt: string
   updatedAt: string

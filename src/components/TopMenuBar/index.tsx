@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Minus, Square, X, Clock, Download, PanelRight, Pin, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useViewStore, useEventChatStore } from '../../stores';
+import { useActiveSessionMessages, useActiveSessionStreaming } from '../../stores/conversationStore/useActiveSession';
 import * as tauri from '../../services/tauri';
 import { exportToMarkdown, generateFileName } from '../../services/chatExport';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -31,7 +32,8 @@ export function TopMenuBar({ onNewConversation, onToggleRightPanel, rightPanelCo
   const [isExporting, setIsExporting] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
-  const { messages, isStreaming } = useEventChatStore();
+  const { messages } = useActiveSessionMessages();
+  const isStreaming = useActiveSessionStreaming();
 
   useEffect(() => {
     if (!isTauriEnv) return;

@@ -128,6 +128,16 @@ export function useActiveSessionConversationId() {
 }
 
 /**
+ * 获取活跃会话的输入草稿
+ */
+export function useActiveSessionInputDraft() {
+  return useActiveSessionSelector(
+    useCallback((state: ConversationState) => state.inputDraft, []),
+    { text: '', attachments: [] }
+  )
+}
+
+/**
  * 获取活跃会话的 Block 映射
  */
 export function useActiveSessionBlockMaps() {
@@ -206,6 +216,21 @@ export function useActiveSessionActions() {
         const store = sessionStoreManager.getState().stores.get(sessionId)?.getState()
         if (!store) return
         return store.regenerateResponse(messageId)
+      },
+      // Input draft actions
+      updateInputDraft: (draft: import('./types').InputDraft) => {
+        const sessionId = sessionStoreManager.getState().activeSessionId
+        if (!sessionId) return
+        const store = sessionStoreManager.getState().stores.get(sessionId)?.getState()
+        if (!store) return
+        return store.updateInputDraft(draft)
+      },
+      clearInputDraft: () => {
+        const sessionId = sessionStoreManager.getState().activeSessionId
+        if (!sessionId) return
+        const store = sessionStoreManager.getState().stores.get(sessionId)?.getState()
+        if (!store) return
+        return store.clearInputDraft()
       },
       // Manager actions
       switchSession: sessionStoreManager.getState().switchSession,

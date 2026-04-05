@@ -47,6 +47,15 @@ function createInitialState(sessionId: string): ConversationState {
     progressMessage: null,
     providerSessionCache: null,
 
+    // 输入草稿
+    inputDraft: {
+      text: '',
+      attachments: [],
+    },
+
+    // 工作区关联
+    workspaceId: null,
+
     // 元数据
     sessionId,
   }
@@ -132,6 +141,20 @@ export function createConversationStore(
             currentMessage: null,
           })
         }
+      },
+
+      // ===== 输入草稿 =====
+      updateInputDraft: (draft) => {
+        set({ inputDraft: draft })
+      },
+
+      clearInputDraft: () => {
+        set({
+          inputDraft: {
+            text: '',
+            attachments: [],
+          },
+        })
       },
 
       // ===== 流式构建 =====
@@ -628,6 +651,9 @@ export function createConversationStore(
           })),
         }
         get().addMessage(userMessage)
+
+        // 清空输入草稿
+        get().clearInputDraft()
 
         // 设置流式状态
         set({

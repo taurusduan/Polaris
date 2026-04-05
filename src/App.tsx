@@ -23,7 +23,7 @@ const DeveloperPanel = lazy(() => import('./components/Developer/DeveloperPanel'
 const CreateWorkspaceModal = lazy(() => import('./components/Workspace/CreateWorkspaceModal').then(m => ({ default: m.CreateWorkspaceModal })));
 import { useConfigStore, useEventChatStore, useViewStore, useWorkspaceStore, useTabStore, useIntegrationStore, useToolPanelStore, useGitStore, useSessionStore, getSessionEffectiveWorkspace } from './stores';
 import { sessionStoreManager } from './stores/conversationStore';
-import { useActiveSessionActions } from './stores/conversationStore/useActiveSession';
+import { useActiveSessionActions, useActiveSessionStreaming, useActiveSessionError } from './stores/conversationStore/useActiveSession';
 import { useWindowSize } from './hooks';
 import * as tauri from './services/tauri';
 import { bootstrapEngines, bootstrapOpenAIProviders } from './core/engine-bootstrap';
@@ -41,14 +41,16 @@ function App() {
   const { t } = useTranslation('common');
   const { isConnecting, connectionState, loadConfig, config, updateConfig } = useConfigStore();
   const {
-    isStreaming,
     initializeEventListeners,
     clearMessages,
-    error,
     setDependencies,
   } = useEventChatStore();
-  // 使用新架构的 sendMessage 和 interrupt
+  
+  // 使用新架构的状态和操作
+  const isStreaming = useActiveSessionStreaming()
+  const error = useActiveSessionError()
   const { sendMessage, interrupt: interruptChat } = useActiveSessionActions();
+  
   const workspaces = useWorkspaceStore(state => state.workspaces);
   const currentWorkspace = useWorkspaceStore(state => state.getCurrentWorkspace());
   const currentWorkspacePath = currentWorkspace?.path;

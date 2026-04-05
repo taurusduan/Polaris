@@ -12,6 +12,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconSend, IconStop, IconPaperclip } from '../Common/Icons'
 import { useWorkspaceStore, useChatInputStore, useEventChatStore } from '../../stores'
+import { useActiveSessionInputDraft, useActiveSessionActions } from '../../stores/conversationStore/useActiveSession'
+import { useDebouncedCallback } from '../../hooks/useDebounce'
 import { UnifiedSuggestion, type SuggestionItem } from './FileSuggestion'
 import { AttachmentPreview } from './AttachmentPreview'
 import { AutoResizingTextarea } from './AutoResizingTextarea'
@@ -42,13 +44,21 @@ export function ChatInput({
   currentWorkDir: _currentWorkDir,
 }: ChatInputProps) {
   const { t } = useTranslation('chat')
-  const [value, setValue] = useState('')
+  
+  // 使用 Store 中的输入草稿
+  const inputDraft = useActiveSessionInputDraft()
+  const { updateInputDraft, clearInputDraft } = useActiveSessionActions()
+  
+  // 创建防抖的 updateInputDraft（300ms 延迟）
+  const debouncedUpdateInputDraft = useDebouncedCallback(updateInputDraft, 300)
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 附件状态
-  const [attachments, setAttachments] = useState<Attachment[]>([])
+  // 从 Store 中获取值
+  const value = inputDraft.text
+  const attachments = inputDraft.attachments
 
   // 统一建议状态
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -74,11 +84,11 @@ export function ChatInput({
   // 处理语音识别文字
   useEffect(() => {
     if (speechTranscript) {
-      setValue(prev => prev + speechTranscript)
+      updateInputDraft({ text: value + speechTranscript, attachments })
       clearSpeechTranscript()
       textareaRef.current?.focus()
     }
-  }, [speechTranscript, clearSpeechTranscript])
+  }, [speechTranscript, clearSpeechTranscript, value, attachments, updateInputDraft])
 
   // 处理语音命令
   useEffect(() => {
@@ -91,13 +101,13 @@ export function ChatInput({
         }
         break
       case 'clear':
-        setValue('')
+        updateInputDraft({ text: '', attachments })
         break
       // 'interrupt' 已在 ChatStatusBar 处理
     }
 
     setSpeechCommand(null)
-  }, [speechCommand, isStreaming, setSpeechCommand])
+  }, [speechCommand, isStreaming, setSpeechCommand, attachments, updateInputDraft])
 
   // 检查是否有待回答的问题
   const hasPendingQuestion = useEventChatStore(state => {
@@ -174,21 +184,20 @@ export function ChatInput({
 
     // 创建附件
     const attachment = await createAttachment(file, source)
-    setAttachments(prev => {
-      const newAttachments = [...prev, attachment]
-      const totalValidation = validateAttachments(newAttachments)
-      if (!totalValidation.valid) {
-        console.warn('[ChatInput] 总附件验证失败:', totalValidation.error)
-        return prev
-      }
-      return newAttachments
-    })
-  }, [])
+    const newAttachments = [...attachments, attachment]
+    const totalValidation = validateAttachments(newAttachments)
+    if (!totalValidation.valid) {
+      console.warn('[ChatInput] 总附件验证失败:', totalValidation.error)
+      return
+    }
+    updateInputDraft({ text: value, attachments: newAttachments })
+  }, [attachments, value, updateInputDraft])
 
   // 移除附件
   const removeAttachment = useCallback((id: string) => {
-    setAttachments(prev => prev.filter(a => a.id !== id))
-  }, [])
+    const newAttachments = attachments.filter(a => a.id !== id)
+    updateInputDraft({ text: value, attachments: newAttachments })
+  }, [attachments, value, updateInputDraft])
 
   // 处理粘贴
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
@@ -279,7 +288,7 @@ export function ChatInput({
   // 检测触发符
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value
-    setValue(newValue)
+    debouncedUpdateInputDraft({ text: newValue, attachments })
 
     const textarea = textareaRef.current
     if (!textarea || !containerRef.current) return
@@ -384,7 +393,7 @@ export function ChatInput({
     setShowSuggestions(false)
     setSuggestionItems([])
     clearResults()
-  }, [workspaces, searchFiles, clearResults, calculateSuggestionPosition, buildSuggestionItems])
+  }, [workspaces, searchFiles, clearResults, calculateSuggestionPosition, buildSuggestionItems, attachments, debouncedUpdateInputDraft])
 
   // 当 fileMatches 更新时，合并到 suggestionItems
   useEffect(() => {
@@ -428,7 +437,7 @@ export function ChatInput({
       }
     }
 
-    setValue(newText)
+    updateInputDraft({ text: newText, attachments })
     setShowSuggestions(false)
     setSuggestionItems([])
     setFileWorkspace(null)
@@ -438,7 +447,7 @@ export function ChatInput({
       const newCursorPos = newText.length - textAfterCursor.length
       textarea.setSelectionRange(newCursorPos, newCursorPos)
     }, 0)
-  }, [value, fileWorkspace])
+  }, [value, fileWorkspace, attachments, updateInputDraft])
 
   const handleSend = useCallback(() => {
     const trimmed = value.trim()
@@ -446,16 +455,15 @@ export function ChatInput({
     if (!trimmed && attachments.length === 0) return
 
     onSend(trimmed, undefined, attachments.length > 0 ? attachments : undefined)
-    resetInput()
-  }, [value, disabled, isStreaming, attachments, onSend])
+    clearInputDraft()
+  }, [value, disabled, isStreaming, attachments, onSend, clearInputDraft])
 
   const resetInput = useCallback(() => {
-    setValue('')
-    setAttachments([])
+    clearInputDraft()
     setShowSuggestions(false)
     setSuggestionItems([])
     clearResults()
-  }, [clearResults])
+  }, [clearResults, clearInputDraft])
 
   // 键盘事件处理
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
