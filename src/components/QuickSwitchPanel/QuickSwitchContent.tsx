@@ -134,8 +134,9 @@ export const QuickSwitchContent = memo(function QuickSwitchContent({
         // 内容布局
         'overflow-hidden'
       )}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
+      // 下拉打开时不触发面板关闭
+      onMouseEnter={isWorkspaceDropdownOpen ? undefined : onMouseEnter}
+      onMouseLeave={isWorkspaceDropdownOpen ? undefined : onMouseLeave}
     >
       {/* 顶部发光线 */}
       <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
