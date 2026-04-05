@@ -4,7 +4,7 @@
  * 极简设计：专注于快速切换会话
  */
 
-import { memo, useMemo, useState, useRef, useEffect } from 'react'
+import { memo, useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/utils/cn'
 import { Plus, Loader2, X, FolderOpen, ChevronDown, Lock, Check, Download, Clock, FolderPlus } from 'lucide-react'
@@ -92,6 +92,15 @@ export const QuickSwitchContent = memo(function QuickSwitchContent({
     if (workspaceDropdownOpenRef) {
       workspaceDropdownOpenRef.current = open
     }
+    // 打开时立即计算位置（避免先渲染后计算导致闪烁）
+    if (open && workspaceButtonRef.current) {
+      const rect = workspaceButtonRef.current.getBoundingClientRect()
+      log.info('立即计算下拉位置', { top: rect.bottom + 4, left: rect.left })
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+      })
+    }
     setIsWorkspaceDropdownOpen(open)
   }
 
@@ -120,11 +129,10 @@ export const QuickSwitchContent = memo(function QuickSwitchContent({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isWorkspaceDropdownOpen])
 
-  // 计算下拉位置
-  useEffect(() => {
+  // 计算下拉位置（使用 useLayoutEffect 避免闪烁）
+  useLayoutEffect(() => {
     if (isWorkspaceDropdownOpen && workspaceButtonRef.current) {
       const rect = workspaceButtonRef.current.getBoundingClientRect()
-      log.info('计算下拉位置', { top: rect.bottom + 4, left: rect.left })
       setDropdownPosition({
         top: rect.bottom + 4,
         left: rect.left,
