@@ -4,7 +4,6 @@ import { Layout, FileExplorer, ConnectingOverlay, ErrorBoundary, ToastContainer 
 import { ConfirmDialog } from './components/Common/ConfirmDialog';
 
 import { ToolPanel } from './components/ToolPanel';
-import { TopMenuBar as TopMenuBarComponent } from './components/TopMenuBar';
 import { GitPanel } from './components/GitPanel';
 import { ActivityBar, LeftPanel, LeftPanelContent, CenterStage, RightPanel } from './components/Layout';
 import { EnhancedChatMessages, ChatInput, ChatStatusBar, SessionHistoryPanel } from './components/Chat';
@@ -484,21 +483,6 @@ function App() {
       <Layout>
         {/* 连接中蒙板 */}
         {(isConnecting || connectionState === 'failed') && <ConnectingOverlay />}
-
-      {/* 顶部菜单栏 - 小屏模式下简化 */}
-      <TopMenuBarComponent
-        onNewConversation={() => {
-          // 使用新架构创建新会话并切换
-          const manager = sessionStoreManager.getState();
-          manager.createSession({
-            type: 'free',
-            title: '新对话',
-          });
-        }}
-        onToggleRightPanel={toggleRightPanel}
-        rightPanelCollapsed={rightPanelCollapsed}
-        isCompactMode={isCompact}
-      />
 
       {/* 主内容区域 - 正常模式和小窗模式统一布局 */}
       <div className="flex flex-1 overflow-hidden relative">
