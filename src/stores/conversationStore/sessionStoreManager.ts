@@ -381,6 +381,19 @@ function createSessionManagerStore() {
           if (get().backgroundSessionIds.includes(routeSessionId)) {
             get().addToNotifications(routeSessionId)
             get().removeFromBackground(routeSessionId)
+
+            // 触发 Toast 通知
+            const sessionMetadata = get().sessionMetadata.get(routeSessionId)
+            if (sessionMetadata) {
+              // 动态导入 toastStore 避免循环依赖
+              import('@/stores/toastStore').then(({ useToastStore }) => {
+                useToastStore.getState().sessionComplete(
+                  sessionMetadata.title,
+                  routeSessionId,
+                  () => get().switchSession(routeSessionId)
+                )
+              })
+            }
           }
         } else if (event.type === 'error') {
           newStatus = 'error'

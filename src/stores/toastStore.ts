@@ -4,7 +4,7 @@
 
 import { create } from 'zustand'
 
-export type ToastType = 'success' | 'error' | 'warning' | 'info'
+export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'session_complete'
 
 export interface Toast {
   id: string
@@ -12,11 +12,18 @@ export interface Toast {
   title: string
   message?: string
   duration?: number // 毫秒，0 表示不自动关闭
+  action?: {
+    label: string
+    onClick: () => void
+  }
+  sessionId?: string
 }
+
+const MAX_TOASTS = 5
 
 interface ToastState {
   toasts: Toast[]
-  
+
   // 添加 Toast
   addToast: (toast: Omit<Toast, 'id'>) => string
   // 移除 Toast
@@ -28,6 +35,8 @@ interface ToastState {
   error: (title: string, message?: string) => string
   warning: (title: string, message?: string) => string
   info: (title: string, message?: string) => string
+  // 会话完成通知
+  sessionComplete: (title: string, sessionId: string, onSwitch: () => void) => string
 }
 
 let toastId = 0
@@ -43,9 +52,14 @@ export const useToastStore = create<ToastState>((set, get) => ({
       ...toast,
     }
 
-    set((state) => ({
-      toasts: [...state.toasts, newToast],
-    }))
+    set((state) => {
+      const toasts = [...state.toasts, newToast]
+      // 超过最大数量时移除最旧的
+      if (toasts.length > MAX_TOASTS) {
+        toasts.shift()
+      }
+      return { toasts }
+    })
 
     // 自动移除
     if (newToast.duration && newToast.duration > 0) {
@@ -81,5 +95,18 @@ export const useToastStore = create<ToastState>((set, get) => ({
 
   info: (title, message) => {
     return get().addToast({ type: 'info', title, message })
+  },
+
+  sessionComplete: (title, sessionId, onSwitch) => {
+    return get().addToast({
+      type: 'session_complete',
+      title: `会话「${title}」已完成`,
+      sessionId,
+      duration: 120000, // 2 分钟
+      action: {
+        label: '切换',
+        onClick: onSwitch,
+      },
+    })
   },
 }))

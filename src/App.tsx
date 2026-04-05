@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { Layout, FileExplorer, ConnectingOverlay, ErrorBoundary, ToastContainer } from './components/Common';
 import { ConfirmDialog } from './components/Common/ConfirmDialog';
 
-import { ToolPanel } from './components/ToolPanel';
 import { TopMenuBar as TopMenuBarComponent } from './components/TopMenuBar';
 import { GitPanel } from './components/GitPanel';
 import { ActivityBar, LeftPanel, LeftPanelContent, CenterStage, RightPanel } from './components/Layout';
@@ -20,7 +19,7 @@ import { TerminalPanel } from './components/Terminal/TerminalPanel';
 const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then(m => ({ default: m.SettingsModal })));
 const DeveloperPanel = lazy(() => import('./components/Developer/DeveloperPanel').then(m => ({ default: m.DeveloperPanel })));
 const CreateWorkspaceModal = lazy(() => import('./components/Workspace/CreateWorkspaceModal').then(m => ({ default: m.CreateWorkspaceModal })));
-import { useConfigStore, useEventChatStore, useViewStore, useWorkspaceStore, useTabStore, useIntegrationStore, useToolPanelStore, useGitStore, useSessionStore, getSessionEffectiveWorkspace } from './stores';
+import { useConfigStore, useEventChatStore, useViewStore, useWorkspaceStore, useTabStore, useIntegrationStore, useGitStore, useSessionStore, getSessionEffectiveWorkspace } from './stores';
 import { sessionStoreManager } from './stores/conversationStore';
 import { useActiveSessionActions, useActiveSessionStreaming, useActiveSessionError } from './stores/conversationStore/useActiveSession';
 import { useWindowSize } from './hooks';
@@ -191,11 +190,6 @@ function App() {
 
         // 注入外部依赖（解耦 Store 间依赖）
         setDependencies({
-          toolPanelActions: {
-            clearTools: () => useToolPanelStore.getState().clearTools(),
-            addTool: (tool) => useToolPanelStore.getState().addTool(tool),
-            updateTool: (id, updates) => useToolPanelStore.getState().updateTool(id, updates),
-          },
           gitActions: {
             refreshStatusDebounced: (workspacePath) =>
               useGitStore.getState().refreshStatusDebounced(workspacePath),
@@ -520,7 +514,6 @@ function App() {
               schedulerContent={<SchedulerPanel />}
               requirementContent={<RequirementPanel />}
               terminalContent={<TerminalPanel />}
-              toolsContent={<ToolPanel fillRemaining />}
               developerContent={
                 <Suspense fallback={<div className="flex items-center justify-center h-full text-text-muted">{t('status.loading')}</div>}>
                   <DeveloperPanel fillRemaining />
@@ -546,8 +539,14 @@ function App() {
           {/* 消息区域 */}
           <EnhancedChatMessages />
 
-          {/* 对话状态栏 */}
-          <ChatStatusBar />
+          {/* 状态栏容器（带通知） */}
+          <div className="relative">
+            {/* Toast 通知区域 */}
+            <ToastContainer />
+
+            {/* 对话状态栏 */}
+            <ChatStatusBar />
+          </div>
 
           {/* 输入区域 */}
           <ChatInput
@@ -614,9 +613,6 @@ function App() {
 
       {/* 全局右键菜单 */}
       <SelectionContextMenu />
-
-      {/* 全局 Toast 通知 */}
-      <ToastContainer />
 
       </Layout>
     </ErrorBoundary>
