@@ -5,6 +5,7 @@
   "noMatch": "No matching tasks",
   "taskCount": "{{count}} tasks",
   "newTask": "New Task",
+  "more": "More",
 
   "status": {
     "idle": "Idle",
@@ -37,6 +38,7 @@
     "running": "Scheduler Running",
     "stopped": "Scheduler Stopped",
     "lockedByOther": "Another instance is running",
+    "scheduler": "Scheduler",
     "start": "Start",
     "stop": "Stop",
     "tryAcquire": "Try Acquire",
@@ -65,6 +67,7 @@
     "delete": "Delete",
     "enable": "Enable",
     "disable": "Disable",
+    "disabled": "Disabled",
     "mode": "Mode",
     "category": "Category",
     "viewProtocol": "Protocol",

@@ -6,9 +6,9 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
+import { Clock, MoreVertical, Search, Plus, FileText, ScrollText, Activity } from 'lucide-react';
 import { useSchedulerStore, useToastStore } from '../../stores';
 import type { ScheduledTask, CreateTaskParams, TaskDueEvent, TriggerType } from '../../types/scheduler';
-import { SchedulerControl } from './SchedulerControl';
 import { TaskCard } from './TaskCard';
 import { TaskEditor } from './TaskEditor';
 import { ExecutionLogDrawer } from './ExecutionLogDrawer';
@@ -164,6 +164,10 @@ export function SchedulerPanel() {
     loadSchedulerStatus,
     handleTaskDue,
     buildPrompt,
+    schedulerStatus,
+    startScheduler,
+    stopScheduler,
+    statusLoading,
   } = useSchedulerStore();
 
   // 编辑器状态
@@ -185,6 +189,12 @@ export function SchedulerPanel() {
 
   // 排序状态（从 localStorage 恢复）
   const [sort, setSort] = useState<TaskSort>(loadSortFromStorage);
+
+  // 筛选栏展开状态
+  const [filterExpanded, setFilterExpanded] = useState(false);
+
+  // 更多菜单状态
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
   // 确认对话框
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -423,121 +433,172 @@ export function SchedulerPanel() {
 
   return (
     <div className="h-full flex flex-col bg-background-base">
-      {/* 头部 */}
-      <div className="px-4 py-4 border-b border-border-subtle flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold text-text-primary">{t('title')}</h1>
-          <span className="text-xs text-text-muted bg-background-hover px-2 py-1 rounded">
-            {t('taskCount', { count: tasks.length })}
-          </span>
-        </div>
+      {/* 紧凑头部 - h-10 (40px) */}
+      <div className="h-10 px-3 border-b border-border-subtle flex items-center justify-between bg-background-surface">
+        {/* 左侧：标题 + 统计 */}
         <div className="flex items-center gap-2">
+          <Clock size={16} className="text-text-secondary" />
+          <h1 className="text-sm font-medium text-text-primary">{t('title')}</h1>
+          <span className="text-xs text-text-muted">({tasks.length})</span>
+          {/* 调度器状态指示器 */}
+          {schedulerStatus?.isRunning && (
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-success-faint text-success text-xs rounded">
+              <Activity size={12} />
+              <span>{t('control.running')}</span>
+            </div>
+          )}
+        </div>
+
+        {/* 右侧：操作按钮 */}
+        <div className="flex items-center gap-1">
+          {/* 更多菜单 */}
+          <div className="relative">
+            <button
+              onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+              className="p-1.5 rounded hover:bg-background-hover text-text-secondary hover:text-text-primary transition-colors"
+              title={t('more', '更多')}
+            >
+              <MoreVertical size={16} />
+            </button>
+            {moreMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setMoreMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 w-40 bg-background-surface border border-border-subtle rounded-lg shadow-lg z-50 py-1">
+                  <button
+                    onClick={() => { setShowTemplateManager(true); setMoreMenuOpen(false); }}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-background-hover flex items-center gap-2 text-text-secondary hover:text-text-primary"
+                  >
+                    <FileText size={14} />
+                    {t('template.title')}
+                  </button>
+                  <button
+                    onClick={() => { setShowProtocolTemplateManager(true); setMoreMenuOpen(false); }}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-background-hover flex items-center gap-2 text-text-secondary hover:text-text-primary"
+                  >
+                    <ScrollText size={14} />
+                    {t('protocolTemplate.title')}
+                  </button>
+                  <div className="h-px bg-border-subtle my-1" />
+                  {/* 调度器控制 - 内嵌 */}
+                  <div className="px-3 py-2 flex items-center justify-between">
+                    <span className="text-sm text-text-secondary">{t('control.scheduler', '调度器')}</span>
+                    {schedulerStatus?.isRunning ? (
+                      <button
+                        onClick={async () => { await stopScheduler(); setMoreMenuOpen(false); }}
+                        disabled={statusLoading}
+                        className="px-2 py-0.5 text-xs bg-danger-faint text-danger hover:bg-danger/20 rounded transition-colors disabled:opacity-50"
+                      >
+                        {t('control.stop')}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={async () => { await startScheduler(); setMoreMenuOpen(false); }}
+                        disabled={statusLoading}
+                        className="px-2 py-0.5 text-xs bg-success-faint text-success hover:bg-success/20 rounded transition-colors disabled:opacity-50"
+                      >
+                        {t('control.start')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* 搜索按钮 */}
           <button
-            onClick={() => setShowTemplateManager(true)}
-            className="px-3 py-2 bg-background-hover text-text-secondary hover:bg-background-active rounded-lg transition-colors text-sm"
+            onClick={() => setFilterExpanded(!filterExpanded)}
+            className={`p-1.5 rounded transition-colors ${filterExpanded ? 'bg-primary-faint text-primary' : 'hover:bg-background-hover text-text-secondary hover:text-text-primary'}`}
+            title={t('filter.search')}
           >
-            {t('template.title')}
+            <Search size={16} />
           </button>
+
+          {/* 新建按钮 */}
           <button
-            onClick={() => setShowProtocolTemplateManager(true)}
-            className="px-3 py-2 bg-background-hover text-text-secondary hover:bg-background-active rounded-lg transition-colors text-sm"
+            onClick={() => { setEditingTask(undefined); setCopyingTask(undefined); setShowEditor(true); }}
+            className="h-7 px-2.5 bg-primary hover:bg-primary-hover text-white rounded text-xs font-medium flex items-center gap-1 transition-colors"
           >
-            {t('protocolTemplate.title')}
-          </button>
-          <button
-            onClick={() => {
-              setEditingTask(undefined);
-              setCopyingTask(undefined);
-              setShowEditor(true);
-            }}
-            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors text-sm"
-          >
-            + {t('newTask')}
+            <Plus size={14} />
+            {t('newTask')}
           </button>
         </div>
       </div>
 
-      {/* 调度器控制栏 */}
-      <SchedulerControl />
-
-      {/* 筛选栏 */}
-      <div className="px-4 py-3 border-b border-border-subtle bg-background-surface">
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            placeholder={t('filter.search')}
-            value={filter.search}
-            onChange={(e) => setFilter({ ...filter, search: e.target.value })}
-            className="w-48 px-3 py-1.5 text-sm bg-background-base border border-border-subtle rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
-          <select
-            value={filter.status}
-            onChange={(e) => setFilter({ ...filter, status: e.target.value as TaskFilter['status'] })}
-            className="px-2 py-1.5 text-sm bg-background-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value="all">{t('filter.allStatus')}</option>
-            <option value="enabled">{t('filter.enabled')}</option>
-            <option value="disabled">{t('filter.disabled')}</option>
-          </select>
-          <select
-            value={filter.triggerType}
-            onChange={(e) => setFilter({ ...filter, triggerType: e.target.value as TaskFilter['triggerType'] })}
-            className="px-2 py-1.5 text-sm bg-background-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value="all">{t('filter.allTriggers')}</option>
-            <option value="interval">{t('triggerTypes.interval')}</option>
-            <option value="cron">{t('triggerTypes.cron')}</option>
-            <option value="once">{t('triggerTypes.once')}</option>
-          </select>
-          <select
-            value={filter.engineId}
-            onChange={(e) => setFilter({ ...filter, engineId: e.target.value })}
-            className="px-2 py-1.5 text-sm bg-background-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value="all">{t('filter.allEngines')}</option>
-            {engineOptions.map((engine) => (
-              <option key={engine} value={engine}>
-                {engine}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => setFilter(DEFAULT_FILTER)}
-            className="px-3 py-1.5 text-sm bg-background-hover text-text-secondary hover:bg-background-active rounded-lg transition-colors"
-          >
-            {t('filter.clear')}
-          </button>
-          {filteredTasks.length !== tasks.length && (
-            <span className="text-xs text-text-muted">
-              {filteredTasks.length}/{tasks.length}
-            </span>
-          )}
-          {/* 排序控件 */}
-          <div className="flex items-center gap-1 ml-2 pl-2 border-l border-border-subtle">
+      {/* 可折叠筛选栏 */}
+      {filterExpanded && (
+        <div className="px-3 py-2 border-b border-border-subtle bg-background-base animate-in slide-in-from-top-2 duration-200">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              placeholder={t('filter.search')}
+              value={filter.search}
+              onChange={(e) => setFilter({ ...filter, search: e.target.value })}
+              className="flex-1 min-w-0 max-w-48 px-2.5 py-1 text-xs bg-background-surface border border-border-subtle rounded text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
             <select
-              value={sort.field}
-              onChange={(e) => setSort({ ...sort, field: e.target.value as TaskSort['field'] })}
-              className="px-2 py-1.5 text-sm bg-background-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+              value={filter.status}
+              onChange={(e) => setFilter({ ...filter, status: e.target.value as TaskFilter['status'] })}
+              className="px-2 py-1 text-xs bg-background-surface border border-border-subtle rounded text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/50"
             >
-              {sortFieldOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
+              <option value="all">{t('filter.allStatus')}</option>
+              <option value="enabled">{t('filter.enabled')}</option>
+              <option value="disabled">{t('filter.disabled')}</option>
+            </select>
+            <select
+              value={filter.triggerType}
+              onChange={(e) => setFilter({ ...filter, triggerType: e.target.value as TaskFilter['triggerType'] })}
+              className="px-2 py-1 text-xs bg-background-surface border border-border-subtle rounded text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/50"
+            >
+              <option value="all">{t('filter.allTriggers')}</option>
+              <option value="interval">{t('triggerTypes.interval')}</option>
+              <option value="cron">{t('triggerTypes.cron')}</option>
+              <option value="once">{t('triggerTypes.once')}</option>
+            </select>
+            <select
+              value={filter.engineId}
+              onChange={(e) => setFilter({ ...filter, engineId: e.target.value })}
+              className="px-2 py-1 text-xs bg-background-surface border border-border-subtle rounded text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/50"
+            >
+              <option value="all">{t('filter.allEngines')}</option>
+              {engineOptions.map((engine) => (
+                <option key={engine} value={engine}>{engine}</option>
               ))}
             </select>
             <button
-              onClick={() => setSort({ ...sort, order: sort.order === 'asc' ? 'desc' : 'asc' })}
-              className="px-2 py-1.5 text-sm bg-background-base border border-border-subtle rounded-lg text-text-primary hover:bg-background-hover transition-colors"
-              title={sort.order === 'asc' ? t('sort.ascending', '升序') : t('sort.descending', '降序')}
+              onClick={() => setFilter(DEFAULT_FILTER)}
+              className="px-2 py-1 text-xs hover:bg-background-hover text-text-secondary hover:text-text-primary rounded transition-colors"
             >
-              {sort.order === 'asc' ? '↑' : '↓'}
+              {t('filter.clear')}
             </button>
+            {filteredTasks.length !== tasks.length && (
+              <span className="text-xs text-text-muted">{filteredTasks.length}/{tasks.length}</span>
+            )}
+            {/* 排序 */}
+            <div className="flex items-center gap-1 ml-auto pl-2 border-l border-border-subtle">
+              <select
+                value={sort.field}
+                onChange={(e) => setSort({ ...sort, field: e.target.value as TaskSort['field'] })}
+                className="px-2 py-1 text-xs bg-background-surface border border-border-subtle rounded text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/50"
+              >
+                {sortFieldOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setSort({ ...sort, order: sort.order === 'asc' ? 'desc' : 'asc' })}
+                className="p-1 text-xs bg-background-surface border border-border-subtle rounded text-text-secondary hover:text-text-primary hover:bg-background-hover transition-colors"
+                title={sort.order === 'asc' ? t('sort.ascending', '升序') : t('sort.descending', '降序')}
+              >
+                {sort.order === 'asc' ? '↑' : '↓'}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 任务列表 */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto px-3 py-2">
         {loading ? (
           <div className="text-center text-text-muted py-8">{t('loading')}</div>
         ) : tasks.length === 0 ? (

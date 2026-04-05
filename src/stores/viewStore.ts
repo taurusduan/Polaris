@@ -36,6 +36,7 @@ interface ViewState {
   activityBarCollapsed: boolean; // ActivityBar 是否折叠（隐藏图标栏）
   // 小屏模式状态
   compactMode: CompactModeState; // 小屏模式
+  schedulerLogDrawerHeight: number; // 日志抽屉高度
 }
 
 /** 视图操作 */
@@ -65,6 +66,8 @@ interface ViewActions {
   toggleActivityBar: () => void; // 切换 ActivityBar 折叠状态
   // 小屏模式操作
   updateCompactMode: (state: Partial<CompactModeState>) => void;
+  // 日志抽屉高度
+  setSchedulerLogDrawerHeight: (height: number) => void;
 }
 
 /** 完整的 View Store 类型 */
@@ -97,6 +100,7 @@ export const useViewStore = create<ViewStore>()(
         windowWidth: 1200,
         windowHeight: 800,
       },
+      schedulerLogDrawerHeight: 128, // 默认 128px
 
       // 切换侧边栏
       toggleSidebar: () => set((state) => ({ showSidebar: !state.showSidebar })),
@@ -194,6 +198,9 @@ export const useViewStore = create<ViewStore>()(
       updateCompactMode: (newState: Partial<CompactModeState>) => set((state) => ({
         compactMode: { ...state.compactMode, ...newState },
       })),
+
+      // 设置日志抽屉高度
+      setSchedulerLogDrawerHeight: (height: number) => set({ schedulerLogDrawerHeight: height }),
     }),
     {
       name: 'view-store',

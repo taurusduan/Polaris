@@ -4,26 +4,35 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Circle,
+  Play,
+  MessageSquare,
+  Brain,
+  Wrench,
+  Check,
+  Square,
+  Trash2,
+} from 'lucide-react';
+import { ResizeHandle } from '../Common';
+import { useViewStore } from '@/stores/viewStore';
 import type { ExecutionLogEntry, TaskExecutionInfo, ExecutionState } from '../../types/scheduler';
 import { useSchedulerStore } from '../../stores';
 
-/** 状态图标 */
+/** 状态图标 - lucide-react */
 function StateIcon({ state }: { state: ExecutionState }) {
-  const styles: Record<ExecutionState, string> = {
-    idle: 'text-text-muted',
-    running: 'text-info animate-pulse',
-    success: 'text-success',
-    failed: 'text-danger',
+  const iconMap: Record<ExecutionState, React.ReactNode> = {
+    idle: <Circle size={14} className="text-text-muted" />,
+    running: <Loader2 size={14} className="text-info animate-spin" />,
+    success: <CheckCircle size={14} className="text-success" />,
+    failed: <XCircle size={14} className="text-danger" />,
   };
-
-  const icons: Record<ExecutionState, string> = {
-    idle: '○',
-    running: '●',
-    success: '✓',
-    failed: '✗',
-  };
-
-  return <span className={styles[state]}>{icons[state]}</span>;
+  return iconMap[state];
 }
 
 /** 格式化用时 */
@@ -36,29 +45,18 @@ function formatDuration(startTime: number, endTime?: number): string {
   return `${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`;
 }
 
-/** 日志类型图标 */
+/** 日志类型图标 - lucide-react */
 function LogTypeIcon({ type }: { type: ExecutionLogEntry['type'] }) {
-  const styles: Record<ExecutionLogEntry['type'], string> = {
-    session_start: 'text-info',
-    message: 'text-text-primary',
-    thinking: 'text-text-muted',
-    tool_call_start: 'text-warning',
-    tool_call_end: 'text-success',
-    error: 'text-danger',
-    session_end: 'text-text-secondary',
+  const iconMap: Record<ExecutionLogEntry['type'], React.ReactNode> = {
+    session_start: <Play size={12} className="text-info" />,
+    message: <MessageSquare size={12} className="text-text-secondary" />,
+    thinking: <Brain size={12} className="text-text-muted" />,
+    tool_call_start: <Wrench size={12} className="text-warning" />,
+    tool_call_end: <Check size={12} className="text-success" />,
+    error: <XCircle size={12} className="text-danger" />,
+    session_end: <Square size={12} className="text-text-secondary" />,
   };
-
-  const icons: Record<ExecutionLogEntry['type'], string> = {
-    session_start: '▶',
-    message: '💬',
-    thinking: '💭',
-    tool_call_start: '🔧',
-    tool_call_end: '✅',
-    error: '❌',
-    session_end: '⏹',
-  };
-
-  return <span className={styles[type]}>{icons[type]}</span>;
+  return iconMap[type];
 }
 
 /** 单条日志 */
@@ -70,7 +68,7 @@ function LogItem({ log }: { log: ExecutionLogEntry }) {
   });
 
   return (
-    <div className="flex items-start gap-2 py-1 text-sm font-mono">
+    <div className="flex items-start gap-2 py-0.5 text-xs font-mono">
       <span className="text-text-muted shrink-0">[{time}]</span>
       <LogTypeIcon type={log.type} />
       <span className="text-text-secondary break-all">{log.content}</span>
@@ -95,25 +93,23 @@ function ExecutionTab({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-t-lg transition-colors ${
+      className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors ${
         isActive
-          ? 'bg-background-surface text-text-primary border-t border-l border-r border-border-subtle'
+          ? 'bg-background-surface text-text-primary border border-border-subtle'
           : 'bg-background-hover text-text-secondary hover:text-text-primary'
       }`}
     >
       <StateIcon state={execution.state} />
-      <span className="max-w-32 truncate">{execution.taskName}</span>
+      <span className="max-w-24 truncate">{execution.taskName}</span>
       {isRunning && (
-        <span className="text-xs text-text-muted">
-          {formatDuration(execution.startTime)}
-        </span>
+        <span className="text-text-muted">{formatDuration(execution.startTime)}</span>
       )}
       <span
         onClick={(e) => {
           e.stopPropagation();
           onClose();
         }}
-        className="ml-1 text-text-muted hover:text-text-primary"
+        className="ml-0.5 text-text-muted hover:text-text-primary"
       >
         ×
       </span>
@@ -132,6 +128,10 @@ export function ExecutionLogDrawer() {
     closeExecutionTab,
     clearLogs,
   } = useSchedulerStore();
+
+  // 从 viewStore 获取高度
+  const drawerHeight = useViewStore((state) => state.schedulerLogDrawerHeight);
+  const setDrawerHeight = useViewStore((state) => state.setSchedulerLogDrawerHeight);
 
   const logContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -156,6 +156,15 @@ export function ExecutionLogDrawer() {
     }
   };
 
+  // 拖拽处理 - 使用 ResizeHandle
+  const handleResize = (delta: number) => {
+    // ResizeHandle direction="vertical" position="left" 会传递正确的 delta
+    // 向上拖动（减小高度）delta 为正，向下拖动（增大高度）delta 为负
+    // 所以我们需要用减法
+    const newHeight = Math.max(96, Math.min(320, drawerHeight - delta));
+    setDrawerHeight(newHeight);
+  };
+
   // 如果没有执行任务，不显示
   if (executionList.length === 0) {
     return null;
@@ -165,35 +174,46 @@ export function ExecutionLogDrawer() {
   const runningCount = executionList.filter((e) => e.state === 'running').length;
 
   return (
-    <div className="border-t border-border-subtle bg-background-surface">
+    <div className="shrink-0 bg-background-surface flex flex-col" style={{ height: drawerOpen ? drawerHeight : 32 }}>
+      {/* 拖拽手柄 - 仅展开时显示 */}
+      {drawerOpen && (
+        <ResizeHandle direction="vertical" position="left" onDrag={handleResize} />
+      )}
+
       {/* 抽屉头部 */}
       <button
         onClick={() => setDrawerOpen(!drawerOpen)}
-        className="w-full px-4 py-2 flex items-center justify-between hover:bg-background-hover transition-colors"
+        className="shrink-0 h-8 px-3 flex items-center justify-between hover:bg-background-hover transition-colors border-t border-border-subtle"
       >
         <div className="flex items-center gap-2">
-          <span className={`transform transition-transform ${drawerOpen ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
-          <span className="text-sm text-text-secondary">
-            {t('drawer.title')}
-          </span>
+          {drawerOpen ? <ChevronDown size={14} className="text-text-muted" /> : <ChevronUp size={14} className="text-text-muted" />}
+          <span className="text-xs text-text-secondary">{t('drawer.title')}</span>
           {runningCount > 0 && (
-            <span className="px-1.5 py-0.5 text-xs bg-info-faint text-info rounded">
-              {t('drawer.runningCount', { count: runningCount })}
+            <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs bg-info-faint text-info rounded">
+              <Loader2 size={10} className="animate-spin" />
+              {runningCount}
             </span>
           )}
         </div>
-        <span className="text-xs text-text-muted">
-          {drawerOpen ? t('drawer.collapse') : t('drawer.expand')}
-        </span>
+        {drawerOpen && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              activeTaskId && clearLogs(activeTaskId);
+            }}
+            className="p-1 text-text-muted hover:text-text-primary transition-colors"
+            title={t('drawer.clear')}
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
       </button>
 
       {/* 抽屉内容 */}
       {drawerOpen && (
-        <div className="border-t border-border-subtle">
+        <div className="flex-1 min-h-0 flex flex-col border-t border-border-subtle">
           {/* Tab 栏 */}
-          <div className="flex items-center gap-1 px-2 pt-2 bg-background-base">
+          <div className="shrink-0 h-7 flex items-center gap-1 px-2 bg-background-base overflow-x-auto">
             {executionList.map((execution) => (
               <ExecutionTab
                 key={execution.taskId}
@@ -205,40 +225,30 @@ export function ExecutionLogDrawer() {
             ))}
           </div>
 
-          {/* 日志内容 */}
-          <div className="bg-background-surface border-t border-border-subtle">
-            {/* 工具栏 */}
-            <div className="px-4 py-2 flex items-center justify-between border-b border-border-subtle">
-              <div className="flex items-center gap-2 text-sm text-text-muted">
+          {/* 工具栏 + 日志 */}
+          <div className="flex-1 min-h-0 flex flex-col bg-background-elevated">
+            {/* 状态工具栏 */}
+            <div className="shrink-0 h-7 px-3 flex items-center justify-between border-b border-border-subtle">
+              <div className="flex items-center gap-2 text-xs text-text-muted">
                 {activeExecution && (
                   <>
                     <StateIcon state={activeExecution.state} />
-                    <span>
-                      {t(`status.${activeExecution.state}`)}
-                    </span>
-                    <span>·</span>
-                    <span>
-                      {t('drawer.duration')}: {formatDuration(activeExecution.startTime, activeExecution.endTime)}
-                    </span>
+                    <span>{t(`status.${activeExecution.state}`)}</span>
+                    <span className="text-text-faint">·</span>
+                    <span>{formatDuration(activeExecution.startTime, activeExecution.endTime)}</span>
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => setAutoScroll(!autoScroll)}
-                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                  className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
                     autoScroll
                       ? 'bg-primary-faint text-primary'
                       : 'bg-background-hover text-text-muted'
                   }`}
                 >
                   {autoScroll ? t('drawer.autoScroll') : t('drawer.manualScroll')}
-                </button>
-                <button
-                  onClick={() => activeTaskId && clearLogs(activeTaskId)}
-                  className="px-2 py-1 text-xs bg-background-hover text-text-muted hover:text-text-primary rounded transition-colors"
-                >
-                  {t('drawer.clear')}
                 </button>
               </div>
             </div>
@@ -247,7 +257,7 @@ export function ExecutionLogDrawer() {
             <div
               ref={logContainerRef}
               onScroll={handleScroll}
-              className="h-48 overflow-y-auto p-4 bg-background-elevated"
+              className="flex-1 min-h-0 overflow-y-auto p-2"
             >
               {activeExecution ? (
                 activeExecution.logs.length > 0 ? (
@@ -257,12 +267,12 @@ export function ExecutionLogDrawer() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center text-text-muted py-8">
+                  <div className="h-full flex items-center justify-center text-xs text-text-muted">
                     {t('drawer.waitingOutput')}
                   </div>
                 )
               ) : (
-                <div className="text-center text-text-muted py-8">
+                <div className="h-full flex items-center justify-center text-xs text-text-muted">
                   {t('drawer.noTaskSelected')}
                 </div>
               )}
