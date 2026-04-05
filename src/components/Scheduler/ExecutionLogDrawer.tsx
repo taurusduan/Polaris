@@ -158,10 +158,14 @@ export function ExecutionLogDrawer() {
 
   // 拖拽处理 - 使用 ResizeHandle
   const handleResize = (delta: number) => {
-    // ResizeHandle direction="vertical" position="left" 会传递正确的 delta
-    // 向上拖动（减小高度）delta 为正，向下拖动（增大高度）delta 为负
-    // 所以我们需要用减法
-    const newHeight = Math.max(96, Math.min(320, drawerHeight - delta));
+    // ResizeHandle direction="vertical" position="right"（相当于 bottom）：
+    // - 不取反，原始 deltaY 直接传出
+    // - 向下拖：delta 为正（clientY 增大）
+    // - 向上拖：delta 为负（clientY 减小）
+    // 对于顶部拖拽手柄（抽屉上方）：
+    // - 向上拖应该减小高度，向下拖应该增大高度
+    // - 用加法：向上拖（delta负）→ 高度减小，向下拖（delta正）→ 高度增大
+    const newHeight = Math.max(96, Math.min(320, drawerHeight + delta));
     setDrawerHeight(newHeight);
   };
 
@@ -177,7 +181,7 @@ export function ExecutionLogDrawer() {
     <div className="shrink-0 bg-background-surface flex flex-col" style={{ height: drawerOpen ? drawerHeight : 32 }}>
       {/* 拖拽手柄 - 仅展开时显示 */}
       {drawerOpen && (
-        <ResizeHandle direction="vertical" position="left" onDrag={handleResize} />
+        <ResizeHandle direction="vertical" position="right" onDrag={handleResize} />
       )}
 
       {/* 抽屉头部 */}

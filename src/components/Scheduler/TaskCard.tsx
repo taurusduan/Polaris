@@ -90,8 +90,8 @@ export function TaskCard({
           <span className="text-sm font-medium text-text-primary truncate">{task.name}</span>
         </div>
 
-        {/* 右侧：触发方式 + 下次执行 */}
-        <div className="flex items-center gap-3 text-xs text-text-muted shrink-0 ml-2">
+        {/* 右侧：触发方式 + 下次执行（hover 时隐藏给操作按钮留空间） */}
+        <div className={`flex items-center gap-3 text-xs text-text-muted shrink-0 ml-2 transition-opacity ${showActions ? 'opacity-0' : ''}`}>
           <span className="max-w-20 truncate">{triggerDisplay}</span>
           {task.enabled && task.nextRunAt && (
             <span>{formatRelativeTime(task.nextRunAt)}</span>
@@ -104,7 +104,11 @@ export function TaskCard({
 
       {/* Hover 显示的操作按钮 */}
       {showActions && (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-background-surface/95 px-1 py-0.5 rounded shadow-sm border border-border-subtle animate-in fade-in duration-150">
+        <div
+          className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-background-surface px-1 py-0.5 rounded shadow-md border border-border-subtle z-10"
+          onMouseEnter={() => setShowActions(true)}
+          onMouseLeave={() => setShowActions(false)}
+        >
           {/* 执行/停止 */}
           {isRunning ? (
             <button
@@ -142,14 +146,14 @@ export function TaskCard({
           </button>
 
           {/* 更多操作 */}
-          <div className="relative group">
+          <div className="relative">
             <button
               className="p-1.5 text-text-secondary hover:bg-background-hover hover:text-text-primary rounded transition-colors"
             >
               <MoreHorizontal size={14} />
             </button>
-            {/* 下拉菜单 */}
-            <div className="absolute right-0 top-full mt-1 w-28 bg-background-surface border border-border-subtle rounded-lg shadow-lg z-50 py-1 hidden group-hover:block">
+            {/* 下拉菜单 - 使用 hover 保持显示 */}
+            <div className="absolute right-0 top-full mt-1 w-28 bg-background-surface border border-border-subtle rounded-lg shadow-lg z-50 py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity">
               <button
                 onClick={onEdit}
                 className="w-full px-2 py-1.5 text-left text-xs hover:bg-background-hover text-text-secondary hover:text-text-primary"

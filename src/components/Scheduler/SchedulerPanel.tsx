@@ -434,23 +434,23 @@ export function SchedulerPanel() {
   return (
     <div className="h-full flex flex-col bg-background-base">
       {/* 紧凑头部 - h-10 (40px) */}
-      <div className="h-10 px-3 border-b border-border-subtle flex items-center justify-between bg-background-surface">
+      <div className="h-10 px-3 border-b border-border-subtle flex items-center justify-between bg-background-surface shrink-0">
         {/* 左侧：标题 + 统计 */}
-        <div className="flex items-center gap-2">
-          <Clock size={16} className="text-text-secondary" />
-          <h1 className="text-sm font-medium text-text-primary">{t('title')}</h1>
-          <span className="text-xs text-text-muted">({tasks.length})</span>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Clock size={16} className="text-text-secondary shrink-0" />
+          <h1 className="text-sm font-medium text-text-primary truncate">{t('title')}</h1>
+          <span className="text-xs text-text-muted shrink-0">({tasks.length})</span>
           {/* 调度器状态指示器 */}
           {schedulerStatus?.isRunning && (
-            <div className="flex items-center gap-1 px-2 py-0.5 bg-success-faint text-success text-xs rounded">
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-success-faint text-success text-xs rounded shrink-0">
               <Activity size={12} />
-              <span>{t('control.running')}</span>
+              <span className="hidden sm:inline">{t('control.running')}</span>
             </div>
           )}
         </div>
 
         {/* 右侧：操作按钮 */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {/* 更多菜单 */}
           <div className="relative">
             <button

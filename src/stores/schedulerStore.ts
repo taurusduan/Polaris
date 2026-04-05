@@ -19,6 +19,7 @@ import type {
   CreateProtocolTemplateParams,
   TaskCategory,
 } from '../types/scheduler';
+import type { AIEvent } from '../ai-runtime';
 import * as tauri from '../services/tauri';
 import { getEventRouter } from '../services/eventRouter';
 import { extractErrorMessage } from '../utils/errorMapping';
@@ -374,9 +375,50 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       return { executions: newExecutions };
     });
 
-    // 如果需要订阅，注册事件处理器
+    // 即使不订阅日志，也需要监听 session_end 来更新状态
+    const router = getEventRouter();
+    await router.initialize();
+    const contextId = `scheduler-${id}`;
+
+    // 注册状态监听器（只处理 session_end 和 error）
+    const unsubscribeStatus = router.register(contextId, (payload: unknown) => {
+      const event = payload as Record<string, unknown>;
+
+      // 处理会话结束
+      if (event.type === 'session_end') {
+        const reason = event.reason as string | undefined;
+        const status = (reason === 'error' || reason === 'failed') ? 'failed' : 'success';
+        get().updateRunStatus(id, status);
+        unsubscribeStatus();
+      } else if (event.type === 'error') {
+        get().updateRunStatus(id, 'failed');
+        unsubscribeStatus();
+      }
+
+      // 如果订阅日志，也处理日志
+      if (options?.subscribe) {
+        const log = parseEventToLog(event);
+        if (log) {
+          get().addLog(id, log);
+        }
+
+        // 路由到会话 Store
+        const sessionId = `scheduler-${id}`;
+        const { sessionStoreManager } = require('./conversationStore/sessionStoreManager');
+        sessionStoreManager.getState().dispatchEvent({
+          ...event,
+          _routeSessionId: sessionId,
+        } as AIEvent & { _routeSessionId: string });
+      }
+    });
+
+    // 如果订阅，也记录到 subscribedTaskIds
     if (options?.subscribe) {
-      await get().subscribeToEvents(id);
+      set((state) => {
+        const newSubscribedTaskIds = new Set(state.subscribedTaskIds);
+        newSubscribedTaskIds.add(id);
+        return { subscribedTaskIds: newSubscribedTaskIds };
+      });
     }
 
     try {
@@ -391,7 +433,8 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
 
       return result;
     } catch (e) {
-      // 执行失败
+      // 执行失败，清理监听器
+      unsubscribeStatus();
       set((state) => {
         const newRunningTaskIds = new Set(state.runningTaskIds);
         newRunningTaskIds.delete(id);
