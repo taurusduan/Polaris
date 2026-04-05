@@ -32,7 +32,7 @@ import {
   type GrepMatch,
   type GrepOutputData
 } from '../../utils/toolSummary';
-import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, ChevronUp, Circle, FileSearch, FolderOpen, Code, FileDiff, Brain, ListOrdered } from 'lucide-react';
+import { Check, XCircle, Loader2, AlertTriangle, ChevronDown, ChevronRight, ChevronUp, Circle, FileSearch, FolderOpen, Code, FileDiff, Brain, ListOrdered } from 'lucide-react';
 import { ChatNavigator } from './ChatNavigator';
 import { useMessageSearch, MessageSearchPanel } from './MessageSearchPanel';
 import { QuestionBlockRenderer, SimplifiedQuestionRenderer } from './QuestionBlockRenderer';
@@ -413,7 +413,7 @@ const TextPartRenderer = memo(function TextPartRenderer({
  */
 const STATUS_CONFIG = {
   pending: { icon: Loader2, className: 'animate-spin text-yellow-500', labelKey: 'status.pending' },
-  running: { icon: Play, className: 'text-blue-500 animate-pulse', labelKey: 'status.running' },
+  running: { icon: Loader2, className: 'animate-spin text-blue-500', labelKey: 'status.running' },
   completed: { icon: Check, className: 'text-green-500', labelKey: 'status.completed' },
   failed: { icon: XCircle, className: 'text-red-500', labelKey: 'status.failed' },
   partial: { icon: AlertTriangle, className: 'text-orange-500', labelKey: 'status.partial' },

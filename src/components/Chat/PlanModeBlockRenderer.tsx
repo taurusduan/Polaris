@@ -15,7 +15,6 @@ import {
   Check,
   XCircle,
   Loader2,
-  Play,
   ChevronDown,
   ChevronRight,
   Circle,
@@ -65,8 +64,8 @@ export const PLAN_STATUS_CONFIG = {
     labelKey: 'plan.statusRejected',
   },
   executing: {
-    icon: Play,
-    color: 'text-blue-500',
+    icon: Loader2,
+    color: 'text-blue-500 animate-spin',
     bg: 'bg-blue-500/10',
     labelKey: 'plan.statusExecuting',
   },

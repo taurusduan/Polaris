@@ -12,7 +12,7 @@ import {
   formatDuration,
   calculateDuration,
 } from '../../utils/toolSummary';
-import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, Circle, ListChecks } from 'lucide-react';
+import { Check, XCircle, Loader2, AlertTriangle, ChevronDown, Circle, ListChecks } from 'lucide-react';
 
 // ========================================
 // AgentRun 渲染器
@@ -21,7 +21,7 @@ import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, Circle, List
 /** AgentRun 状态配置 */
 const AGENT_STATUS_CONFIG = {
   pending: { icon: Loader2, className: 'animate-spin text-yellow-500', labelKey: 'status.pending' },
-  running: { icon: Play, className: 'text-blue-500 animate-pulse', labelKey: 'status.running' },
+  running: { icon: Loader2, className: 'animate-spin text-blue-500', labelKey: 'status.running' },
   success: { icon: Check, className: 'text-green-500', labelKey: 'status.completed' },
   error: { icon: XCircle, className: 'text-red-500', labelKey: 'status.failed' },
   canceled: { icon: XCircle, className: 'text-gray-500', labelKey: 'status.canceled' },
