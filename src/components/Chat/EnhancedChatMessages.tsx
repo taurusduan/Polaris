@@ -1921,12 +1921,25 @@ const SystemBubble = memo(function SystemBubble({ content }: { content: string }
 });
 
 /** 消息渲染器 */
-function renderChatMessage(message: ChatMessage, renderMode: MessageRenderMode = 'full'): React.ReactNode {
+function renderChatMessage(
+  message: ChatMessage,
+  renderMode: MessageRenderMode = 'full',
+  messageIndex?: number,
+  scrollToMessage?: (index: number) => void
+): React.ReactNode {
   switch (message.type) {
     case 'user':
       return <UserBubble key={message.id} message={message} />;
     case 'assistant':
-      return <AssistantBubble key={message.id} message={message} renderMode={renderMode} />;
+      return (
+        <AssistantBubble
+          key={message.id}
+          message={message}
+          renderMode={renderMode}
+          messageIndex={messageIndex}
+          onScrollToMessage={scrollToMessage}
+        />
+      );
     case 'system':
       return <SystemBubble key={message.id} content={(message as any).content} />;
     default:
@@ -2177,6 +2190,19 @@ export function EnhancedChatMessages() {
     setAutoScroll(true); // 启用自动滚动
   }, []);
 
+  // 滚动到指定消息索引（用于右键菜单跳转）
+  const scrollToMessage = useCallback((index: number) => {
+    if (!virtuosoRef.current) return;
+
+    virtuosoRef.current.scrollToIndex({
+      index,
+      align: 'start',
+      behavior: 'smooth',
+    });
+
+    setAutoScroll(false); // 禁用自动滚动
+  }, []);
+
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
       {/* 归档消息提示 - 分批加载 */}
@@ -2207,7 +2233,7 @@ export function EnhancedChatMessages() {
               itemContent={(index, item) => {
                 // 计算当前消息的渲染模式
                 const renderMode = calculateRenderMode(index, displayMessages.length, DEFAULT_LAYER_CONFIG);
-                return renderChatMessage(item, renderMode);
+                return renderChatMessage(item, renderMode, index, scrollToMessage);
               }}
               components={{
                 EmptyPlaceholder: () => null,

@@ -379,6 +379,31 @@ export function extractToolKeyInfo(toolName: string, input: Record<string, unkno
     }
   }
 
+  // Task/Agent 工具：提取 prompt 参数
+  if ((toolName.toLowerCase() === 'task' || toolName.toLowerCase() === 'agent') && input) {
+    const prompt = input.prompt as string | undefined;
+    if (prompt) {
+      return prompt.length > 50 ? prompt.slice(0, 47) + '...' : prompt;
+    }
+    // 尝试 description 参数
+    const description = input.description as string | undefined;
+    if (description) {
+      return description.length > 50 ? description.slice(0, 47) + '...' : description;
+    }
+  }
+
+  // AskUserQuestion 工具：提取问题标题
+  if (toolName.toLowerCase() === 'askuserquestion' && input) {
+    const header = input.header as string | undefined;
+    if (header) return header;
+
+    const questions = input.questions as Array<{ question?: string }> | undefined;
+    if (Array.isArray(questions) && questions[0]?.question) {
+      const q = questions[0].question;
+      return q.length > 50 ? q.slice(0, 47) + '...' : q;
+    }
+  }
+
   switch (category) {
     case 'read':
     case 'edit':

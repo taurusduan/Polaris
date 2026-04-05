@@ -201,6 +201,9 @@
     "waitingReply": "Waiting for reply...",
     "scrollToBottom": "Scroll to bottom"
   },
+  "contextMenu": {
+    "scrollToStart": "Scroll to message start"
+  },
   "history": {
     "title": "Session History",
     "loading": "Loading...",

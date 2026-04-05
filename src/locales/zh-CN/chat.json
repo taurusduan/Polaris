@@ -201,6 +201,9 @@
     "waitingReply": "等待回复...",
     "scrollToBottom": "回到底部"
   },
+  "contextMenu": {
+    "scrollToStart": "跳转到消息开头"
+  },
   "history": {
     "title": "会话历史",
     "loading": "加载中...",
