@@ -1,8 +1,8 @@
 /**
  * QuickSwitchPanel - 快速切换面板主组件
  *
- * 右侧悬停触发的会话/工作区快速切换面板
- * 包含：会话管理、工作区切换、更多工具
+ * 右侧悬停触发的会话快速切换面板
+ * 核心功能：快速切换会话
  */
 
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
@@ -45,17 +45,16 @@ export const QuickSwitchPanel = memo(function QuickSwitchPanel({
   // 会话数据
   const sessions = useSessionMetadataList()
   const activeSessionId = useActiveSessionId()
-  const { createSession, deleteSession, switchSession, updateSessionWorkspace, addContextWorkspace, removeContextWorkspace } = useSessionManagerActions()
+  const { createSession, deleteSession, switchSession } = useSessionManagerActions()
+  const { messages } = useActiveSessionMessages()
 
   // 工作区数据
   const workspaces = useWorkspaceStore((state) => state.workspaces)
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId)
+  const createWorkspace = useWorkspaceStore((state) => state.createWorkspace)
 
   // 视图控制
   const { toggleSessionHistory } = useViewStore()
-
-  // 当前会话消息（用于导出）
-  const { messages } = useActiveSessionMessages()
 
   // 清除所有定时器
   const clearTimers = useCallback(() => {
@@ -133,47 +132,6 @@ export const QuickSwitchPanel = memo(function QuickSwitchPanel({
     })
   }, [createSession, currentWorkspaceId])
 
-  // 切换主工作区
-  const handleSwitchWorkspace = useCallback((workspaceId: string) => {
-    if (!activeSessionId) return
-    updateSessionWorkspace(activeSessionId, workspaceId)
-  }, [activeSessionId, updateSessionWorkspace])
-
-  // 切换关联工作区
-  const handleToggleContextWorkspace = useCallback((workspaceId: string) => {
-    if (!activeSessionId) return
-    const activeSession = sessions.find(s => s.id === activeSessionId)
-    const contextIds = activeSession?.contextWorkspaceIds || []
-    if (contextIds.includes(workspaceId)) {
-      removeContextWorkspace(activeSessionId, workspaceId)
-    } else {
-      addContextWorkspace(activeSessionId, workspaceId)
-    }
-  }, [activeSessionId, sessions, addContextWorkspace, removeContextWorkspace])
-
-  // 导出聊天
-  const handleExportChat = useCallback(async () => {
-    if (messages.length === 0) return
-
-    try {
-      const content = exportToMarkdown(messages)
-      const fileName = generateFileName('md')
-      const filePath = await tauri.saveChatToFile(content, fileName)
-
-      if (filePath) {
-        log.info('导出聊天成功', { path: filePath })
-      }
-    } catch (error) {
-      log.error('导出聊天失败', error instanceof Error ? error : new Error(String(error)))
-    }
-  }, [messages])
-
-  // 打开历史会话
-  const handleOpenHistory = useCallback(() => {
-    toggleSessionHistory()
-    setIsPanelVisible(false) // 关闭面板
-  }, [toggleSessionHistory])
-
   // 计算会话列表数据
   const sessionList = useMemo<QuickSessionInfo[]>(() => {
     // 过滤静默会话
@@ -203,10 +161,10 @@ export const QuickSwitchPanel = memo(function QuickSwitchPanel({
     }
   }, [sessions, activeSessionId, workspaces])
 
-  // 计算所有工作区列表
-  const workspacesList = useMemo<QuickWorkspaceInfo[]>(() => {
+  // 计算工作区列表数据
+  const workspaceList = useMemo<QuickWorkspaceInfo[]>(() => {
     const activeSession = sessions.find(s => s.id === activeSessionId)
-    const mainWorkspaceId = activeSession?.workspaceId || currentWorkspaceId
+    const mainWorkspaceId = activeSession?.workspaceId
     const contextIds = activeSession?.contextWorkspaceIds || []
 
     return workspaces.map(w => ({
@@ -216,22 +174,87 @@ export const QuickSwitchPanel = memo(function QuickSwitchPanel({
       isMain: w.id === mainWorkspaceId,
       isContext: contextIds.includes(w.id),
     }))
-  }, [workspaces, sessions, activeSessionId, currentWorkspaceId])
+  }, [sessions, activeSessionId, workspaces])
 
-  // 计算关联工作区ID列表
+  // 当前会话的关联工作区ID列表
   const contextWorkspaceIds = useMemo(() => {
     const activeSession = sessions.find(s => s.id === activeSessionId)
     return activeSession?.contextWorkspaceIds || []
   }, [sessions, activeSessionId])
 
-  // 计算工作区是否锁定
+  // 当前会话是否锁定
   const isWorkspaceLocked = useMemo(() => {
     const activeSession = sessions.find(s => s.id === activeSessionId)
     return activeSession?.workspaceLocked || false
   }, [sessions, activeSessionId])
 
-  // 是否有消息可导出
-  const hasMessages = messages.length > 0
+  // 工作区操作
+  const { updateSessionWorkspace, addContextWorkspace, removeContextWorkspace } = useSessionManagerActions()
+
+  // 切换主工作区
+  const handleSwitchWorkspace = useCallback((workspaceId: string) => {
+    if (!activeSessionId || isWorkspaceLocked) return
+    updateSessionWorkspace(activeSessionId, workspaceId)
+  }, [activeSessionId, isWorkspaceLocked, updateSessionWorkspace])
+
+  // 切换关联工作区
+  const handleToggleContextWorkspace = useCallback((workspaceId: string) => {
+    if (!activeSessionId) return
+    if (contextWorkspaceIds.includes(workspaceId)) {
+      removeContextWorkspace(activeSessionId, workspaceId)
+    } else {
+      addContextWorkspace(activeSessionId, workspaceId)
+    }
+  }, [activeSessionId, contextWorkspaceIds, addContextWorkspace, removeContextWorkspace])
+
+  // 导出聊天
+  const [isExporting, setIsExporting] = useState(false)
+  const handleExport = useCallback(async () => {
+    if (messages.length === 0 || isExporting) return
+
+    setIsExporting(true)
+    try {
+      const content = exportToMarkdown(messages)
+      const fileName = generateFileName('md')
+      const filePath = await tauri.saveChatToFile(content, fileName)
+
+      if (filePath) {
+        log.info('导出聊天成功', { path: filePath })
+      }
+    } catch (error) {
+      log.error(
+        '导出聊天失败',
+        error instanceof Error ? error : new Error(String(error))
+      )
+    } finally {
+      setIsExporting(false)
+    }
+  }, [messages, isExporting])
+
+  // 打开历史会话
+  const handleOpenHistory = useCallback(() => {
+    toggleSessionHistory()
+  }, [toggleSessionHistory])
+
+  // 新增工作区
+  const handleCreateWorkspace = useCallback(async () => {
+    try {
+      // 使用 Tauri dialog 插件选择目录
+      const { open } = await import('@tauri-apps/plugin-dialog')
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: '选择工作区目录',
+      })
+
+      if (selected && !Array.isArray(selected)) {
+        const workspaceName = selected.split(/[/\\]/).pop() || 'Workspace'
+        await createWorkspace(workspaceName, selected, true)
+      }
+    } catch (error) {
+      log.error('创建工作区失败', error instanceof Error ? error : new Error(String(error)))
+    }
+  }, [createWorkspace])
 
   // 获取当前会话状态
   const currentStatus = useMemo<SessionStatus>(() => {
@@ -246,7 +269,7 @@ export const QuickSwitchPanel = memo(function QuickSwitchPanel({
 
   return (
     <div className={cn('fixed right-0 top-0 bottom-0 pointer-events-none z-20', className)}>
-      {/* 触发器容器 - 用于定位触发器和面板 */}
+      {/* 触发器容器 */}
       <div className="absolute right-0 top-[45%] -translate-y-1/2 pointer-events-auto">
         <QuickSwitchTrigger
           status={currentStatus}
@@ -255,23 +278,23 @@ export const QuickSwitchPanel = memo(function QuickSwitchPanel({
           onMouseLeave={handleTriggerMouseLeave}
         />
 
-        {/* 面板 - 紧贴触发器左侧 */}
+        {/* 面板 */}
         {isPanelVisible && (
-          <div className="absolute right-8 top-0">
+          <div className="absolute right-10 top-0">
             <QuickSwitchContent
               sessions={sessionList}
               workspace={workspaceInfo}
-              workspaces={workspacesList}
+              workspaces={workspaceList}
               contextWorkspaceIds={contextWorkspaceIds}
               isWorkspaceLocked={isWorkspaceLocked}
-              hasMessages={hasMessages}
               onSwitchSession={handleSwitchSession}
               onDeleteSession={handleDeleteSession}
               onCreateSession={handleCreateSession}
               onSwitchWorkspace={handleSwitchWorkspace}
               onToggleContextWorkspace={handleToggleContextWorkspace}
-              onExportChat={handleExportChat}
+              onExport={messages.length > 0 ? handleExport : undefined}
               onOpenHistory={handleOpenHistory}
+              onCreateWorkspace={handleCreateWorkspace}
               onMouseEnter={handlePanelMouseEnter}
               onMouseLeave={handlePanelMouseLeave}
             />
