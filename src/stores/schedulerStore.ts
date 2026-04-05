@@ -597,11 +597,6 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       return;
     }
 
-    // 将静默会话转换为可见会话（如果存在）
-    const sessionId = `scheduler-${taskId}`
-    const { sessionStoreManager } = await import('./conversationStore/sessionStoreManager')
-    sessionStoreManager.getState().makeSessionVisible(sessionId)
-
     const router = getEventRouter();
     await router.initialize();
 
