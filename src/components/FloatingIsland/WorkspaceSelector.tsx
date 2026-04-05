@@ -63,7 +63,7 @@ export const WorkspaceSelector = memo(function WorkspaceSelector({
 
         {/* 工作区名称 */}
         <span className="text-xs text-text-secondary max-w-[80px] truncate">
-          {currentWorkspace?.name || '设置工作区'}
+          {currentWorkspace?.name || '工作区'}
         </span>
 
         {/* 关联数量徽章 */}
