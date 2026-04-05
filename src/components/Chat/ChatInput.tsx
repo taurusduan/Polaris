@@ -12,6 +12,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconSend, IconStop, IconPaperclip } from '../Common/Icons'
 import { useWorkspaceStore, useChatInputStore, useEventChatStore } from '../../stores'
+import { useActiveSessionId } from '../../stores/conversationStore'
 import { useActiveSessionInputDraft, useActiveSessionActions } from '../../stores/conversationStore/useActiveSession'
 import { useDebouncedCallback } from '../../hooks/useDebounce'
 import { UnifiedSuggestion, type SuggestionItem } from './FileSuggestion'
@@ -44,21 +45,39 @@ export function ChatInput({
   currentWorkDir: _currentWorkDir,
 }: ChatInputProps) {
   const { t } = useTranslation('chat')
-  
-  // 使用 Store 中的输入草稿
+
+  // 当前会话 ID（用于检测会话切换）
+  const sessionId = useActiveSessionId()
+
+  // 使用 Store 中的输入草稿（用于会话切换同步）
   const inputDraft = useActiveSessionInputDraft()
   const { updateInputDraft, clearInputDraft } = useActiveSessionActions()
-  
-  // 创建防抖的 updateInputDraft（300ms 延迟）
-  const debouncedUpdateInputDraft = useDebouncedCallback(updateInputDraft, 300)
-  
+
+  // 本地 state（即时响应）
+  const [localText, setLocalText] = useState('')
+  const [localAttachments, setLocalAttachments] = useState<Attachment[]>([])
+
+  // 创建防抖的持久化函数（300ms 延迟）
+  const { debounced: debouncedPersistDraft, cancel: cancelPersistDraft } = useDebouncedCallback(
+    (text: string, attachments: Attachment[]) => {
+      updateInputDraft({ text, attachments })
+    },
+    300
+  )
+
+  // 会话切换时同步 Store 草稿到本地 state（只在 sessionId 变化时执行）
+  useEffect(() => {
+    setLocalText(inputDraft.text)
+    setLocalAttachments(inputDraft.attachments)
+  }, [sessionId])  // 依赖 sessionId 而非 inputDraft
+
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 从 Store 中获取值
-  const value = inputDraft.text
-  const attachments = inputDraft.attachments
+  // 从本地 state 获取当前值
+  const value = localText
+  const attachments = localAttachments
 
   // 统一建议状态
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -84,30 +103,15 @@ export function ChatInput({
   // 处理语音识别文字
   useEffect(() => {
     if (speechTranscript) {
-      updateInputDraft({ text: value + speechTranscript, attachments })
+      const newText = localText + speechTranscript
+      // 立即更新本地 state
+      setLocalText(newText)
+      // 持久化到 Store（立即，不防抖，因为是一次性追加）
+      updateInputDraft({ text: newText, attachments })
       clearSpeechTranscript()
       textareaRef.current?.focus()
     }
-  }, [speechTranscript, clearSpeechTranscript, value, attachments, updateInputDraft])
-
-  // 处理语音命令
-  useEffect(() => {
-    if (!speechCommand) return
-
-    switch (speechCommand) {
-      case 'send':
-        if (!isStreaming) {
-          handleSend()
-        }
-        break
-      case 'clear':
-        updateInputDraft({ text: '', attachments })
-        break
-      // 'interrupt' 已在 ChatStatusBar 处理
-    }
-
-    setSpeechCommand(null)
-  }, [speechCommand, isStreaming, setSpeechCommand, attachments, updateInputDraft])
+  }, [speechTranscript, clearSpeechTranscript, localText, attachments, updateInputDraft])
 
   // 检查是否有待回答的问题
   const hasPendingQuestion = useEventChatStore(state => {
@@ -190,14 +194,20 @@ export function ChatInput({
       console.warn('[ChatInput] 总附件验证失败:', totalValidation.error)
       return
     }
-    updateInputDraft({ text: value, attachments: newAttachments })
-  }, [attachments, value, updateInputDraft])
+    // 立即更新本地 state
+    setLocalAttachments(newAttachments)
+    // 持久化到 Store
+    debouncedPersistDraft(value, newAttachments)
+  }, [attachments, value, debouncedPersistDraft])
 
   // 移除附件
   const removeAttachment = useCallback((id: string) => {
     const newAttachments = attachments.filter(a => a.id !== id)
-    updateInputDraft({ text: value, attachments: newAttachments })
-  }, [attachments, value, updateInputDraft])
+    // 立即更新本地 state
+    setLocalAttachments(newAttachments)
+    // 持久化到 Store
+    debouncedPersistDraft(value, newAttachments)
+  }, [attachments, value, debouncedPersistDraft])
 
   // 处理粘贴
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
@@ -288,7 +298,10 @@ export function ChatInput({
   // 检测触发符
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value
-    debouncedUpdateInputDraft({ text: newValue, attachments })
+    // 立即更新本地 state（即时响应）
+    setLocalText(newValue)
+    // 防抖持久化到 Store
+    debouncedPersistDraft(newValue, attachments)
 
     const textarea = textareaRef.current
     if (!textarea || !containerRef.current) return
@@ -393,7 +406,7 @@ export function ChatInput({
     setShowSuggestions(false)
     setSuggestionItems([])
     clearResults()
-  }, [workspaces, searchFiles, clearResults, calculateSuggestionPosition, buildSuggestionItems, attachments, debouncedUpdateInputDraft])
+  }, [workspaces, searchFiles, clearResults, calculateSuggestionPosition, buildSuggestionItems, attachments, debouncedPersistDraft])
 
   // 当 fileMatches 更新时，合并到 suggestionItems
   useEffect(() => {
@@ -437,7 +450,10 @@ export function ChatInput({
       }
     }
 
-    updateInputDraft({ text: newText, attachments })
+    // 立即更新本地 state
+    setLocalText(newText)
+    // 持久化到 Store
+    debouncedPersistDraft(newText, attachments)
     setShowSuggestions(false)
     setSuggestionItems([])
     setFileWorkspace(null)
@@ -447,18 +463,51 @@ export function ChatInput({
       const newCursorPos = newText.length - textAfterCursor.length
       textarea.setSelectionRange(newCursorPos, newCursorPos)
     }, 0)
-  }, [value, fileWorkspace, attachments, updateInputDraft])
+  }, [value, fileWorkspace, attachments, debouncedPersistDraft])
 
   const handleSend = useCallback(() => {
     const trimmed = value.trim()
     if ((disabled || isStreaming) && attachments.length === 0) return
     if (!trimmed && attachments.length === 0) return
 
+    // 取消 pending 的防抖回调，防止旧值写回 Store
+    cancelPersistDraft()
     onSend(trimmed, undefined, attachments.length > 0 ? attachments : undefined)
-    clearInputDraft()
-  }, [value, disabled, isStreaming, attachments, onSend, clearInputDraft])
+    // 清空本地 state
+    setLocalText('')
+    setLocalAttachments([])
+    // 清空 Store 草稿
+    updateInputDraft({ text: '', attachments: [] })
+  }, [value, disabled, isStreaming, attachments, onSend, updateInputDraft, cancelPersistDraft])
+
+  // 处理语音命令（放在 handleSend 之后，避免变量声明顺序问题）
+  useEffect(() => {
+    if (!speechCommand) return
+
+    switch (speechCommand) {
+      case 'send':
+        if (!isStreaming) {
+          handleSend()
+        }
+        break
+      case 'clear':
+        // 清除本地 state
+        setLocalText('')
+        setLocalAttachments([])
+        // 清除 Store
+        clearInputDraft()
+        break
+      // 'interrupt' 已在 ChatStatusBar 处理
+    }
+
+    setSpeechCommand(null)
+  }, [speechCommand, isStreaming, setSpeechCommand, clearInputDraft, handleSend])
 
   const resetInput = useCallback(() => {
+    // 清除本地 state
+    setLocalText('')
+    setLocalAttachments([])
+    // 清除 Store 草稿
     clearInputDraft()
     setShowSuggestions(false)
     setSuggestionItems([])
