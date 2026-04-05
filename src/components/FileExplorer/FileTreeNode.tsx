@@ -139,7 +139,12 @@ export const FileTreeNode = memo<FileTreeNodeProps>(({
 
   const isLoading = file.is_dir && loadingFolders.has(file.path);
 
-  const hasChildren = file.children && file.children.length > 0;
+  // children 状态:
+  // - undefined: 尚未加载
+  // - []: 空数组，确实为空
+  // - [items]: 有内容
+  const hasChildren = file.children !== undefined && file.children.length > 0;
+  const isChildrenLoaded = file.children !== undefined;
 
   const closeContextMenu = useCallback(() => {
     setContextMenu({ visible: false, x: 0, y: 0 });
@@ -421,17 +426,19 @@ export const FileTreeNode = memo<FileTreeNodeProps>(({
           ))}
         </div>
       )}
-      
+
+      {/* 正在加载时显示加载状态 */}
       {file.is_dir && isExpanded && isLoading && (
-        <div 
-          style={{ paddingLeft: `${(level + 1) * 16 + 8}px` }} 
+        <div
+          style={{ paddingLeft: `${(level + 1) * 16 + 8}px` }}
           className="text-xs text-text-tertiary py-1 animate-pulse"
         >
           {t('loading')}
         </div>
       )}
-      
-      {file.is_dir && isExpanded && !isLoading && !hasChildren && (
+
+      {/* 已加载且确实为空时显示空文件夹提示 */}
+      {file.is_dir && isExpanded && !isLoading && isChildrenLoaded && !hasChildren && (
         <div
           style={{ paddingLeft: `${(level + 1) * 16 + 8}px` }}
           className="text-xs text-text-tertiary py-1 italic"

@@ -17,13 +17,16 @@ let searchAbortController: AbortController | null = null;
 function updateFolderChildren(tree: FileInfo[], folderPath: string, children: FileInfo[]): FileInfo[] {
   return tree.map(file => {
     if (file.path === folderPath) {
-      return { ...file, children: children || undefined };
+      // 保留 children 数组，即使是空数组也不要变成 undefined
+      // 空数组表示文件夹确实为空，undefined 表示尚未加载
+      return { ...file, children };
     }
 
     if (file.children) {
+      const updatedChildren = updateFolderChildren(file.children, folderPath, children);
       return {
         ...file,
-        children: updateFolderChildren(file.children, folderPath, children) || undefined
+        children: updatedChildren,
       };
     }
 
@@ -181,7 +184,22 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
         newCache.set(folderPath, children);
 
         // 更新文件树中的对应节点
-        const updatedTree = updateFolderChildren(state.file_tree, folderPath, children);
+        // 如果 folderPath 是根目录，直接更新 file_tree
+        let updatedTree: FileInfo[];
+        if (folderPath === state.current_path) {
+          // 对于根目录，需要保留已展开子文件夹的 children
+          // 使用 updateFolderChildren 递归更新
+          updatedTree = children.map(newFile => {
+            const existingFile = state.file_tree.find(f => f.path === newFile.path);
+            if (existingFile && existingFile.children) {
+              // 保留已加载的 children
+              return { ...newFile, children: existingFile.children };
+            }
+            return newFile;
+          });
+        } else {
+          updatedTree = updateFolderChildren(state.file_tree, folderPath, children);
+        }
 
         return {
           folder_cache: newCache,
@@ -194,69 +212,79 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
   },
 
   // 刷新当前目录（清除缓存并重新加载）
+  // 优化：先并行加载所有数据，再一次性更新，避免闪烁
   refresh_directory: async () => {
-    const { current_path } = get();
-    
+    const { current_path, expanded_folders } = get();
+
     if (!current_path) {
       return;
     }
-    
+
     set({ is_refreshing: true, error: null });
-    
+
     try {
-      // 重新加载当前目录
-      const files = await tauri.readDirectory(current_path) as FileInfo[];
-      
-      set({
-        current_path,
-        file_tree: files
-      });
-
-      const { expanded_folders } = get();
       const expandedPaths = Array.from(expanded_folders);
-      const removed = new Set<string>();
 
-      await Promise.allSettled(expandedPaths.map(async (folderPath) => {
-        try {
-          const children = await tauri.readDirectory(folderPath) as FileInfo[];
+      // 并行加载：根目录 + 所有展开的文件夹
+      const loadPromises: Promise<{ path: string; children: FileInfo[] | null }>[] = expandedPaths.map(
+        (folderPath) => tauri.readDirectory(folderPath)
+          .then((children) => ({ path: folderPath, children: children as FileInfo[] }))
+          .catch(() => ({ path: folderPath, children: null }))
+      );
 
-          set((state) => {
-            const newCache = new Map(state.folder_cache);
-            newCache.set(folderPath, children);
-            const updatedTree = updateFolderChildren(state.file_tree, folderPath, children);
+      // 加载根目录
+      const rootFiles = await tauri.readDirectory(current_path) as FileInfo[];
 
-            return {
-              folder_cache: newCache,
-              file_tree: updatedTree
-            };
-          });
-        } catch {
-          removed.add(folderPath);
+      // 并行等待所有文件夹加载完成
+      const folderResults = await Promise.all(loadPromises);
+
+      // 构建新的缓存和需要移除的路径
+      const newCache = new Map<string, FileInfo[]>();
+      const removedPaths = new Set<string>();
+
+      for (const result of folderResults) {
+        if (result.children !== null) {
+          newCache.set(result.path, result.children);
+        } else {
+          removedPaths.add(result.path);
         }
-      }));
-
-      if (removed.size > 0) {
-        set((state) => {
-          const nextExpanded = new Set(state.expanded_folders);
-          const nextCache = new Map(state.folder_cache);
-          removed.forEach((path) => {
-            nextExpanded.delete(path);
-            nextCache.delete(path);
-          });
-          return {
-            expanded_folders: nextExpanded,
-            folder_cache: nextCache
-          };
-        });
       }
 
-      set({
-        is_refreshing: false
+      // 从根目录开始，递归更新所有展开文件夹的 children
+      let updatedTree = rootFiles;
+      for (const [folderPath, children] of newCache) {
+        updatedTree = updateFolderChildren(updatedTree, folderPath, children);
+      }
+
+      // 一次性更新所有状态
+      set((state) => {
+        const nextExpanded = new Set(state.expanded_folders);
+        const nextCache = new Map(state.folder_cache);
+
+        // 清空旧缓存，使用新缓存
+        nextCache.clear();
+        for (const [path, children] of newCache) {
+          nextCache.set(path, children);
+        }
+
+        // 移除不存在的文件夹
+        removedPaths.forEach((path) => {
+          nextExpanded.delete(path);
+          nextCache.delete(path);
+        });
+
+        return {
+          current_path,
+          file_tree: updatedTree,
+          folder_cache: nextCache,
+          expanded_folders: nextExpanded,
+          is_refreshing: false
+        };
       });
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : '刷新目录失败',
-        is_refreshing: false 
+        is_refreshing: false
       });
     }
   },
