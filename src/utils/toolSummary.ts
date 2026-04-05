@@ -316,12 +316,11 @@ export function generateCollapsedSummary(
     };
   }
 
-  // Bash 工具：显示状态
+  // Bash 工具：不显示输出摘要（状态由状态图标统一显示）
   if (normalizedToolName.includes('bash') || normalizedToolName.includes('command')) {
-    const isSuccess = status === 'completed' && !output?.toLowerCase().includes('error');
     return {
       target: command || toolName,
-      summary: isSuccess ? '✓' : (status === 'failed' ? '✗' : ''),
+      summary: '', // 不显示摘要，避免与状态图标重复
       summaryType: 'status',
     };
   }
@@ -360,30 +359,30 @@ export function generateCollapsedSummary(
     };
   }
 
-  // Task/Agent 工具：显示状态
+  // Task/Agent 工具：不显示输出摘要（状态由状态图标统一显示）
   if (normalizedToolName.includes('task') || normalizedToolName.includes('agent')) {
     const agentType = (input?.agentType as string) || (input?.subagent_type as string) || toolName;
     return {
       target: agentType,
-      summary: status === 'completed' ? '✓' : (status === 'failed' ? '✗' : ''),
+      summary: '', // 不显示摘要，避免与状态图标重复
       summaryType: 'status',
     };
   }
 
-  // Skill 工具：显示状态
+  // Skill 工具：不显示输出摘要（状态由状态图标统一显示）
   if (normalizedToolName.includes('skill')) {
     const skillName = (input?.skill as string) || toolName;
     return {
       target: skillName,
-      summary: status === 'completed' ? '✓' : (status === 'failed' ? '✗' : ''),
+      summary: '', // 不显示摘要，避免与状态图标重复
       summaryType: 'status',
     };
   }
 
-  // 默认：显示完成状态
+  // 默认：不显示输出摘要（状态由状态图标统一显示）
   return {
     target: filePath || command || query || toolName,
-    summary: status === 'completed' ? '✓' : (status === 'failed' ? '✗' : ''),
+    summary: '', // 不显示摘要，避免与状态图标重复
     summaryType: 'status',
   };
 }

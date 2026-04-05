@@ -976,42 +976,45 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
           </span>
         )}
 
-        {/* 耗时 */}
-        {duration && (
-          <span className="text-[10px] text-text-muted px-1.5 py-0.5 bg-background-secondary rounded shrink-0">
-            {duration}
-          </span>
-        )}
+        {/* 右侧信息区 - 统一靠右对齐 */}
+        <div className="flex items-center gap-1.5 ml-auto shrink-0">
+          {/* 耗时 */}
+          {duration && (
+            <span className="text-[10px] text-text-muted px-1.5 py-0.5 bg-background-secondary rounded">
+              {duration}
+            </span>
+          )}
 
-        {/* 输出摘要 */}
-        {collapsedSummary && collapsedSummary.summary && (
-          <span className={clsx(
-            'text-[10px] px-1.5 py-0.5 rounded shrink-0',
-            collapsedSummary.summaryType === 'lines' && 'text-sky-500 bg-sky-500/10',
-            collapsedSummary.summaryType === 'files' && 'text-primary bg-primary/10',
-            collapsedSummary.summaryType === 'matches' && 'text-cyan-500 bg-cyan-500/10',
-            collapsedSummary.summaryType === 'diff' && 'text-warning bg-warning/10',
-            collapsedSummary.summaryType === 'status' && (block.status === 'completed' ? 'text-success bg-success/10' : 'text-error bg-error/10'),
-            collapsedSummary.summaryType === 'size' && 'text-sky-500 bg-sky-500/10',
-            collapsedSummary.summaryType === 'count' && 'text-primary bg-primary/10',
-            collapsedSummary.summaryType === 'plain' && 'text-text-tertiary bg-background-secondary'
-          )}>
-            {collapsedSummary.summary}
-          </span>
-        )}
+          {/* 输出摘要 */}
+          {collapsedSummary && collapsedSummary.summary && (
+            <span className={clsx(
+              'text-[10px] px-1.5 py-0.5 rounded',
+              collapsedSummary.summaryType === 'lines' && 'text-sky-500 bg-sky-500/10',
+              collapsedSummary.summaryType === 'files' && 'text-primary bg-primary/10',
+              collapsedSummary.summaryType === 'matches' && 'text-cyan-500 bg-cyan-500/10',
+              collapsedSummary.summaryType === 'diff' && 'text-warning bg-warning/10',
+              collapsedSummary.summaryType === 'status' && (block.status === 'completed' ? 'text-success bg-success/10' : 'text-error bg-error/10'),
+              collapsedSummary.summaryType === 'size' && 'text-sky-500 bg-sky-500/10',
+              collapsedSummary.summaryType === 'count' && 'text-primary bg-primary/10',
+              collapsedSummary.summaryType === 'plain' && 'text-text-tertiary bg-background-secondary'
+            )}>
+              {collapsedSummary.summary}
+            </span>
+          )}
 
-        {/* 状态图标 */}
-        <StatusIcon className={clsx('w-3.5 h-3.5 shrink-0', statusConfig.className)} />
+          {/* 状态图标 */}
+          <StatusIcon className={clsx('w-3.5 h-3.5', statusConfig.className)} />
 
-        {/* 展开/收起箭头 */}
-        {canExpand && (
-          <ChevronDown
-            className={clsx(
-              'w-3 h-3 text-text-muted shrink-0 transition-transform duration-200',
-              isExpanded && 'rotate-180'
-            )}
-          />
-        )}
+          {/* 展开/收起箭头 */}
+          {canExpand && (
+            <ChevronDown
+              className={clsx(
+                'w-3 h-3 text-text-muted transition-transform duration-200',
+                isExpanded && 'rotate-180'
+              )}
+            />
+          )}
+        </div>
       </div>
 
       {/* 展开时显示详情区域 */}
