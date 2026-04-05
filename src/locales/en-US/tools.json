@@ -30,6 +30,7 @@
     "delete": "Delete",
     "database": "Database",
     "task": "Task",
+    "agent": "Agent",
     "skill": "Skill",
     "todoList": "Todo List",
     "analyze": "Analyze",
@@ -81,6 +82,16 @@
     "modifySuccess": "Modification successful",
     "modifyFailed": "{{name}} modification failed",
     "modifyFailedShort": "Modification failed",
-    "toolNotFound": "Tool not found"
+    "toolNotFound": "Tool not found",
+    "lines": "lines",
+    "files": "files",
+    "matches": "matches",
+    "results": "results",
+    "todos": "todos",
+    "newFile": "new file",
+    "completed": "completed",
+    "fetchCompleted": "Fetch completed",
+    "todosUpdated": "Updated {{count}} todos",
+    "todoUpdated": "Todo updated"
   }
 }
