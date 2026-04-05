@@ -63,12 +63,88 @@ function useActiveSessionSelector<T>(
     return newValue
   }, [store, selector, defaultValue])
 
+  // 关键修复：当 store 为 null 时，订阅 sessionStoreManager 来监听 stores map 变化
   const subscribe = useCallback((onChange: () => void) => {
-    if (!store) return () => {}
+    if (!store) {
+      // store 为 null 时，订阅 sessionStoreManager 监听 stores 或 activeSessionId 变化
+      return sessionStoreManager.subscribe(onChange)
+    }
     return store.subscribe(onChange)
   }, [store])
 
   // 服务端快照使用稳定的默认值
+  const getServerSnapshot = useCallback(() => defaultValue, [defaultValue])
+
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+}
+
+/**
+ * 订阅指定会话的特定状态
+ *
+ * 与 useActiveSessionSelector 类似，但支持指定 sessionId
+ * 用于多窗口场景，需要同时显示多个会话的状态
+ */
+function useSessionSelector<T>(
+  sessionId: string | null,
+  selector: (state: ConversationState) => T,
+  defaultValue: T
+): T {
+  const stores = useStore(sessionStoreManager, (state) => state.stores)
+
+  // 使用 ref 缓存 store 实例，避免 stores Map 变化导致的重新订阅
+  // 只有当 sessionId 变化或 store 真正不存在时才更新
+  const cachedStoreRef = useRef<ConversationStore | null>(null)
+  const cachedSessionIdRef = useRef<string | null>(null)
+
+  const store = useMemo(() => {
+    const targetStore = sessionId ? stores.get(sessionId) : null
+
+    // sessionId 变化或 store 从 null 变为有效值时更新缓存
+    if (
+      cachedSessionIdRef.current !== sessionId ||
+      (cachedStoreRef.current === null && targetStore !== null)
+    ) {
+      cachedStoreRef.current = targetStore ?? null
+      cachedSessionIdRef.current = sessionId
+    }
+
+    return cachedStoreRef.current
+  }, [stores, sessionId])
+
+  // 缓存上次的值，确保引用稳定
+  const cachedValueRef = useRef<T>(defaultValue)
+
+  const getSnapshot = useCallback(() => {
+    if (!store) {
+      return defaultValue
+    }
+    const newValue = selector(store.getState())
+
+    // 只有当值真正变化时才更新缓存（使用浅比较处理数组）
+    const isEqual = Array.isArray(newValue) && Array.isArray(cachedValueRef.current)
+      ? newValue === cachedValueRef.current || (
+          newValue.length === (cachedValueRef.current as T[]).length &&
+          newValue.every((item, i) => item === (cachedValueRef.current as T[])[i])
+        )
+      : newValue === cachedValueRef.current
+
+    if (isEqual) {
+      return cachedValueRef.current
+    }
+
+    cachedValueRef.current = newValue
+    return newValue
+  }, [store, selector, defaultValue])
+
+  // 订阅逻辑：订阅正确的 store
+  const subscribe = useCallback((onChange: () => void) => {
+    if (!store) {
+      // store 为 null 时，订阅 sessionStoreManager 监听 stores 变化
+      return sessionStoreManager.subscribe(onChange)
+    }
+    return store.subscribe(onChange)
+  }, [store])
+
   const getServerSnapshot = useCallback(() => defaultValue, [defaultValue])
 
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
@@ -314,4 +390,62 @@ export function useActiveSession() {
     // 操作方法
     ...actions,
   }), [messagesState, isStreaming, error, conversationId, blockMaps, actions])
+}
+
+// ========================================
+// 指定会话的 Hooks（用于多窗口场景）
+// ========================================
+
+/**
+ * 获取指定会话的消息列表
+ *
+ * 用法：
+ * ```tsx
+ * const { messages, archivedMessages, currentMessage } = useSessionMessages(sessionId)
+ * ```
+ */
+export function useSessionMessages(sessionId: string | null) {
+  const messages = useSessionSelector(
+    sessionId,
+    useCallback((state: ConversationState) => state.messages, []),
+    []
+  )
+  const archivedMessages = useSessionSelector(
+    sessionId,
+    useCallback((state: ConversationState) => state.archivedMessages, []),
+    []
+  )
+  const currentMessage = useSessionSelector(
+    sessionId,
+    useCallback((state: ConversationState) => state.currentMessage, []),
+    null
+  )
+
+  return useMemo(() => ({
+    messages,
+    archivedMessages,
+    currentMessage,
+  }), [messages, archivedMessages, currentMessage])
+}
+
+/**
+ * 获取指定会话的流式状态
+ */
+export function useSessionStreaming(sessionId: string | null) {
+  return useSessionSelector(
+    sessionId,
+    useCallback((state: ConversationState) => state.isStreaming, []),
+    false
+  )
+}
+
+/**
+ * 获取指定会话的错误状态
+ */
+export function useSessionError(sessionId: string | null) {
+  return useSessionSelector(
+    sessionId,
+    useCallback((state: ConversationState) => state.error, []),
+    null
+  )
 }

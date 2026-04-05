@@ -26,6 +26,10 @@ export {
   useActiveSessionMessages,
   useActiveSessionStreaming,
   useActiveSessionActions,
+  // 指定会话的 hooks（用于多窗口场景）
+  useSessionMessages,
+  useSessionStreaming,
+  useSessionError,
 } from './useActiveSession'
 
 export type {

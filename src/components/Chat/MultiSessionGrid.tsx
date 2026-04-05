@@ -29,6 +29,8 @@ import {
 export const MultiSessionGrid = memo(function MultiSessionGrid() {
   const multiSessionIds = useViewStore(state => state.multiSessionIds);
   const multiSessionMode = useViewStore(state => state.multiSessionMode);
+  const expandSessionId = useViewStore(state => state.expandSessionId);
+  const setExpandSessionId = useViewStore(state => state.setExpandSessionId);
   const activeSessionId = useActiveSessionId();
 
   // 获取所有会话元数据
@@ -58,9 +60,36 @@ export const MultiSessionGrid = memo(function MultiSessionGrid() {
     }
   }, [displaySessions.length]);
 
+  // 展开切换回调
+  const handleToggleExpand = useCallback((sessionId: string) => {
+    setExpandSessionId(expandSessionId === sessionId ? null : sessionId);
+  }, [expandSessionId, setExpandSessionId]);
+
   // 如果未开启多会话模式，返回 null
   if (!multiSessionMode) {
     return null;
+  }
+
+  // 展开模式：只显示展开的会话
+  if (expandSessionId) {
+    const expandedSession = allSessionMetadata.find(m => m.id === expandSessionId);
+    if (!expandedSession) {
+      setExpandSessionId(null);
+      return null;
+    }
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex-1 p-1">
+          <SessionCell
+            sessionId={expandSessionId}
+            isActive={true}
+            isExpanded={true}
+            onToggleExpand={() => setExpandSessionId(null)}
+          />
+        </div>
+      </div>
+    );
   }
 
   // 空状态：引导添加会话
@@ -77,7 +106,7 @@ export const MultiSessionGrid = memo(function MultiSessionGrid() {
   return (
     <div className="flex flex-col h-full">
       {/* 网格区域 */}
-      <div className={clsx('flex-1 grid gap-2 p-2', layoutClass)}>
+      <div className={clsx('flex-1 grid gap-1 p-1', layoutClass)}>
         {displaySessions.map((session, index) => {
           // 3 个会话时，第三个格子跨两行
           const isThird = displaySessions.length === 3 && index === 2;
@@ -88,6 +117,7 @@ export const MultiSessionGrid = memo(function MultiSessionGrid() {
               <SessionCell
                 sessionId={session.id}
                 isActive={session.id === activeSessionId}
+                onToggleExpand={() => handleToggleExpand(session.id)}
               />
             </div>
           );

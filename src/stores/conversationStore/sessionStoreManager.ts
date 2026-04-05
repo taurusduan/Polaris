@@ -24,6 +24,7 @@ import { handleAIEvent as oldHandleAIEvent } from '../eventChatStore/utils'
 import { getEventRouter } from '../../services/eventRouter'
 import { useConfigStore } from '../configStore'
 import { useWorkspaceStore } from '../workspaceStore'
+import { useViewStore } from '../index'
 
 // ============================================================================
 // Manager Store Type
@@ -109,6 +110,12 @@ function createSessionManagerStore() {
       })
 
       console.log('[SessionStoreManager] 创建会话:', sessionId)
+
+      // 非静默模式且开启多窗口模式时，自动加入多窗口视图
+      if (!options.silentMode && useViewStore.getState().multiSessionMode) {
+        useViewStore.getState().addToMultiView(sessionId)
+      }
+
       return sessionId
     },
 

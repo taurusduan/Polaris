@@ -18,7 +18,7 @@ import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { clsx } from 'clsx';
 import type { ChatMessage, UserChatMessage, AssistantChatMessage, ContentBlock, TextBlock, ThinkingBlock, ToolCallBlock } from '../../types';
 import { useEventChatStore } from '../../stores';
-import { useActiveSessionMessages, useActiveSessionStreaming } from '../../stores/conversationStore/useActiveSession';
+import { useActiveSessionMessages, useActiveSessionStreaming, useSessionMessages, useSessionStreaming } from '../../stores/conversationStore/useActiveSession';
 import { getToolConfig, extractToolKeyInfo, getToolShortName } from '../../utils/toolConfig';
 import { markdownCache } from '../../utils/cache';
 import { useThrottle } from '../../hooks/useThrottle';
@@ -1753,7 +1753,16 @@ const CollapsibleBlockGroupRenderer = memo(function CollapsibleBlockGroupRendere
 }) {
   // _renderMode 保留用于未来扩展（如 archive 模式下简化渲染）
   const { t } = useTranslation('chat');
-  const [isExpanded, setIsExpanded] = useState(false);
+
+  // 流式期间默认展开，结束后自动折叠
+  const [isExpanded, setIsExpanded] = useState(() => isStreaming ?? false);
+
+  // 流式结束时自动折叠
+  useEffect(() => {
+    if (!isStreaming && isExpanded) {
+      setIsExpanded(false);
+    }
+  }, [isStreaming]);
 
   const hiddenCount = blocks.length - maxVisible;
   const visibleBlocks = isExpanded ? blocks : blocks.slice(0, maxVisible);
@@ -1921,7 +1930,7 @@ const SystemBubble = memo(function SystemBubble({ content }: { content: string }
 });
 
 /** 消息渲染器 */
-function renderChatMessage(
+export function renderChatMessage(
   message: ChatMessage,
   renderMode: MessageRenderMode = 'full',
   messageIndex?: number,
@@ -2006,10 +2015,31 @@ const EmptyState = memo(function EmptyState() {
  * 性能优化：
  * - 流式阶段直接从 currentMessage 读取内容，不更新 messages 数组
  * - 避免 50ms 一次的整个消息列表重渲染
+ *
+ * Props:
+ * - sessionId: 可选，指定要显示的会话 ID（用于多窗口场景）
+ * - renderMode: 可选，'compact' 模式隐藏导航器和搜索面板
  */
-export function EnhancedChatMessages() {
-  const { messages, archivedMessages, currentMessage } = useActiveSessionMessages();
-  const isStreaming = useActiveSessionStreaming();
+
+/** 组件 Props */
+interface EnhancedChatMessagesProps {
+  /** 指定会话 ID，不提供时使用活跃会话 */
+  sessionId?: string;
+  /** 渲染模式：full 完整功能，compact 精简模式（用于多窗口格子） */
+  compact?: boolean;
+}
+
+export function EnhancedChatMessages({ sessionId, compact = false }: EnhancedChatMessagesProps = {}) {
+  // 根据是否提供 sessionId 选择使用对应的 hooks
+  const activeSessionData = useActiveSessionMessages();
+  const activeIsStreaming = useActiveSessionStreaming();
+  const sessionData = useSessionMessages(sessionId ?? null);
+  const sessionIsStreaming = useSessionStreaming(sessionId ?? null);
+
+  // 选择数据源
+  const { messages, archivedMessages, currentMessage } = sessionId ? sessionData : activeSessionData;
+  const isStreaming = sessionId ? sessionIsStreaming : activeIsStreaming;
+
   const { loadMoreArchivedMessages } = useEventChatStore();
 
   // 性能优化：流式阶段合并 currentMessage 到消息列表
@@ -2232,8 +2262,8 @@ export function EnhancedChatMessages() {
               data={displayMessages}
               itemContent={(index, item) => {
                 // 计算当前消息的渲染模式
-                const renderMode = calculateRenderMode(index, displayMessages.length, DEFAULT_LAYER_CONFIG);
-                return renderChatMessage(item, renderMode, index, scrollToMessage);
+                const msgRenderMode = calculateRenderMode(index, displayMessages.length, DEFAULT_LAYER_CONFIG);
+                return renderChatMessage(item, msgRenderMode, index, scrollToMessage);
               }}
               components={{
                 EmptyPlaceholder: () => null,
@@ -2260,8 +2290,8 @@ export function EnhancedChatMessages() {
           )}
         </div>
 
-        {/* 消息搜索面板 */}
-        {isSearchVisible && (
+        {/* 消息搜索面板 - compact 模式下隐藏 */}
+        {!compact && isSearchVisible && (
           <MessageSearchPanel
             visible={isSearchVisible}
             onClose={closeSearch}
@@ -2274,8 +2304,8 @@ export function EnhancedChatMessages() {
           />
         )}
 
-        {/* 聊天导航器 */}
-        {!isEmpty && (
+        {/* 聊天导航器 - compact 模式下隐藏 */}
+        {!compact && !isEmpty && (
           <ChatNavigator
             rounds={conversationRounds}
             currentRoundIndex={currentRoundIndex}

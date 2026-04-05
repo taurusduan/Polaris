@@ -13,7 +13,6 @@ import {
 export const NewSessionButton = memo(function NewSessionButton() {
   const multiSessionMode = useViewStore(state => state.multiSessionMode);
   const multiSessionIds = useViewStore(state => state.multiSessionIds);
-  const addToMultiView = useViewStore(state => state.addToMultiView);
   const { createSession, switchSession } = useSessionManagerActions();
 
   // 工作区列表 - 直接订阅原始数据，避免函数调用导致无限循环
@@ -64,10 +63,10 @@ export const NewSessionButton = memo(function NewSessionButton() {
       title: `新对话 ${allSessionMetadata.length + 1}`,
       workspaceId,
     });
-    addToMultiView(newSessionId);
+    // createSession 已自动处理 addToMultiView，此处无需手动调用
     switchSession(newSessionId);
     setIsOpen(false);
-  }, [createSession, allSessionMetadata.length, addToMultiView, switchSession]);
+  }, [createSession, allSessionMetadata.length, switchSession]);
 
   // 非多会话模式或已达上限，不显示
   if (!multiSessionMode || !canAdd) {

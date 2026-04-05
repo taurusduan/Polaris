@@ -18,6 +18,7 @@ import type { ChatMessage, EngineId } from '../../types'
 import { createLogger } from '../../utils/logger'
 import { useWorkspaceStore } from '../workspaceStore'
 import { sessionStoreManager } from '../conversationStore/sessionStoreManager'
+import { useViewStore } from '../index'
 
 const log = createLogger('EventChatStore')
 import { MAX_MESSAGES, SESSION_HISTORY_KEY, MAX_SESSION_HISTORY } from './types'
@@ -311,6 +312,11 @@ export const createHistorySlice: HistorySlice = (set, get) => ({
         messageCount: chatMessages.length,
         originalSessionId: sessionId,
       })
+
+      // 多窗口模式时，自动加入多窗口视图
+      if (useViewStore.getState().multiSessionMode) {
+        useViewStore.getState().addToMultiView(newSessionId)
+      }
 
       return true
     } catch (e) {

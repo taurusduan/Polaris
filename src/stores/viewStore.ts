@@ -38,6 +38,7 @@ interface ViewState {
   // 多会话窗口模式
   multiSessionMode: boolean;     // 是否开启多会话窗口模式
   multiSessionIds: string[];     // 多会话窗口中显示的会话 ID 列表
+  expandSessionId: string | null; // 展开的会话 ID（全屏显示）
 }
 
 /** 视图操作 */
@@ -72,6 +73,9 @@ interface ViewActions {
   setMultiSessionIds: (ids: string[]) => void;
   addToMultiView: (sessionId: string) => void;
   removeFromMultiView: (sessionId: string) => void;
+  // 展开操作
+  setExpandSessionId: (sessionId: string | null) => void;
+  toggleExpandSession: (sessionId: string) => void;
 }
 
 /** 完整的 View Store 类型 */
@@ -106,6 +110,7 @@ export const useViewStore = create<ViewStore>()(
       // 多会话窗口初始状态
       multiSessionMode: false,      // 默认单会话模式
       multiSessionIds: [],          // 默认空列表
+      expandSessionId: null,        // 默认无展开会话
 
       // 切换侧边栏
       toggleSidebar: () => set((state) => ({ showSidebar: !state.showSidebar })),
@@ -213,15 +218,29 @@ export const useViewStore = create<ViewStore>()(
       // 设置多会话窗口中的会话列表
       setMultiSessionIds: (ids: string[]) => set({ multiSessionIds: ids }),
 
-      // 添加会话到多窗口视图
+      // 添加会话到多窗口视图（最多 4 个，超出时移除最早的）
       addToMultiView: (sessionId: string) => set((state) => {
         if (state.multiSessionIds.includes(sessionId)) return state;
-        return { multiSessionIds: [...state.multiSessionIds, sessionId] };
+        let newIds = [...state.multiSessionIds, sessionId];
+        if (newIds.length > 4) {
+          newIds = newIds.slice(-4); // 保留最新的 4 个
+        }
+        return { multiSessionIds: newIds };
       }),
 
       // 从多窗口视图移除会话
       removeFromMultiView: (sessionId: string) => set((state) => ({
-        multiSessionIds: state.multiSessionIds.filter(id => id !== sessionId)
+        multiSessionIds: state.multiSessionIds.filter(id => id !== sessionId),
+        // 如果移除的是展开的会话，清除展开状态
+        expandSessionId: state.expandSessionId === sessionId ? null : state.expandSessionId
+      })),
+
+      // 设置展开的会话
+      setExpandSessionId: (sessionId: string | null) => set({ expandSessionId: sessionId }),
+
+      // 切换会话展开状态
+      toggleExpandSession: (sessionId: string) => set((state) => ({
+        expandSessionId: state.expandSessionId === sessionId ? null : sessionId
       })),
     }),
     {
