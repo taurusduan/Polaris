@@ -6,6 +6,7 @@ import { ReactNode } from 'react'
 import { useViewStore } from '@/stores/viewStore'
 import { ResizeHandle } from '../Common'
 import { FloatingIsland } from '../FloatingIsland'
+import { QuickSwitchPanel } from '../QuickSwitchPanel'
 
 interface RightPanelProps {
   children: ReactNode
@@ -40,6 +41,8 @@ export function RightPanel({ children, fillRemaining = false }: RightPanelProps)
       <aside className="flex flex-col flex-1 bg-background-elevated border-l border-border min-w-[200px] relative">
         {/* 悬浮岛 */}
         <FloatingIsland />
+        {/* 快速切换面板 */}
+        <QuickSwitchPanel />
         {/* 内容区域 */}
         <div className="flex-1 flex flex-col">
           {children}
@@ -60,6 +63,8 @@ export function RightPanel({ children, fillRemaining = false }: RightPanelProps)
       >
         {/* 悬浮岛 */}
         <FloatingIsland />
+        {/* 快速切换面板 */}
+        <QuickSwitchPanel />
         {/* 内容区域 */}
         <div className="flex-1 flex flex-col">
           {children}
