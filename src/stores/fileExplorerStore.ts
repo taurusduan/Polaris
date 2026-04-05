@@ -337,7 +337,8 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
       }
 
       if (!found) {
-        expanded.add(path);
+        // 添加时使用规范化路径
+        expanded.add(normalizedPath);
       }
 
       return { expanded_folders: expanded };

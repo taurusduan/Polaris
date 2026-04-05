@@ -11,7 +11,7 @@ import { InputDialog } from '../Common/InputDialog';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
 import { IconFile, IconFolder, IconEdit, IconTrash, IconExternalLink, IconOpen } from '../Common/Icons';
 import type { FileInfo } from '../../types';
-import { getParentPath, joinPath } from '../../utils/path';
+import { getParentPath, joinPath, normalizePath } from '../../utils/path';
 
 function isValidFileName(name: string): boolean {
   if (!name || name.trim().length === 0) {
@@ -137,7 +137,7 @@ export const FileTreeNode = memo<FileTreeNodeProps>(({
     }
   };
 
-  const isLoading = file.is_dir && loadingFolders.has(file.path);
+  const isLoading = file.is_dir && loadingFolders.has(normalizePath(file.path));
 
   // children 状态:
   // - undefined: 尚未加载
