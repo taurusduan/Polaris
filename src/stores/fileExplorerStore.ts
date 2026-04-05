@@ -103,6 +103,15 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
       set({
         current_path: path,
         file_tree: files,
+        // 切换目录时清空旧数据，避免跨工作区数据污染
+        folder_cache: new Map(),
+        expanded_folders: new Set(),
+        loading_folders: new Set(),
+        selected_file: null,
+        search_query: '',
+        search_results: undefined,
+        search_results_count: undefined,
+        search_is_deep_loading: false,
         loading: false
       });
     } catch (error) {
