@@ -6,6 +6,8 @@
 
 pub mod types;
 pub mod executor;
+pub mod bash_validation;
 
 pub use types::{ToolError, PermissionMode, PermissionPolicy, ToolSpec};
 pub use executor::{PolarisToolExecutor, BasicToolExecutor, ToolExecutionContext, ToolHandler};
+pub use bash_validation::{ValidationResult, CommandIntent, validate_command};
