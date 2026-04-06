@@ -12,9 +12,7 @@ export type Language = 'zh-CN' | 'en-US'
 
 /** OpenAI Provider 配置 */
 export interface OpenAIProvider {
-  /** 内部唯一标识符（创建时生成，不可变，用于 React key） */
-  _uid: string;
-  /** 用户可编辑的唯一标识符 */
+  /** 唯一标识符 */
   id: string;
   /** 显示名称 */
   name: string;
