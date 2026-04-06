@@ -261,7 +261,8 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
     }
 
     set({
-      isStreaming: true,
+      // 注意：isStreaming 不在这里设置，而是等待 session_start 事件设置
+      // 这样确保 conversationId 在 isStreaming 之前就已有值，避免中断时的竞态条件
       error: null,
       currentMessage: null,
       toolBlockMap: new Map(),
@@ -523,7 +524,9 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
       .replace(/\n/g, '\\n')
       .trim()
 
-    set({ isStreaming: true, error: null })
+    // 注意：isStreaming 不在这里设置，而是等待 session_start 事件设置
+    // 这样确保 conversationId 在 isStreaming 之前就已有值，避免中断时的竞态条件
+    set({ error: null })
 
     if (currentEngine.startsWith('provider-')) {
       await get().sendMessageToFrontendEngine(
@@ -680,7 +683,8 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
     get().addMessage(newUserMessage)
 
     set({
-      isStreaming: true,
+      // 注意：isStreaming 不在这里设置，而是等待 session_start 事件设置
+      // 这样确保 conversationId 在 isStreaming 之前就已有值，避免中断时的竞态条件
       error: null,
       currentMessage: null,
       toolBlockMap: new Map(),
@@ -872,7 +876,8 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
     // 设置新消息列表（只保留更新后的用户消息和之前的消息）
     set({
       messages: [...messagesBeforeUser.slice(0, userIndex), updatedUserMessage],
-      isStreaming: true,
+      // 注意：isStreaming 不在这里设置，而是等待 session_start 事件设置
+      // 这样确保 conversationId 在 isStreaming 之前就已有值，避免中断时的竞态条件
       error: null,
       currentMessage: null,
       toolBlockMap: new Map(),
