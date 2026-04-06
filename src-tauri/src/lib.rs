@@ -214,45 +214,35 @@ pub fn run() {
     let config = config_store.get().clone();
     let mut engine_registry = EngineRegistry::new();
 
-    // 注册引擎
+    // 注册 Claude CLI 引擎
     engine_registry.register(ai::ClaudeEngine::new(config.clone()));
 
-    // 注册 OpenAI 引擎（如果配置了 Provider）
+    // 注册所有 OpenAI Provider 为 ClawCode 引擎（统一使用工具支持）
     if !config.openai_providers.is_empty() {
-        let mut openai_engine = ai::OpenAIEngine::new();
-        openai_engine.set_providers(
-            config.openai_providers.clone(),
-            config.active_provider_id.clone(),
-        );
-        engine_registry.register(openai_engine);
-        tracing::info!("[EngineRegistry] OpenAI 引擎已注册，共 {} 个 Provider", config.openai_providers.len());
-
-        // 注册 ClawCode 引擎（如果配置了 claw-code Provider）
         for provider in &config.openai_providers {
-            if provider.id == "claw-code" || provider.id.to_lowercase().contains("claw-code") {
-                // 创建工具执行器
-                let work_dir = config.work_dir.clone()
-                    .map(|p| p.into())
-                    .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/")));
+            // 创建工具执行器
+            let work_dir = config.work_dir.clone()
+                .map(|p| p.into())
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/")));
 
-                let mut tool_executor = ai::tools::BasicToolExecutor::new(work_dir)
-                    .with_permission_mode(ai::tools::PermissionMode::WorkspaceWrite);
-                tool_executor.register_builtin_tools();
+            let mut tool_executor = ai::tools::BasicToolExecutor::new(work_dir)
+                .with_permission_mode(ai::tools::PermissionMode::WorkspaceWrite);
+            tool_executor.register_builtin_tools();
 
-                let claw_config = ai::ClawCodeConfig::new(
-                    &provider.name,
-                    &provider.api_key,
-                    &provider.api_base,
-                    &provider.model,
-                )
-                .with_max_tokens(provider.max_tokens as u32)
-                .with_temperature(provider.temperature as f32)
-                .with_tool_executor(std::sync::Arc::new(tool_executor));
+            let claw_config = ai::ClawCodeConfig::new(
+                &provider.name,
+                &provider.api_key,
+                &provider.api_base,
+                &provider.model,
+            )
+            .with_max_tokens(provider.max_tokens as u32)
+            .with_temperature(provider.temperature as f32)
+            .with_tool_executor(std::sync::Arc::new(tool_executor))
+            .enable_tools(true);
 
-                let claw_engine = ai::ClawCodeEngine::with_config(claw_config);
-                engine_registry.register(claw_engine);
-                tracing::info!("[EngineRegistry] ClawCode 引擎已注册 (provider: {}, tools: enabled)", provider.id);
-            }
+            let claw_engine = ai::ClawCodeEngine::with_config(claw_config);
+            engine_registry.register(claw_engine);
+            tracing::info!("[EngineRegistry] ClawCode 引擎已注册 (provider: {}, tools: enabled)", provider.id);
         }
     }
 
