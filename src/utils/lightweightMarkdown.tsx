@@ -45,19 +45,16 @@ function parseInlineMarkdown(content: string): RenderPart[] {
       { pattern: '~~', type: 'strikethrough' as const },
     ];
 
-    // 查找链接 [text](url)
+    // 查找链接 [text](url) - 只匹配开头位置
     const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
     if (linkMatch) {
-      // 先添加之前的普通文本
-      if (linkMatch.index! > 0) {
-        parts.push({ type: 'text', content: remaining.slice(0, linkMatch.index) });
-      }
+      // 正则以 ^ 开头，匹配成功时必定在开头位置
       parts.push({
         type: 'link',
         content: linkMatch[1],
         href: linkMatch[2]
       });
-      remaining = remaining.slice(linkMatch.index! + linkMatch[0].length);
+      remaining = remaining.slice(linkMatch[0].length);
       continue;
     }
 
