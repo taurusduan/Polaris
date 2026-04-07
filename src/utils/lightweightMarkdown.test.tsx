@@ -278,6 +278,25 @@ describe('hasOpenCodeBlock', () => {
     expect(hasOpenCodeBlock('```one```\n```two')).toBe(true);
     expect(hasOpenCodeBlock('```one```\n```two```\n```three')).toBe(true);
   });
+
+  it('should correctly handle code block content containing triple backticks', () => {
+    // 代码块内容中包含 ``` 不应影响检测（核心 bug 修复验证）
+    const closedBlockWithBackticks = '```\nThis is ``` inside\n```';
+    expect(hasOpenCodeBlock(closedBlockWithBackticks)).toBe(false);
+
+    const openBlockWithBackticks = '```\nThis is ``` inside\nStill open';
+    expect(hasOpenCodeBlock(openBlockWithBackticks)).toBe(true);
+
+    // 多个代码块，其中内容包含 ```
+    const multipleBlocks = '```\ncode1\n```\ntext\n```\ncode2 with ``` backticks\n```';
+    expect(hasOpenCodeBlock(multipleBlocks)).toBe(false);
+  });
+
+  it('should correctly handle inline code with triple backticks', () => {
+    // 行内 ```code``` 不应被视为代码块开关
+    expect(hasOpenCodeBlock('text ```inline``` more text')).toBe(false);
+    expect(hasOpenCodeBlock('text ```inline``` more\n```real')).toBe(true);
+  });
 });
 
 describe('splitByCodeBlocks', () => {
