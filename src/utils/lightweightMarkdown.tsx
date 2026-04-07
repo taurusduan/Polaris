@@ -361,6 +361,7 @@ export default LightweightMarkdown;
  * 已完成段落渲染器（使用完整 Markdown 解析）
  *
  * 使用 React.memo 确保已完成的段落不会因为新内容到达而重新渲染
+ * 使用 CSS contain: content 告诉浏览器此元素布局独立，减少重排范围
  */
 const CompletedParagraph = memo(function CompletedParagraph({
   content,
@@ -386,6 +387,7 @@ const CompletedParagraph = memo(function CompletedParagraph({
     <div
       key={`para-${index}`}
       className="break-words"
+      style={{ contain: 'content' }}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
@@ -420,7 +422,7 @@ const CompletedTextBlock = memo(function CompletedTextBlock({
         ],
         ALLOWED_ATTR: ['class', 'href', 'target', 'rel'],
       });
-      return <div className="break-words" dangerouslySetInnerHTML={{ __html: html }} />;
+      return <div className="break-words" style={{ contain: 'content' }} dangerouslySetInnerHTML={{ __html: html }} />;
     }
 
     return (
