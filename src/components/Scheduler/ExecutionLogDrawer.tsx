@@ -185,9 +185,9 @@ export function ExecutionLogDrawer() {
       )}
 
       {/* 抽屉头部 */}
-      <button
+      <div
         onClick={() => setDrawerOpen(!drawerOpen)}
-        className="shrink-0 h-8 px-3 flex items-center justify-between hover:bg-background-hover transition-colors border-t border-border-subtle"
+        className="shrink-0 h-8 px-3 flex items-center justify-between hover:bg-background-hover transition-colors border-t border-border-subtle cursor-pointer"
       >
         <div className="flex items-center gap-2">
           {drawerOpen ? <ChevronDown size={14} className="text-text-muted" /> : <ChevronUp size={14} className="text-text-muted" />}
@@ -211,7 +211,7 @@ export function ExecutionLogDrawer() {
             <Trash2 size={12} />
           </button>
         )}
-      </button>
+      </div>
 
       {/* 抽屉内容 */}
       {drawerOpen && (

@@ -31,7 +31,14 @@ function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps) {
 
   // 初始化终端
   useEffect(() => {
-    if (!terminalRef.current || xtermRef.current) return;
+    const container = terminalRef.current;
+    if (!container || xtermRef.current) return;
+
+    // 确保容器已渲染且有有效尺寸，避免 xterm.js RenderService 初始化竞态
+    if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+      log.warn('Terminal container has zero dimensions, deferring initialization');
+      return;
+    }
 
     const xterm = new XTerm({
       theme: {
@@ -70,19 +77,20 @@ function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps) {
 
     xterm.loadAddon(fitAddon);
     xterm.loadAddon(webLinksAddon);
-    xterm.open(terminalRef.current);
+    xterm.open(container);
 
     xtermRef.current = xterm;
     fitAddonRef.current = fitAddon;
 
-    // 初始调整大小
-    setTimeout(() => {
+    // 等待一帧确保 DOM 完全渲染后再 fit，避免 RenderService.dimensions 竞态
+    requestAnimationFrame(() => {
+      if (!fitAddonRef.current || !xtermRef.current) return;
       fitAddon.fit();
       const dims = fitAddon.proposeDimensions();
       if (dims) {
         resize(sessionId, dims.cols, dims.rows);
       }
-    }, 100);
+    });
 
     // 监听用户输入
     xterm.onData((data) => {
