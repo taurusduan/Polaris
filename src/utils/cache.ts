@@ -454,7 +454,5 @@ export class MarkdownRenderCache {
 export const fileSearchCache = new AsyncCache<any[]>(5000);
 export const commandCache = new SyncCache<any[]>(10000);
 
-/**
- * 全局 Markdown 渲染缓存实例
- */
-export const markdownCache = new MarkdownRenderCache(200);
+// 仅用于旧格式消息兼容路径，新格式走 ProgressiveStreamingMarkdown
+export const markdownCache = new MarkdownRenderCache(20);
