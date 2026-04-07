@@ -33,15 +33,16 @@ import {
 import { Check, XCircle, Loader2, AlertTriangle, ChevronDown, ChevronRight, ChevronUp, Circle, FileSearch, FolderOpen, Code, FileDiff, Brain, ListOrdered, ArrowUp } from 'lucide-react';
 import { ChatNavigator } from './ChatNavigator';
 import { useMessageSearch, MessageSearchPanel } from './MessageSearchPanel';
-import { QuestionBlockRenderer, SimplifiedQuestionRenderer } from './QuestionBlockRenderer';
-import { PlanModeBlockRenderer, SimplifiedPlanModeRenderer } from './PlanModeBlockRenderer';
-import { AgentRunBlockRenderer, SimplifiedAgentRunRenderer } from './AgentRunBlockRenderer';
-import { PermissionRequestRenderer, SimplifiedPermissionRequestRenderer } from './PermissionRequestRenderer';
+import { QuestionBlockRenderer } from './QuestionBlockRenderer';
+import { PlanModeBlockRenderer } from './PlanModeBlockRenderer';
+import { AgentRunBlockRenderer } from './AgentRunBlockRenderer';
+import { PermissionRequestRenderer } from './PermissionRequestRenderer';
 import { ContentBlockErrorBoundary } from './ContentBlockErrorBoundary';
 import { groupConversationRounds } from '../../utils/conversationRounds';
 import { DiffViewer } from '../Diff/DiffViewer';
 import { isEditTool } from '../../utils/diffExtractor';
-import { calculateRenderMode, type MessageRenderMode, DEFAULT_LAYER_CONFIG } from '../../utils/messageLayer';
+
+
 import {
   ProgressiveStreamingMarkdown,
 } from '../../utils/lightweightMarkdown';
@@ -185,41 +186,14 @@ const UserBubble = memo(function UserBubble({
  * 2. 流式阶段显示简化版内容（纯文本），避免复杂 markdown 渲染
  * 3. 使用 useDeferredValue 降低渲染优先级，保持 UI 响应
  * 4. 流式结束后显示完整渲染结果
- * 5. 分层渲染：preview/archive 模式使用简化渲染
  */
 const TextBlockRenderer = memo(function TextBlockRenderer({
   block,
   isStreaming = false,
-  renderMode = 'full'
 }: {
   block: TextBlock;
   isStreaming?: boolean;
-  renderMode?: MessageRenderMode;
 }) {
-  // Store 层使用段落级缓冲（等待 \n\n 或 200ms 超时），React 层不再需要节流
-  // 直接使用 block.content，响应延迟仅取决于 store 的 flush 间隔
-
-  // 归档模式：仅显示摘要（截取前 200 字符）
-  if (renderMode === 'archive') {
-    const summaryContent = block.content.length > 200
-      ? block.content.slice(0, 200) + '...'
-      : block.content;
-    return (
-      <div className="prose prose-invert prose-sm max-w-none text-text-secondary">
-        <span className="whitespace-pre-wrap">{summaryContent}</span>
-      </div>
-    );
-  }
-
-  // 预览模式：简化渲染（不渲染 Mermaid，不渲染复杂代码高亮）
-  if (renderMode === 'preview') {
-    return (
-      <div className="prose prose-invert prose-sm max-w-none">
-        <PreviewTextContent content={block.content} />
-      </div>
-    );
-  }
-
   // 统一渲染路径：流式和非流式使用同一组件
   // 流式时 completed=false（最后一段用轻量渲染）
   // 非流式时 completed=true（所有段落用完整 Markdown 渲染）
@@ -228,20 +202,6 @@ const TextBlockRenderer = memo(function TextBlockRenderer({
     <div className="prose prose-invert prose-sm max-w-none">
       <ProgressiveStreamingMarkdown content={block.content} completed={!isStreaming} />
     </div>
-  );
-});
-
-/**
- * 预览模式文本渲染器 - 简化版，避免 Mermaid 和复杂代码高亮
- */
-const PreviewTextContent = memo(function PreviewTextContent({ content }: { content: string }) {
-  const formattedHTML = useMemo(() => formatContent(content), [content]);
-
-  return (
-    <div
-      className="break-words"
-      dangerouslySetInnerHTML={{ __html: formattedHTML }}
-    />
   );
 });
 
@@ -1032,8 +992,7 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
 /** 内容块渲染器 - 每个块都有错误边界保护 */
 function renderContentBlock(
   block: ContentBlock,
-  isStreaming?: boolean,
-  renderMode: MessageRenderMode = 'full'
+  isStreaming?: boolean
 ): React.ReactNode {
   // 创建带有错误边界的内容块包装器
   const wrapWithErrorBoundary = (content: React.ReactNode, blockId?: string) => (
@@ -1045,72 +1004,35 @@ function renderContentBlock(
   switch (block.type) {
     case 'text':
       return wrapWithErrorBoundary(
-        <TextBlockRenderer block={block} isStreaming={isStreaming} renderMode={renderMode} />,
+        <TextBlockRenderer block={block} isStreaming={isStreaming} />,
         `text-${block.content.slice(0, 20)}`
       );
     case 'thinking':
-      // 归档模式下不渲染思考块
-      if (renderMode === 'archive') return null;
       return wrapWithErrorBoundary(
         <ThinkingBlockRenderer block={block} isStreaming={isStreaming} />,
         `thinking-${block.content.slice(0, 20)}`
       );
     case 'tool_call':
-      // 归档模式下使用简化工具渲染
-      if (renderMode === 'archive') {
-        return wrapWithErrorBoundary(
-          <SimplifiedToolCallRenderer block={block} />,
-          block.id
-        );
-      }
       return wrapWithErrorBoundary(
         <ToolCallBlockRenderer block={block} />,
         block.id
       );
     case 'question':
-      // 归档模式下使用简化问题渲染
-      if (renderMode === 'archive') {
-        return wrapWithErrorBoundary(
-          <SimplifiedQuestionRenderer block={block} />,
-          block.id
-        );
-      }
       return wrapWithErrorBoundary(
         <QuestionBlockRenderer block={block} />,
         block.id
       );
     case 'plan_mode':
-      // 归档模式下使用简化计划渲染
-      if (renderMode === 'archive') {
-        return wrapWithErrorBoundary(
-          <SimplifiedPlanModeRenderer block={block} />,
-          block.id
-        );
-      }
       return wrapWithErrorBoundary(
         <PlanModeBlockRenderer block={block} />,
         block.id
       );
     case 'agent_run':
-      // 归档模式下使用简化 Agent 渲染
-      if (renderMode === 'archive') {
-        return wrapWithErrorBoundary(
-          <SimplifiedAgentRunRenderer block={block} />,
-          block.id
-        );
-      }
       return wrapWithErrorBoundary(
         <AgentRunBlockRenderer block={block} />,
         block.id
       );
     case 'permission_request':
-      // 归档模式下使用简化权限请求渲染
-      if (renderMode === 'archive') {
-        return wrapWithErrorBoundary(
-          <SimplifiedPermissionRequestRenderer block={block} />,
-          block.id
-        );
-      }
       return wrapWithErrorBoundary(
         <PermissionRequestRenderer block={block} />,
         block.id
@@ -1119,34 +1041,6 @@ function renderContentBlock(
       return null;
   }
 }
-
-/**
- * 简化版工具调用渲染器 - 用于归档层
- */
-const SimplifiedToolCallRenderer = memo(function SimplifiedToolCallRenderer({ block }: { block: ToolCallBlock }) {
-  const { t } = useTranslation('chat');
-  const toolConfig = getToolConfig(block.name);
-  const ToolIcon = toolConfig.icon;
-
-  const statusText = block.status === 'completed' ? t('status.completed') :
-                     block.status === 'failed' ? t('status.failed') :
-                     t('status.running');
-
-  return (
-    <div
-      className="my-1 flex items-center gap-2 text-xs text-text-tertiary"
-      aria-label={`${toolConfig.label}: ${statusText}`}
-    >
-      <ToolIcon className={clsx('w-3 h-3', toolConfig.color)} aria-hidden="true" />
-      <span>{toolConfig.label}</span>
-      {block.status === 'completed' ? (
-        <Check className="w-3 h-3 text-success" aria-hidden="true" />
-      ) : block.status === 'failed' ? (
-        <XCircle className="w-3 h-3 text-error" aria-hidden="true" />
-      ) : null}
-    </div>
-  );
-});
 
 /** AI 消息右键菜单组件 */
 const AIMessageContextMenu = memo(function AIMessageContextMenu({
@@ -1255,12 +1149,10 @@ const AIMessageContextMenu = memo(function AIMessageContextMenu({
 /** 助手消息组件 - 使用内容块架构 */
 const AssistantBubble = memo(function AssistantBubble({
   message,
-  renderMode = 'full',
   messageIndex,
   onScrollToMessage,
 }: {
   message: AssistantChatMessage;
-  renderMode?: MessageRenderMode;
   messageIndex?: number;
   onScrollToMessage?: (index: number) => void;
 }) {
@@ -1326,7 +1218,7 @@ const AssistantBubble = memo(function AssistantBubble({
           {/* 渲染内容块（支持工具和思考块折叠聚合） */}
           {hasBlocks ? (
             <div className="space-y-1">
-              {renderBlocksWithGrouping(message.blocks, message.isStreaming, renderMode)}
+              {renderBlocksWithGrouping(message.blocks, message.isStreaming)}
             </div>
           ) : message.content ? (
             // 兼容旧格式（content 字符串）
@@ -1369,8 +1261,6 @@ const AssistantBubble = memo(function AssistantBubble({
   // 基础属性比较
   if (prevProps.message.id !== nextProps.message.id) return false;
   if (prevProps.message.isStreaming !== nextProps.message.isStreaming) return false;
-  // renderMode 变化时需要更新（如从 full 变为 archive）
-  if (prevProps.renderMode !== nextProps.renderMode) return false;
   // messageIndex 变化时需要更新（影响渲染模式计算）
   if (prevProps.messageIndex !== nextProps.messageIndex) return false;
 
@@ -1584,14 +1474,11 @@ const CollapsibleBlockGroupRenderer = memo(function CollapsibleBlockGroupRendere
   blocks,
   maxVisible,
   isStreaming,
-  renderMode: _renderMode,
 }: {
   blocks: (ThinkingBlock | ToolCallBlock)[];
   maxVisible: number;
   isStreaming?: boolean;
-  renderMode: MessageRenderMode;
 }) {
-  // _renderMode 保留用于未来扩展（如 archive 模式下简化渲染）
   const { t } = useTranslation('chat');
 
   // 流式期间默认展开，结束后自动折叠
@@ -1684,8 +1571,7 @@ const CollapsibleBlockGroupRenderer = memo(function CollapsibleBlockGroupRendere
  */
 function renderBlocksWithGrouping(
   blocks: ContentBlock[],
-  isStreaming: boolean | undefined,
-  renderMode: MessageRenderMode
+  isStreaming: boolean | undefined
 ): React.ReactNode[] {
   // 识别可折叠块分组
   const groups = identifyCollapsibleBlockGroups(blocks);
@@ -1694,7 +1580,7 @@ function renderBlocksWithGrouping(
   if (groups.length === 0) {
     return blocks.map((block, index) => (
       <div key={`block-${index}`}>
-        {renderContentBlock(block, isStreaming, renderMode)}
+        {renderContentBlock(block, isStreaming)}
       </div>
     ));
   }
@@ -1723,7 +1609,6 @@ function renderBlocksWithGrouping(
           blocks={group.blocks}
           maxVisible={TOOL_COLLAPSE_CONFIG.maxVisibleBlocks}
           isStreaming={isStreaming}
-          renderMode={renderMode}
         />
       );
       // 标记组内所有块已处理（使用真实索引）
@@ -1751,7 +1636,7 @@ function renderBlocksWithGrouping(
       // 非可折叠块（text, question 等）
       result.push(
         <div key={`block-${index}`}>
-          {renderContentBlock(block, isStreaming, renderMode)}
+          {renderContentBlock(block, isStreaming)}
         </div>
       );
     }
@@ -1772,7 +1657,6 @@ const SystemBubble = memo(function SystemBubble({ content }: { content: string }
 /** 消息渲染器 */
 export function renderChatMessage(
   message: ChatMessage,
-  renderMode: MessageRenderMode = 'full',
   messageIndex?: number,
   scrollToMessage?: (index: number) => void
 ): React.ReactNode {
@@ -1784,7 +1668,6 @@ export function renderChatMessage(
         <AssistantBubble
           key={message.id}
           message={message}
-          renderMode={renderMode}
           messageIndex={messageIndex}
           onScrollToMessage={scrollToMessage}
         />
@@ -2101,9 +1984,7 @@ export function EnhancedChatMessages({ sessionId, compact = false }: EnhancedCha
               style={{ height: '100%' }}
               data={displayMessages}
               itemContent={(index, item) => {
-                // 计算当前消息的渲染模式
-                const msgRenderMode = calculateRenderMode(index, displayMessages.length, DEFAULT_LAYER_CONFIG);
-                return renderChatMessage(item, msgRenderMode, index, scrollToMessage);
+                return renderChatMessage(item, index, scrollToMessage);
               }}
               components={{
                 EmptyPlaceholder: () => null,

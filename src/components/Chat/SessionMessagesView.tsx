@@ -8,7 +8,6 @@ import { memo, useMemo, useRef, useCallback, useEffect, useSyncExternalStore } f
 import { Virtuoso } from 'react-virtuoso';
 import { sessionStoreManager } from '../../stores/conversationStore/sessionStoreManager';
 import { renderChatMessage } from './EnhancedChatMessages';
-import { calculateRenderMode, DEFAULT_LAYER_CONFIG } from '../../utils/messageLayer';
 import type { ChatMessage, AssistantChatMessage } from '../../types/chat';
 import type { ConversationStoreInstance, ConversationState } from '../../stores/conversationStore/types';
 
@@ -181,8 +180,7 @@ export const SessionMessagesView = memo(function SessionMessagesView({ sessionId
           style={{ height: '100%' }}
           data={displayMessages}
           itemContent={(index, item) => {
-            const msgRenderMode = calculateRenderMode(index, displayMessages.length, DEFAULT_LAYER_CONFIG);
-            return renderChatMessage(item, msgRenderMode, index, scrollToMessage);
+            return renderChatMessage(item, index, scrollToMessage);
           }}
           components={{
             EmptyPlaceholder: () => null,
