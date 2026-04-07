@@ -17,8 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { clsx } from 'clsx';
 import type { ChatMessage, UserChatMessage, AssistantChatMessage, ContentBlock, TextBlock, ThinkingBlock, ToolCallBlock } from '../../types';
-import { useEventChatStore } from '../../stores';
-import { useActiveSessionMessages, useActiveSessionStreaming, useSessionMessages, useSessionStreaming } from '../../stores/conversationStore/useActiveSession';
+import { useActiveSessionMessages, useActiveSessionStreaming, useActiveSessionActions, useSessionMessages, useSessionStreaming } from '../../stores/conversationStore/useActiveSession';
 import { getToolConfig, extractToolKeyInfo, getToolShortName } from '../../utils/toolConfig';
 import { markdownCache } from '../../utils/cache';
 import {
@@ -63,6 +62,12 @@ const TOOL_COLLAPSE_CONFIG = {
   /** 触发折叠的最小块数（超过此值才折叠） */
   collapseThreshold: 5,
 };
+
+/** Virtuoso 视口扩展常量（避免每次渲染创建新对象） */
+const VIEWPORT_EXTENSION = { top: 100, bottom: 300 };
+
+/** Virtuoso 底部间距 */
+const FOOTER_SPACER_STYLE = { height: '120px' } as const;
 
 /** 可折叠块分组（支持 thinking + tool_call 混合） */
 interface CollapsibleBlockGroup {
@@ -1358,25 +1363,26 @@ const AssistantBubble = memo(function AssistantBubble({
   );
 }, (prevProps, nextProps) => {
   // 优化重渲染：使用浅比较代替深度序列化
-  // 比较关键属性：id、isStreaming、blocks 数量、最后一个块的内容长度
   const prevBlocks = prevProps.message.blocks;
   const nextBlocks = nextProps.message.blocks;
 
   // 基础属性比较
   if (prevProps.message.id !== nextProps.message.id) return false;
   if (prevProps.message.isStreaming !== nextProps.message.isStreaming) return false;
+  // renderMode 变化时需要更新（如从 full 变为 archive）
+  if (prevProps.renderMode !== nextProps.renderMode) return false;
+  // messageIndex 变化时需要更新（影响渲染模式计算）
+  if (prevProps.messageIndex !== nextProps.messageIndex) return false;
 
   // blocks 数量不同，需要更新
   if (prevBlocks.length !== nextBlocks.length) return false;
 
   // 对于流式消息，检查最后一个文本块的内容长度
-  // 这比 JSON.stringify 快得多，且能捕获大部分更新
   if (nextProps.message.isStreaming && prevBlocks.length > 0) {
     const lastPrev = prevBlocks[prevBlocks.length - 1];
     const lastNext = nextBlocks[nextBlocks.length - 1];
 
     if (lastPrev.type === 'text' && lastNext.type === 'text') {
-      // 内容长度变化需要更新
       if (lastPrev.content.length !== lastNext.content.length) return false;
     } else if (lastPrev.type !== lastNext.type) {
       return false;
@@ -1874,7 +1880,7 @@ export function EnhancedChatMessages({ sessionId, compact = false }: EnhancedCha
   const { messages, archivedMessages, currentMessage } = sessionId ? sessionData : activeSessionData;
   const isStreaming = sessionId ? sessionIsStreaming : activeIsStreaming;
 
-  const { loadMoreArchivedMessages } = useEventChatStore();
+  const { loadMoreArchivedMessages } = useActiveSessionActions();
 
   // 性能优化：流式阶段合并 currentMessage 到消息列表
   // 这样就不需要频繁更新 messages 数组，避免整个列表重渲染
@@ -2112,13 +2118,13 @@ export function EnhancedChatMessages({ sessionId, compact = false }: EnhancedCha
                     </button>
                   </div>
                 )) : undefined,
-                Footer: () => <div style={{ height: '120px' }} />,
+                Footer: () => <div style={FOOTER_SPACER_STYLE} />,
               }}
               followOutput={autoScroll ? (isStreaming ? true : 'smooth') : false}
               atBottomStateChange={handleAtBottomStateChange}
               atBottomThreshold={150}
               rangeChanged={handleRangeChange}
-              increaseViewportBy={{ top: 100, bottom: 300 }}
+              increaseViewportBy={VIEWPORT_EXTENSION}
               initialTopMostItemIndex={displayMessages.length - 1}
             />
           )}
