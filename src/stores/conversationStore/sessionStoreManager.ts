@@ -26,6 +26,93 @@ import { useWorkspaceStore } from '../workspaceStore'
 import { useViewStore } from '../index'
 
 // ============================================================================
+// LRU 驱逐配置
+// ============================================================================
+
+/** 非活跃会话最大保留数量 */
+const MAX_IDLE_STORES = 5
+
+/**
+ * 驱逐非活跃会话
+ *
+ * 保护规则：
+ * - activeSessionId 不可驱逐
+ * - backgroundSessionIds 中的不可驱逐
+ * - status === 'running' 不可驱逐
+ *
+ * 驱逐流程：
+ * 1. 过滤非保护会话
+ * 2. 按 lastAccessedAt 排序
+ * 3. 超出 MAX_IDLE_STORES 的最旧会话执行 dispose() + 移除
+ */
+function evictIdleSessions(
+  stores: Map<string, ConversationStoreInstance>,
+  sessionMetadata: Map<string, SessionMetadata>,
+  activeSessionId: string | null,
+  backgroundSessionIds: string[]
+): { stores: Map<string, ConversationStoreInstance>; sessionMetadata: Map<string, SessionMetadata> } | null {
+  // 收集保护中的 sessionId
+  const protectedIds = new Set<string>()
+  if (activeSessionId) protectedIds.add(activeSessionId)
+  backgroundSessionIds.forEach(id => protectedIds.add(id))
+
+  // 额外保护正在运行的会话
+  sessionMetadata.forEach((meta, id) => {
+    if (meta.status === 'running') protectedIds.add(id)
+  })
+
+  // 筛选可驱逐的会话
+  const evictable: Array<{ id: string; lastAccessedAt: number }> = []
+  stores.forEach((_, id) => {
+    if (!protectedIds.has(id)) {
+      const meta = sessionMetadata.get(id)
+      if (meta) {
+        evictable.push({ id, lastAccessedAt: meta.lastAccessedAt })
+      }
+    }
+  })
+
+  // 未超出上限，无需驱逐
+  if (evictable.length <= MAX_IDLE_STORES) return null
+
+  // 按 lastAccessedAt 升序，驱逐最旧的
+  evictable.sort((a, b) => a.lastAccessedAt - b.lastAccessedAt)
+  const toEvict = evictable.slice(0, evictable.length - MAX_IDLE_STORES)
+
+  const newStores = new Map(stores)
+  const newMetadata = new Map(sessionMetadata)
+
+  for (const { id } of toEvict) {
+    const store = newStores.get(id)
+    if (store) {
+      store.getState().dispose()
+      newStores.delete(id)
+      newMetadata.delete(id)
+      console.log('[SessionStoreManager] LRU 驱逐会话:', id)
+    }
+  }
+
+  return { stores: newStores, sessionMetadata: newMetadata }
+}
+
+/**
+ * 更新会话的 lastAccessedAt 时间戳
+ */
+function touchSession(
+  sessionMetadata: Map<string, SessionMetadata>,
+  sessionId: string
+): Map<string, SessionMetadata> | null {
+  const meta = sessionMetadata.get(sessionId)
+  if (!meta) return null
+  const now = Date.now()
+  // 避免频繁创建新 Map（1 秒内不重复 touch）
+  if (now - meta.lastAccessedAt < 1000) return null
+  const newMetadata = new Map(sessionMetadata)
+  newMetadata.set(sessionId, { ...meta, lastAccessedAt: now })
+  return newMetadata
+}
+
+// ============================================================================
 // Manager Store Type
 // ============================================================================
 
@@ -78,6 +165,7 @@ function createSessionManagerStore() {
         workspaceLocked: options.workspaceLocked ?? (!!options.workspaceId),
         status: 'idle',
         silentMode: options.silentMode || false, // 设置静默模式
+        lastAccessedAt: Date.now(),
         createdAt: timestamp,
         updatedAt: timestamp,
       }
@@ -152,6 +240,18 @@ function createSessionManagerStore() {
       })
 
       console.log('[SessionStoreManager] 创建会话:', sessionId)
+
+      // LRU 驱逐：非保护会话超过上限时清理最旧的
+      const currentState = get()
+      const evicted = evictIdleSessions(
+        currentState.stores,
+        currentState.sessionMetadata,
+        currentState.activeSessionId,
+        currentState.backgroundSessionIds
+      )
+      if (evicted) {
+        set({ stores: evicted.stores, sessionMetadata: evicted.sessionMetadata })
+      }
 
       // 非静默模式且开启多窗口模式时，自动加入多窗口视图
       if (!options.silentMode && useViewStore.getState().multiSessionMode) {
@@ -251,7 +351,12 @@ function createSessionManagerStore() {
       }
 
       // 切换到新会话
-      set({ activeSessionId: sessionId })
+      // touch lastAccessedAt
+      const touched = touchSession(state.sessionMetadata, sessionId)
+      set({
+        activeSessionId: sessionId,
+        ...(touched ? { sessionMetadata: touched } : {}),
+      })
 
       // 如果新会话在后台运行列表中，移出（用户主动切换回来了）
       get().removeFromBackground(sessionId)
@@ -364,6 +469,12 @@ function createSessionManagerStore() {
       // 注意：事件总是路由到 routeSessionId 对应的会话，而不是当前活跃会话
       // 这是多会话并行的核心：每个会话独立处理自己的事件
       store.getState().handleAIEvent(event)
+
+      // touch lastAccessedAt（LRU 追踪）
+      const touchedMeta = touchSession(get().sessionMetadata, routeSessionId)
+      if (touchedMeta) {
+        set({ sessionMetadata: touchedMeta })
+      }
 
       // 补发到 EventBus，确保 DeveloperPanel 等订阅者能收到事件
       try {

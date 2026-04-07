@@ -242,6 +242,7 @@ export interface SessionMetadata {
   workspaceLocked?: boolean // 主工作区是否锁定（发送消息后锁定）
   silentMode?: boolean // 静默模式（不显示在会话列表中）
   status: 'idle' | 'running' | 'waiting' | 'error' | 'background-running'
+  lastAccessedAt: number // 最后访问时间戳（用于 LRU 驱逐）
   createdAt: string
   updatedAt: string
 }
