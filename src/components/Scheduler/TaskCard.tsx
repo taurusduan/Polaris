@@ -69,8 +69,8 @@ export function TaskCard({
 
   const isEnabled = task.enabled;
   const triggerDisplay =
-    task.triggerType === 'interval'
-      ? `${t('triggerTypes.interval')} ${task.triggerValue}`
+    task.triggerType === 'interval' || task.triggerType === 'after_completion'
+      ? `${t(`triggerTypes.${task.triggerType}`)} ${task.triggerValue}`
       : task.triggerType === 'cron'
         ? `Cron ${task.triggerValue.slice(0, 8)}`
         : t('triggerTypes.once');

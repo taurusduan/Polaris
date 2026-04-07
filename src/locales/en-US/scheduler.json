@@ -18,7 +18,8 @@
   "triggerTypes": {
     "once": "Once",
     "cron": "Cron Expression",
-    "interval": "Interval"
+    "interval": "Interval",
+    "after_completion": "After Completion"
   },
 
   "taskMode": {

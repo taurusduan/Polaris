@@ -835,6 +835,7 @@ fn parse_trigger_type(value: Option<&serde_json::Value>) -> Option<TriggerType> 
         Some("once") => Some(TriggerType::Once),
         Some("cron") => Some(TriggerType::Cron),
         Some("interval") => Some(TriggerType::Interval),
+        Some("after_completion") => Some(TriggerType::AfterCompletion),
         _ => None,
     }
 }

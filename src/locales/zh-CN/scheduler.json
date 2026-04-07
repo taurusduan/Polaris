@@ -18,7 +18,8 @@
   "triggerTypes": {
     "once": "单次执行",
     "cron": "Cron 表达式",
-    "interval": "间隔执行"
+    "interval": "间隔执行",
+    "after_completion": "完成后间隔"
   },
 
   "taskMode": {
