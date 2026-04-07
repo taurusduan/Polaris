@@ -418,8 +418,7 @@ function inferErrorSource(error: Error): ErrorSource {
     message.includes('ai') ||
     message.includes('模型') ||
     message.includes('token') ||
-    message.includes('claude') ||
-    message.includes('openai')
+    message.includes('claude')
   ) {
     return ErrorSource.AI;
   }
