@@ -16,9 +16,9 @@ import {
   lineNumbers,
 } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { bracketMatching, indentOnInput, syntaxHighlighting, HighlightStyle } from '@codemirror/language';
+import { bracketMatching, indentOnInput, syntaxHighlighting, HighlightStyle, foldGutter, foldKeymap, indentUnit } from '@codemirror/language';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
-import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import { searchKeymap, highlightSelectionMatches, gotoLine } from '@codemirror/search';
 import { lintGutter } from '@codemirror/lint';
 import { tags } from '@lezer/highlight';
 import { createLogger } from '../../utils/logger';
@@ -117,6 +117,8 @@ interface EditorProps {
   onSave?: () => void;
   /** 是否显示行号 */
   lineNumbers?: boolean;
+  /** 是否自动换行 */
+  wrapEnabled?: boolean;
 }
 
 export function CodeMirrorEditor({
@@ -126,6 +128,7 @@ export function CodeMirrorEditor({
   readOnly = false,
   onSave,
   lineNumbers: showLineNumbers = true,
+  wrapEnabled = false,
 }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -181,12 +184,17 @@ export function CodeMirrorEditor({
         bracketMatching(),
         closeBrackets(),
         indentOnInput(),
+        foldGutter(),
+        keymap.of(foldKeymap),
         EditorView.editable.of(!readOnly),
+        wrapEnabled ? EditorView.lineWrapping : [],
+        indentUnit.of('  '),
         saveKeymap,
         keymap.of(defaultKeymap),
         keymap.of(historyKeymap),
         keymap.of(closeBracketsKeymap),
         keymap.of(searchKeymap),
+        keymap.of([{ key: 'Mod-g', run: gotoLine }]),
         lintGutter(),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {

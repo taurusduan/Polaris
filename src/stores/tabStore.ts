@@ -63,6 +63,16 @@ export const useTabStore = create<TabStore>()(
 
       // 打开 Editor Tab
       openEditorTab: (filePath: string, title?: string) => {
+        // 检查是否已存在相同文件的 Editor Tab，命中则激活已有 Tab
+        const existingTab = get().tabs.find(
+          (tab) => tab.type === 'editor' && tab.filePath === filePath
+        )
+
+        if (existingTab) {
+          set({ activeTabId: existingTab.id })
+          return existingTab.id
+        }
+
         const tabId = `editor-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
         const newTab: Tab = {
           id: tabId,
