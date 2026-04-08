@@ -339,6 +339,11 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
       if (!found) {
         // 添加时使用规范化路径
         expanded.add(normalizedPath);
+      } else {
+        // 折叠时清除该文件夹缓存，释放内存
+        const newCache = new Map(state.folder_cache);
+        newCache.delete(normalizedPath);
+        return { expanded_folders: expanded, folder_cache: newCache };
       }
 
       return { expanded_folders: expanded };
