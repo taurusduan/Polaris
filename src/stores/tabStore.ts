@@ -7,6 +7,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { GitDiffEntry } from '@/types/git'
+import { useEditorBufferStore } from './editorBufferStore'
 
 /** Tab 类型 */
 export type TabType = 'editor' | 'diff' | 'preview'
@@ -161,6 +162,7 @@ export const useTabStore = create<TabStore>()(
       // 关闭 Tab
       closeTab: (tabId: string) => {
         set((state) => {
+          const closedTab = state.tabs.find((tab) => tab.id === tabId)
           const newTabs = state.tabs.filter((tab) => tab.id !== tabId)
 
           // 如果关闭的是当前激活的 Tab,需要切换到另一个 Tab
@@ -174,6 +176,11 @@ export const useTabStore = create<TabStore>()(
             } else {
               newActiveTabId = null
             }
+          }
+
+          // 清理已关闭 Tab 的编辑器缓冲区
+          if (closedTab?.filePath) {
+            useEditorBufferStore.getState().removeBuffer(closedTab.filePath)
           }
 
           return {

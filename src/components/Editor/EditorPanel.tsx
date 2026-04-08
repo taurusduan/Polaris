@@ -63,6 +63,7 @@ export function EditorPanel({ className = '', filePath: _filePath }: EditorPanel
             language={currentFile.language}
             onChange={setContent}
             onSave={saveFile}
+            filePath={currentFile.path}
           />
         )}
       </div>

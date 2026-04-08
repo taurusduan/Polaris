@@ -22,6 +22,7 @@ import { searchKeymap, highlightSelectionMatches, gotoLine } from '@codemirror/s
 import { lintGutter } from '@codemirror/lint';
 import { tags } from '@lezer/highlight';
 import { createLogger } from '../../utils/logger';
+import { useEditorBufferStore } from '../../stores/editorBufferStore';
 
 const log = createLogger('Editor');
 
@@ -119,6 +120,8 @@ interface EditorProps {
   lineNumbers?: boolean;
   /** 是否自动换行 */
   wrapEnabled?: boolean;
+  /** 文件路径（用于 EditorState 缓存键） */
+  filePath?: string;
 }
 
 export function CodeMirrorEditor({
@@ -129,9 +132,12 @@ export function CodeMirrorEditor({
   onSave,
   lineNumbers: showLineNumbers = true,
   wrapEnabled = false,
+  filePath,
 }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const filePathRef = useRef(filePath);
+  filePathRef.current = filePath;
 
   // 自定义保存快捷键
   const saveKeymap = useMemo(
@@ -147,24 +153,28 @@ export function CodeMirrorEditor({
 
     // 异步创建编辑器（需要加载语言扩展）
     const createEditor = async () => {
-      console.log('[Editor] createEditor called with:', {
-        language,
-        valueLength: value?.length,
-        valuePreview: value?.substring(0, 50),
-      });
+      // 检查缓冲区中是否有缓存的 EditorState
+      const cachedState = filePath
+        ? useEditorBufferStore.getState().loadBuffer(filePath)?.editorState
+        : null;
 
+      if (cachedState && !cancelled && containerRef.current) {
+        // 从缓存恢复：保留 undo 历史、光标位置、折叠状态
+        log.debug('从缓存恢复 EditorState', { filePath });
+        const view = new EditorView({
+          state: cachedState,
+          parent: containerRef.current,
+        });
+        viewRef.current = view;
+        return;
+      }
+
+      // 无缓存，创建新编辑器
       // 异步加载语言扩展
       const langExtension = await getLanguageExtension(language);
 
-      console.log('[Editor] Language extension result:', {
-        language,
-        loaded: !!langExtension,
-        extensionType: langExtension?.constructor?.name,
-      });
-
       // 如果组件已卸载，不继续
       if (cancelled || !containerRef.current) {
-        console.log('[Editor] Component cancelled or container missing, aborting');
         return;
       }
 
@@ -206,10 +216,7 @@ export function CodeMirrorEditor({
 
       // 如果语言扩展加载成功，添加到扩展数组中
       if (langExtension) {
-        console.log('[Editor] Adding language extension to extensions array');
         extensions.push(langExtension);
-      } else {
-        console.warn('[Editor] No language extension found for:', language);
       }
 
       // 创建编辑器状态
@@ -225,18 +232,20 @@ export function CodeMirrorEditor({
       });
       viewRef.current = view;
 
-      log.debug('Editor view created successfully', {
-        className: view.dom.className,
-        childElementCount: view.dom.childElementCount,
-      });
+      log.debug('Editor view created successfully');
     };
 
     createEditor();
 
-    // 清理函数
+    // 清理函数：保存 EditorState 到缓冲区
     return () => {
       cancelled = true;
       if (viewRef.current) {
+        // 保存 EditorState（保留 undo 历史、光标、折叠等）
+        const currentPath = filePathRef.current;
+        if (currentPath) {
+          useEditorBufferStore.getState().saveEditorState(currentPath, viewRef.current.state);
+        }
         viewRef.current.destroy();
         viewRef.current = null;
       }
