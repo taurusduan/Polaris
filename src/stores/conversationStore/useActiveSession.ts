@@ -472,44 +472,27 @@ export function useSessionError(sessionId: string | null) {
   )
 }
 
-/**
- * 获取指定会话的 block 映射
- */
-function useSessionBlockMaps(sessionId: string | null) {
-  const questionBlockMap = useSessionSelector(
-    sessionId,
-    useCallback((state: ConversationState) => state.questionBlockMap, []),
-    new Map()
-  )
-  const toolBlockMap = useSessionSelector(
-    sessionId,
-    useCallback((state: ConversationState) => state.toolBlockMap, []),
-    new Map()
-  )
-  return useMemo(() => ({ questionBlockMap, toolBlockMap }), [questionBlockMap, toolBlockMap])
-}
-
 /** 指定会话是否有待回答的问题（用于多窗口指示） */
 export function useSessionHasPendingQuestion(sessionId: string | null): boolean {
-  const { questionBlockMap, toolBlockMap } = useSessionBlockMaps(sessionId)
-  const { currentMessage } = useSessionMessages(sessionId)
+  const { currentMessage, messages } = useSessionMessages(sessionId)
   return useMemo(() => {
-    if (!currentMessage) return false
-    // 检查 question block
-    for (const blockIndex of questionBlockMap.values()) {
-      const block = currentMessage.blocks[blockIndex]
-      if (block?.type === 'question' && (block as ContentBlock & { status: string }).status === 'pending') return true
+    // 优先检查 currentMessage
+    if (currentMessage) {
+      const found = extractQuestionsFromBlocks(currentMessage.blocks)
+      if (found.length > 0) return true
     }
-    // 检查 AskUserQuestion tool_call block
-    for (const blockIndex of toolBlockMap.values()) {
-      const block = currentMessage.blocks[blockIndex]
-      if (block?.type === 'tool_call' && (block as import('../../types/chat').ToolCallBlock).name === 'AskUserQuestion') {
-        const toolBlock = block as import('../../types/chat').ToolCallBlock
-        if (toolBlock.status !== 'failed' && Array.isArray(toolBlock.input?.questions)) return true
+    // 回退到 messages 最后一条 assistant 消息
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1]
+      if (lastMsg.type === 'assistant' && 'blocks' in lastMsg) {
+        const found = extractQuestionsFromBlocks(
+          (lastMsg as import('../../types/chat').AssistantChatMessage).blocks
+        )
+        return found.length > 0
       }
     }
     return false
-  }, [currentMessage, questionBlockMap, toolBlockMap])
+  }, [currentMessage, messages])
 }
 
 // ========================================
@@ -522,64 +505,75 @@ export function useHasPendingQuestion(): boolean {
   return useMemo(() => pendingQuestions.length > 0, [pendingQuestions])
 }
 
+/** 从 block 列表中提取 AskUserQuestion 待回答问题 */
+function extractQuestionsFromBlocks(blocks: import('../../types').ContentBlock[]): import('../../types').QuestionBlock[] {
+  const result: import('../../types').QuestionBlock[] = []
+
+  for (const block of blocks) {
+    // 1. question 类型 block（后端发出了 question 事件）
+    if (block.type === 'question' && (block as import('../../types').QuestionBlock).status === 'pending') {
+      result.push(block as import('../../types').QuestionBlock)
+    }
+
+    // 2. AskUserQuestion tool_call block
+    if (block.type === 'tool_call' && (block as import('../../types/chat').ToolCallBlock).name === 'AskUserQuestion') {
+      const toolBlock = block as import('../../types/chat').ToolCallBlock
+      if (toolBlock.status === 'failed') continue
+      // 避免与已有 question block 重复
+      if (result.some(q => q.id.startsWith(toolBlock.id))) continue
+
+      const questions = toolBlock.input?.questions
+      if (!Array.isArray(questions)) continue
+
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i] as Record<string, unknown>
+        const options = Array.isArray(q.options)
+          ? q.options.map((o: Record<string, unknown>) => ({
+              value: (o.value as string) || (o.label as string) || '',
+              label: o.label as string | undefined,
+              description: o.description as string | undefined,
+              preview: o.preview as string | undefined,
+            }))
+          : []
+        result.push({
+          type: 'question',
+          id: `${toolBlock.id}_q${i}`,
+          header: (q.header as string) || (q.question as string) || '',
+          multiSelect: q.multiSelect as boolean | undefined,
+          options,
+          allowCustomInput: q.allowCustomInput as boolean | undefined,
+          status: 'pending',
+        })
+      }
+    }
+  }
+
+  return result
+}
+
 /** 获取活跃会话中所有待回答的问题块 */
 export function usePendingQuestions(): import('../../types').QuestionBlock[] {
-  const { questionBlockMap, toolBlockMap } = useActiveSessionBlockMaps()
-  const { currentMessage } = useActiveSessionMessages()
+  const { currentMessage, messages } = useActiveSessionMessages()
   return useMemo(() => {
-    if (!currentMessage) return []
-    const result: import('../../types').QuestionBlock[] = []
+    // 优先从 currentMessage（流式中的消息）提取
+    if (currentMessage) {
+      const result = extractQuestionsFromBlocks(currentMessage.blocks)
+      if (result.length > 0) return result
+    }
 
-    // 1. 从 question 类型 block 中获取（后端发出了 question 事件）
-    if (questionBlockMap.size) {
-      for (const blockIndex of questionBlockMap.values()) {
-        const block = currentMessage.blocks[blockIndex]
-        if (block?.type === 'question' && (block as ContentBlock & { status: string }).status === 'pending') {
-          result.push(block as import('../../types').QuestionBlock)
-        }
+    // currentMessage 为空（session_end 后已提交），回退到 messages 最后一条 assistant 消息
+    // 仅当最后一条消息是 assistant 且其后没有 user 消息时才显示
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1]
+      if (lastMsg.type === 'assistant' && 'blocks' in lastMsg) {
+        return extractQuestionsFromBlocks(
+          (lastMsg as import('../../types/chat').AssistantChatMessage).blocks
+        )
       }
     }
 
-    // 2. 从 AskUserQuestion tool_call block 中提取（后端只发出了 tool_call 事件）
-    if (toolBlockMap.size) {
-      for (const [toolId, blockIndex] of toolBlockMap) {
-        const block = currentMessage.blocks[blockIndex]
-        if (block?.type === 'tool_call' && (block as import('../../types/chat').ToolCallBlock).name === 'AskUserQuestion') {
-          const toolBlock = block as import('../../types/chat').ToolCallBlock
-          // 跳过已失败或尚未完成的工具调用
-          if (toolBlock.status === 'failed') continue
-          // 避免与已有的 question block 重复（同 ID）
-          if (result.some(q => q.id === toolId)) continue
-
-          const questions = toolBlock.input?.questions
-          if (!Array.isArray(questions)) continue
-
-          for (let i = 0; i < questions.length; i++) {
-            const q = questions[i] as Record<string, unknown>
-            const options = Array.isArray(q.options)
-              ? q.options.map((o: Record<string, unknown>) => ({
-                  value: (o.value as string) || (o.label as string) || '',
-                  label: o.label as string | undefined,
-                  description: o.description as string | undefined,
-                  preview: o.preview as string | undefined,
-                }))
-              : []
-            result.push({
-              type: 'question',
-              id: `${toolId}_q${i}`,
-              header: (q.header as string) || (q.question as string) || '',
-              multiSelect: q.multiSelect as boolean | undefined,
-              options,
-              allowCustomInput: q.allowCustomInput as boolean | undefined,
-              status: 'pending',
-            })
-          }
-        }
-      }
-    }
-
-    return result
-  }, [currentMessage, questionBlockMap, toolBlockMap])
+    return []
+  }, [currentMessage, messages])
 }
 
 /** 是否有活跃的计划（等待审批） */
