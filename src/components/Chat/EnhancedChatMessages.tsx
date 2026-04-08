@@ -20,6 +20,9 @@ import type { ChatMessage, UserChatMessage, AssistantChatMessage, ContentBlock, 
 import { useActiveSessionMessages, useActiveSessionStreaming, useSessionMessages, useSessionStreaming } from '../../stores/conversationStore/useActiveSession';
 import { sessionStoreManager } from '../../stores/conversationStore/sessionStoreManager';
 import { getToolConfig, extractToolKeyInfo, getToolShortName } from '../../utils/toolConfig';
+import { extractFullFilePath } from '../../utils/toolInputExtractor';
+import { useFileEditorStore } from '../../stores/fileEditorStore';
+import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { markdownCache } from '../../utils/cache';
 import {
   formatDuration,
@@ -31,7 +34,7 @@ import {
   type GrepMatch,
   type GrepOutputData
 } from '../../utils/toolSummary';
-import { Check, XCircle, Loader2, AlertTriangle, ChevronDown, ChevronRight, ChevronUp, Circle, FileSearch, FolderOpen, Code, FileDiff, Brain, ListOrdered, ArrowUp } from 'lucide-react';
+import { Check, XCircle, Loader2, AlertTriangle, ChevronDown, ChevronRight, ChevronUp, Circle, FileSearch, FolderOpen, Code, FileDiff, Brain, ListOrdered, ArrowUp, ChevronsUp, ChevronsDown, Copy } from 'lucide-react';
 import { ChatNavigator } from './ChatNavigator';
 import { useMessageSearch, MessageSearchPanel } from './MessageSearchPanel';
 import { QuestionBlockRenderer } from './QuestionBlockRenderer';
@@ -164,19 +167,75 @@ function extractThinkingSteps(content: string): ThinkingStep[] {
 /** 用户消息组件 - 简化版 */
 const UserBubble = memo(function UserBubble({
   message,
+  messageIndex,
+  onScrollToMessage,
+  onScrollToTop,
+  onScrollToBottom,
 }: {
   message: UserChatMessage;
+  messageIndex?: number;
+  onScrollToMessage?: (index: number) => void;
+  onScrollToTop?: () => void;
+  onScrollToBottom?: () => void;
 }) {
+  // 右键菜单状态
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // 右键事件处理 - 避免与文字选中冲突
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    const selectedText = window.getSelection()?.toString().trim();
+
+    // 有文字选中 → 不拦截，让全局 SelectionContextMenu 处理
+    if (selectedText && selectedText.length > 0) {
+      return;
+    }
+
+    // 无文字选中 → 显示消息菜单
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+    });
+  }, []);
+
+  // 关闭右键菜单
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
   return (
-    <div className="flex justify-end my-2">
-      <div className="max-w-[85%] px-4 py-3 rounded-2xl
-                  bg-gradient-to-br from-primary to-primary-600
-                  text-white shadow-glow">
-        <div className="text-sm leading-relaxed whitespace-pre-wrap">
-          {message.content}
+    <>
+      <div className="flex justify-end my-2" onContextMenu={handleContextMenu}>
+        <div className="max-w-[85%] px-4 py-3 rounded-2xl
+                    bg-gradient-to-br from-primary to-primary-600
+                    text-white shadow-glow">
+          <div className="text-sm leading-relaxed whitespace-pre-wrap">
+            {message.content}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <MessageContextMenu
+          visible={contextMenu.visible}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          messageIndex={messageIndex}
+          messageText={message.content}
+          onScrollToMessage={onScrollToMessage}
+          onScrollToTop={onScrollToTop}
+          onScrollToBottom={onScrollToBottom}
+          onClose={handleCloseContextMenu}
+        />
+      )}
+    </>
   );
 });
 
@@ -592,6 +651,27 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
   // 获取工具配置
   const toolConfig = useMemo(() => getToolConfig(block.name), [block.name]);
 
+  // 文件路径点击打开编辑器
+  const openFile = useFileEditorStore((s) => s.openFile);
+  const currentWorkspace = useWorkspaceStore((s) => {
+    const { workspaces, currentWorkspaceId } = s;
+    return workspaces.find(w => w.id === currentWorkspaceId) || null;
+  });
+  const fullFilePath = useMemo(() => extractFullFilePath(block.input), [block.input]);
+
+  const handleFilePathClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!fullFilePath) return;
+    const isAbsolute = fullFilePath.startsWith('/') || /^[A-Za-z]:\\/.test(fullFilePath);
+    const absolutePath = isAbsolute
+      ? fullFilePath
+      : currentWorkspace
+        ? (currentWorkspace.path + (currentWorkspace.path.includes('\\') ? '\\' : '/') + fullFilePath)
+        : fullFilePath;
+    const fileName = fullFilePath.split(/[/\\]/).pop() || fullFilePath;
+    openFile(absolutePath, fileName);
+  }, [fullFilePath, currentWorkspace, openFile]);
+
   // 状态图标
   const statusConfig = STATUS_CONFIG[block.status] || STATUS_CONFIG.pending;
   const StatusIcon = statusConfig.icon;
@@ -769,11 +849,26 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
           {toolConfig.label}
         </span>
 
-        {/* 关键参数 */}
+        {/* 关键参数（有文件路径时可点击打开编辑器） */}
         {keyInfo && (
-          <span className={clsx('text-xs truncate flex-1 min-w-0', toolConfig.color)}>
-            {keyInfo}
-          </span>
+          fullFilePath ? (
+            <button
+              type="button"
+              className={clsx(
+                'text-xs truncate flex-1 min-w-0 text-left cursor-pointer',
+                toolConfig.color,
+                'hover:underline hover:opacity-80 transition-opacity'
+              )}
+              onClick={handleFilePathClick}
+              title={fullFilePath}
+            >
+              {keyInfo}
+            </button>
+          ) : (
+            <span className={clsx('text-xs truncate flex-1 min-w-0', toolConfig.color)}>
+              {keyInfo}
+            </span>
+          )
         )}
 
         {/* 右侧信息区 - 统一靠右对齐 */}
@@ -1043,23 +1138,41 @@ function renderContentBlock(
   }
 }
 
-/** AI 消息右键菜单组件 */
-const AIMessageContextMenu = memo(function AIMessageContextMenu({
+/** 从 AI 消息中提取可见文本内容 */
+function extractAssistantText(message: AssistantChatMessage): string {
+  if (!message.blocks) return '';
+  return message.blocks
+    .filter((b): b is TextBlock => b.type === 'text')
+    .map(b => b.content)
+    .join('\n');
+}
+
+/** 消息右键菜单组件（AI 消息和用户消息共用） */
+const MessageContextMenu = memo(function MessageContextMenu({
   visible,
   x,
   y,
-  onScrollToStart,
+  messageIndex,
+  messageText,
+  onScrollToMessage,
+  onScrollToTop,
+  onScrollToBottom,
   onClose,
 }: {
   visible: boolean;
   x: number;
   y: number;
-  onScrollToStart: () => void;
+  messageIndex?: number;
+  messageText?: string;
+  onScrollToMessage?: (index: number) => void;
+  onScrollToTop?: () => void;
+  onScrollToBottom?: () => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation('chat');
   const menuRef = useRef<HTMLDivElement>(null);
   const positionRef = useRef({ x, y });
+  const [copied, setCopied] = useState(false);
 
   // 更新位置引用
   useEffect(() => {
@@ -1124,25 +1237,82 @@ const AIMessageContextMenu = memo(function AIMessageContextMenu({
     };
   }, [visible, onClose]);
 
+  // 复制消息内容
+  const handleCopy = useCallback(async () => {
+    if (!messageText) return;
+    try {
+      await navigator.clipboard.writeText(messageText);
+      setCopied(true);
+      setTimeout(() => { setCopied(false); onClose(); }, 600);
+    } catch {
+      onClose();
+    }
+  }, [messageText, onClose]);
+
   if (!visible) return null;
+
+  const hasJumpActions = messageIndex !== undefined && onScrollToMessage;
+  const hasScrollActions = onScrollToTop || onScrollToBottom;
+  const hasCopyAction = !!messageText;
 
   return (
     <div
       ref={menuRef}
-      className="fixed z-[10000] bg-background-surface border border-border rounded-lg shadow-lg py-1 min-w-[160px]"
+      className="fixed z-[10000] bg-background-surface border border-border rounded-lg shadow-lg py-1 min-w-[180px]"
       style={{ left: x, top: y }}
     >
-      <button
-        type="button"
-        className="w-full px-3 py-2 text-left text-sm text-text-secondary hover:bg-background-hover hover:text-text-primary flex items-center gap-2 transition-colors"
-        onClick={() => {
-          onScrollToStart();
-          onClose();
-        }}
-      >
-        <ArrowUp size={14} />
-        <span>{t('contextMenu.scrollToStart') || '跳转到消息开头'}</span>
-      </button>
+      {/* 跳转到消息开头 */}
+      {hasJumpActions && (
+        <button
+          type="button"
+          className="w-full px-3 py-2 text-left text-sm text-text-secondary hover:bg-background-hover hover:text-text-primary flex items-center gap-2 transition-colors"
+          onClick={() => { onScrollToMessage!(messageIndex!); onClose(); }}
+        >
+          <ArrowUp size={14} />
+          <span>{t('contextMenu.scrollToStart')}</span>
+        </button>
+      )}
+
+      {/* 跳转到顶部 */}
+      {onScrollToTop && (
+        <button
+          type="button"
+          className="w-full px-3 py-2 text-left text-sm text-text-secondary hover:bg-background-hover hover:text-text-primary flex items-center gap-2 transition-colors"
+          onClick={() => { onScrollToTop(); onClose(); }}
+        >
+          <ChevronsUp size={14} />
+          <span>{t('contextMenu.scrollToTop')}</span>
+        </button>
+      )}
+
+      {/* 跳转到底部 */}
+      {onScrollToBottom && (
+        <button
+          type="button"
+          className="w-full px-3 py-2 text-left text-sm text-text-secondary hover:bg-background-hover hover:text-text-primary flex items-center gap-2 transition-colors"
+          onClick={() => { onScrollToBottom(); onClose(); }}
+        >
+          <ChevronsDown size={14} />
+          <span>{t('contextMenu.scrollToBottom')}</span>
+        </button>
+      )}
+
+      {/* 分割线 */}
+      {(hasJumpActions || hasScrollActions) && hasCopyAction && (
+        <div className="border-t border-border my-1" />
+      )}
+
+      {/* 复制消息内容 */}
+      {hasCopyAction && (
+        <button
+          type="button"
+          className="w-full px-3 py-2 text-left text-sm text-text-secondary hover:bg-background-hover hover:text-text-primary flex items-center gap-2 transition-colors"
+          onClick={handleCopy}
+        >
+          {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+          <span>{copied ? t('contextMenu.copied') : t('contextMenu.copyMessage')}</span>
+        </button>
+      )}
     </div>
   );
 });
@@ -1152,12 +1322,19 @@ const AssistantBubble = memo(function AssistantBubble({
   message,
   messageIndex,
   onScrollToMessage,
+  onScrollToTop,
+  onScrollToBottom,
 }: {
   message: AssistantChatMessage;
   messageIndex?: number;
   onScrollToMessage?: (index: number) => void;
+  onScrollToTop?: () => void;
+  onScrollToBottom?: () => void;
 }) {
   const hasBlocks = message.blocks && message.blocks.length > 0;
+
+  // 提取消息文本（用于复制）
+  const messageText = useMemo(() => extractAssistantText(message), [message]);
 
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState<{
@@ -1175,7 +1352,7 @@ const AssistantBubble = memo(function AssistantBubble({
       return; // 不阻止默认行为
     }
 
-    // 无文字选中 → 显示 AI 消息菜单
+    // 无文字选中 → 显示消息菜单
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({
@@ -1189,13 +1366,6 @@ const AssistantBubble = memo(function AssistantBubble({
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
   }, []);
-
-  // 跳转到消息开头
-  const handleScrollToStart = useCallback(() => {
-    if (messageIndex !== undefined && onScrollToMessage) {
-      onScrollToMessage(messageIndex);
-    }
-  }, [messageIndex, onScrollToMessage]);
 
   return (
     <>
@@ -1244,11 +1414,15 @@ const AssistantBubble = memo(function AssistantBubble({
 
       {/* 右键菜单 */}
       {contextMenu && (
-        <AIMessageContextMenu
+        <MessageContextMenu
           visible={contextMenu.visible}
           x={contextMenu.x}
           y={contextMenu.y}
-          onScrollToStart={handleScrollToStart}
+          messageIndex={messageIndex}
+          messageText={messageText}
+          onScrollToMessage={onScrollToMessage}
+          onScrollToTop={onScrollToTop}
+          onScrollToBottom={onScrollToBottom}
           onClose={handleCloseContextMenu}
         />
       )}
@@ -1656,21 +1830,39 @@ const SystemBubble = memo(function SystemBubble({ content }: { content: string }
 });
 
 /** 消息渲染器 */
+/** 消息滚动操作集合 */
+export interface MessageScrollActions {
+  scrollToMessage: (index: number) => void;
+  scrollToTop: () => void;
+  scrollToBottom: () => void;
+}
+
 export function renderChatMessage(
   message: ChatMessage,
-  messageIndex?: number,
-  scrollToMessage?: (index: number) => void
+  messageIndex: number | undefined,
+  scrollActions: MessageScrollActions | undefined,
 ): React.ReactNode {
   switch (message.type) {
     case 'user':
-      return <UserBubble key={message.id} message={message} />;
+      return (
+        <UserBubble
+          key={message.id}
+          message={message}
+          messageIndex={messageIndex}
+          onScrollToMessage={scrollActions?.scrollToMessage}
+          onScrollToTop={scrollActions?.scrollToTop}
+          onScrollToBottom={scrollActions?.scrollToBottom}
+        />
+      );
     case 'assistant':
       return (
         <AssistantBubble
           key={message.id}
           message={message}
           messageIndex={messageIndex}
-          onScrollToMessage={scrollToMessage}
+          onScrollToMessage={scrollActions?.scrollToMessage}
+          onScrollToTop={scrollActions?.scrollToTop}
+          onScrollToBottom={scrollActions?.scrollToBottom}
         />
       );
     case 'system':
@@ -1964,6 +2156,19 @@ export function EnhancedChatMessages({ sessionId, compact = false }: EnhancedCha
     setAutoScroll(true); // 启用自动滚动
   }, []);
 
+  // 滚动到顶部
+  const scrollToTop = useCallback(() => {
+    if (!virtuosoRef.current) return;
+
+    virtuosoRef.current.scrollToIndex({
+      index: 0,
+      align: 'start',
+      behavior: 'smooth',
+    });
+
+    setAutoScroll(false);
+  }, []);
+
   // 滚动到指定消息索引（用于右键菜单跳转）
   const scrollToMessage = useCallback((index: number) => {
     if (!virtuosoRef.current) return;
@@ -1976,6 +2181,13 @@ export function EnhancedChatMessages({ sessionId, compact = false }: EnhancedCha
 
     setAutoScroll(false); // 禁用自动滚动
   }, []);
+
+  // 消息滚动操作集合（传递给右键菜单）
+  const scrollActions = useMemo<MessageScrollActions>(() => ({
+    scrollToMessage,
+    scrollToTop,
+    scrollToBottom,
+  }), [scrollToMessage, scrollToTop, scrollToBottom]);
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
@@ -2005,7 +2217,7 @@ export function EnhancedChatMessages({ sessionId, compact = false }: EnhancedCha
               style={{ height: '100%' }}
               data={displayMessages}
               itemContent={(index, item) => {
-                return renderChatMessage(item, index, scrollToMessage);
+                return renderChatMessage(item, index, scrollActions);
               }}
               components={{
                 EmptyPlaceholder: () => null,

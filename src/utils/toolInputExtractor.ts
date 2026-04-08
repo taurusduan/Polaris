@@ -57,6 +57,24 @@ export function extractFilePath(input: Record<string, unknown> | undefined): str
 }
 
 /**
+ * 从工具输入中提取完整文件路径（不截断为文件名）
+ *
+ * @param input - 工具输入参数对象
+ * @returns 完整文件路径，如果未找到则返回 null
+ */
+export function extractFullFilePath(input: Record<string, unknown> | undefined): string | null {
+  if (!input) return null;
+
+  for (const key of PATH_KEYS) {
+    const value = input[key];
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+  }
+  return null;
+}
+
+/**
  * 从工具输入中提取命令
  *
  * @param input - 工具输入参数对象
