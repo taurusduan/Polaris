@@ -268,7 +268,7 @@ function getContentFingerprint(content: string): string {
  * - 预设允许的 HTML 标签和属性
  */
 /** 将 <table> 包裹在可横向滚动的容器中，防止宽表格撑开父布局 */
-function wrapTables(html: string): string {
+export function wrapTables(html: string): string {
   return html.replace(
     /(<table[\s>][\s\S]*?<\/table>)/g,
     '<div class="table-scroll-wrapper">$1</div>'

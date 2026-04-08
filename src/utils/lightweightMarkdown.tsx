@@ -13,7 +13,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { DeferredMermaidDiagram } from '../components/Chat/DeferredMermaidDiagram';
-import { MarkdownRenderCache, MARKDOWN_ALLOWED_TAGS, MARKDOWN_ALLOWED_ATTR } from './cache';
+import { MarkdownRenderCache, MARKDOWN_ALLOWED_TAGS, MARKDOWN_ALLOWED_ATTR, wrapTables } from './cache';
 
 /** 渲染片段类型 */
 interface RenderPart {
@@ -452,14 +452,6 @@ const SANITIZE_CONFIG = {
   ALLOWED_TAGS: MARKDOWN_ALLOWED_TAGS,
   ALLOWED_ATTR: MARKDOWN_ALLOWED_ATTR,
 };
-
-/** 将 <table> 包裹在可横向滚动的容器中，防止宽表格撑开父布局 */
-function wrapTables(html: string): string {
-  return html.replace(
-    /(<table[\s>][\s\S]*?<\/table>)/g,
-    '<div class="table-scroll-wrapper">$1</div>'
-  );
-}
 
 /** 流式渲染专用 Markdown 缓存实例（30 条上限，1 分钟 TTL） */
 const streamingMdCache = new MarkdownRenderCache(30);
