@@ -759,6 +759,7 @@ export function createConversationStore(
       setMessagesFromHistory: (messages, conversationId) => {
         // 清除旧会话的压缩快照，避免快照与消息不匹配
         compactor.clearSnapshots()
+        _lastCompactionRange = null // 重置压缩范围，防止旧范围阻止新会话首次压缩
         set({
           messages,
           archivedMessages: [],
