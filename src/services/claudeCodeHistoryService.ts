@@ -16,7 +16,34 @@ const log = createLogger('ClaudeCodeHistoryService')
 // ============================================================================
 
 /**
- * Claude Code 会话元数据
+ * 统一分页结果
+ */
+export interface PagedResult<T> {
+  items: T[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+/**
+ * 统一会话元数据（对应后端 SessionMeta）
+ */
+export interface SessionMetaResponse {
+  sessionId: string
+  engineId: string
+  projectPath?: string
+  createdAt?: string
+  updatedAt?: string
+  messageCount?: number
+  summary?: string
+  fileSize?: number
+  claudeProjectName?: string
+  filePath?: string
+}
+
+/**
+ * Claude Code 会话元数据（旧接口）
  */
 export interface ClaudeCodeSessionMeta {
   sessionId: string
@@ -50,7 +77,7 @@ export interface ClaudeCodeMessage {
  */
 export class ClaudeCodeHistoryService {
   /**
-   * 列出项目的所有 Claude Code 会话
+   * 列出项目的所有 Claude Code 会话（旧接口，无分页）
    */
   async listSessions(projectPath?: string): Promise<ClaudeCodeSessionMeta[]> {
     try {
@@ -61,6 +88,28 @@ export class ClaudeCodeHistoryService {
     } catch (e) {
       log.error('列出会话失败:', e instanceof Error ? e : new Error(String(e)))
       return []
+    }
+  }
+
+  /**
+   * 分页列出会话（统一接口，支持按项目过滤）
+   */
+  async listSessionsPaged(options: {
+    page?: number
+    pageSize?: number
+    workDir?: string | null
+  }): Promise<PagedResult<SessionMetaResponse>> {
+    try {
+      const result = await invoke<PagedResult<SessionMetaResponse>>('list_sessions', {
+        engineId: 'claude-code',
+        page: options.page ?? 1,
+        pageSize: options.pageSize ?? 20,
+        workDir: options.workDir ?? null,
+      })
+      return result
+    } catch (e) {
+      log.error('列出会话(分页)失败:', e instanceof Error ? e : new Error(String(e)))
+      return { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }
     }
   }
 
@@ -178,6 +227,9 @@ export class ClaudeCodeHistoryService {
   convertToChatMessages(messages: ClaudeCodeMessage[]): ChatMessage[] {
     const chatMessages: ChatMessage[] = []
 
+    // 预构建 tool_result 映射，用于回填 ToolCallBlock.output
+    const toolResultMap = this.buildToolResultMap(messages)
+
     // 累积连续的 assistant 消息
     let accumulatedBlocks: ContentBlock[] = []
     let accumulatedTimestamp = ''
@@ -217,7 +269,7 @@ export class ClaudeCodeHistoryService {
 
       } else if (msg.role === 'assistant') {
         // 助手消息 - 累积 blocks
-        const blocks = this.parseAssistantBlocks(msg.content)
+        const blocks = this.parseAssistantBlocks(msg.content, toolResultMap)
         accumulatedBlocks.push(...blocks)
         if (!hasAssistant) {
           accumulatedTimestamp = timestamp
@@ -259,6 +311,37 @@ export class ClaudeCodeHistoryService {
     }
 
     return chatMessages
+  }
+
+  /**
+   * 构建 tool_result 映射: tool_use_id → content string
+   *
+   * 从 user 消息中提取 tool_result 内容，用于回填 ToolCallBlock.output
+   */
+  private buildToolResultMap(messages: ClaudeCodeMessage[]): Map<string, string> {
+    const toolResultMap = new Map<string, string>()
+
+    for (const msg of messages) {
+      if (msg.role !== 'user' || !Array.isArray(msg.content)) continue
+
+      for (const item of msg.content) {
+        if (
+          item && typeof item === 'object' &&
+          'type' in item && item.type === 'tool_result'
+        ) {
+          const id = String((item as { tool_use_id?: unknown }).tool_use_id || '')
+          if (id) {
+            const raw = (item as { content?: unknown }).content
+            const resultContent = typeof raw === 'string'
+              ? raw
+              : JSON.stringify(raw, null, 2)
+            toolResultMap.set(id, resultContent)
+          }
+        }
+      }
+    }
+
+    return toolResultMap
   }
 
   /**
@@ -317,7 +400,10 @@ export class ClaudeCodeHistoryService {
    * - thinking: 思考过程（ThinkingBlock）
    * - tool_use: 工具调用
    */
-  private parseAssistantBlocks(content: unknown): ContentBlock[] {
+  private parseAssistantBlocks(
+    content: unknown,
+    toolResultMap?: Map<string, string>
+  ): ContentBlock[] {
     const blocks: ContentBlock[] = []
 
     if (typeof content === 'string') {
@@ -349,14 +435,22 @@ export class ClaudeCodeHistoryService {
             }
           } else if (item.type === 'tool_use') {
             // 工具调用块
-            blocks.push({
+            const block: ToolCallBlock = {
               type: 'tool_call',
               id: String(item.id || crypto.randomUUID()),
               name: String(item.name || 'unknown'),
               input: (item.input as Record<string, unknown>) || {},
               status: 'completed',
               startedAt: new Date().toISOString(),
-            } as ToolCallBlock)
+            }
+            // 回填 tool_result output
+            if (toolResultMap) {
+              const resultContent = toolResultMap.get(block.id)
+              if (resultContent !== undefined) {
+                block.output = resultContent
+              }
+            }
+            blocks.push(block)
           }
         }
       }

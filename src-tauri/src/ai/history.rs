@@ -91,16 +91,22 @@ pub struct SessionMeta {
     pub session_id: String,
     /// 引擎 ID
     pub engine_id: String,
-    /// 项目路径
+    /// 项目路径（真实工作区路径，从 JSONL cwd 字段提取）
     pub project_path: Option<String>,
     /// 创建时间
     pub created_at: Option<String>,
-    /// 更新时间
+    /// 更新时间（文件 mtime）
     pub updated_at: Option<String>,
     /// 消息数量
     pub message_count: Option<usize>,
     /// 摘要（第一条用户消息的截断）
     pub summary: Option<String>,
+    /// 文件大小（字节）
+    pub file_size: Option<u64>,
+    /// Claude 目录名（如 "D--space-base-Polaris"，用于定位 JSONL 文件）
+    pub claude_project_name: Option<String>,
+    /// JSONL 文件完整路径
+    pub file_path: Option<String>,
     /// 额外信息（引擎特定）
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,

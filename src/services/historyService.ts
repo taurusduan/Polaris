@@ -47,6 +47,19 @@ export interface UnifiedHistoryItem {
   claudeProjectName?: string
 }
 
+/** 分页历史结果 */
+export interface PagedHistoryResult {
+  items: UnifiedHistoryItem[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+  hasMore: boolean
+}
+
+/** 历史查询范围 */
+export type HistoryScope = 'workspace' | 'global'
+
 /** 从路径中提取名称 */
 function getPathBasename(pathStr: string): string {
   const normalized = pathStr.replace(/\\/g, '/')
@@ -98,53 +111,74 @@ export const historyService = {
     }
   },
 
-  /** 聚合 localStorage + Claude Code 原生的统一历史列表 */
-  async getUnifiedHistory(): Promise<UnifiedHistoryItem[]> {
-    const items: UnifiedHistoryItem[] = []
+  /** 聚合 localStorage + Claude Code 原生的统一历史列表（分页） */
+  async getUnifiedHistory(
+    scope: HistoryScope = 'workspace',
+    page: number = 1,
+    pageSize: number = 20,
+  ): Promise<PagedHistoryResult> {
     const claudeCodeService = getClaudeCodeHistoryService()
     const currentWorkspace = useWorkspaceStore.getState().getCurrentWorkspace()
 
     try {
+      // 1. 读取 localStorage 条目（轻量，最多 50 条）
       const historyJson = localStorage.getItem(SESSION_HISTORY_KEY)
       const localHistory: HistoryEntry[] = historyJson ? JSON.parse(historyJson) : []
 
-      for (const h of localHistory) {
-        items.push({
-          id: h.id,
-          title: h.title,
-          timestamp: h.timestamp,
-          messageCount: h.messageCount,
-          engineId: h.engineId || 'claude-code',
-          source: 'local',
-        })
-      }
+      const localItems: UnifiedHistoryItem[] = localHistory.map(h => ({
+        id: h.id,
+        title: h.title,
+        timestamp: h.timestamp,
+        messageCount: h.messageCount,
+        engineId: h.engineId || 'claude-code',
+        source: 'local' as const,
+      }))
 
-      try {
-        const claudeCodeSessions = await claudeCodeService.listSessions(currentWorkspace?.path)
-        for (const session of claudeCodeSessions) {
-          if (!items.find(item => item.id === session.sessionId)) {
-            items.push({
-              id: session.sessionId,
-              title: session.firstPrompt || '无标题会话',
-              timestamp: session.modified || session.created || new Date().toISOString(),
-              messageCount: session.messageCount,
-              engineId: 'claude-code',
-              source: 'claude-code-native',
-              fileSize: session.fileSize,
-              projectPath: session.projectPath,
-              claudeProjectName: session.claudeProjectName,
-            })
-          }
-        }
-      } catch (e) {
-        log.warn('获取 Claude Code 原生会话失败', { error: String(e) })
-      }
+      // 2. 调用后端分页 API 获取 Claude Code 原生会话
+      const workDir = scope === 'workspace' ? (currentWorkspace?.path ?? null) : null
+      const pagedResult = await claudeCodeService.listSessionsPaged({
+        page,
+        pageSize,
+        workDir,
+      })
 
-      items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      return items
+      const nativeItems: UnifiedHistoryItem[] = pagedResult.items.map(s => ({
+        id: s.sessionId,
+        title: s.summary || '无标题会话',
+        timestamp: s.updatedAt || s.createdAt || new Date().toISOString(),
+        messageCount: s.messageCount ?? 0,
+        engineId: 'claude-code' as const,
+        source: 'claude-code-native' as const,
+        fileSize: s.fileSize,
+        projectPath: s.projectPath,
+        claudeProjectName: s.claudeProjectName,
+      }))
+
+      // 3. 合并去重（localStorage 条目优先）
+      const nativeIdSet = new Set(nativeItems.map(n => n.id))
+      const uniqueLocalItems = localItems.filter(l => !nativeIdSet.has(l.id))
+
+      // 4. 合并 + 排序
+      const merged = [...uniqueLocalItems, ...nativeItems]
+      merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+      // 5. 计算总数
+      // localStorage 条目可能和后端条目重叠，实际 uniqueLocalItems 数量可能少于 total localItems
+      // total 应为：后端 total + 去重后的 local 增量
+      const total = pagedResult.total + uniqueLocalItems.length
+      const totalPages = Math.ceil(total / pageSize)
+
+      return {
+        items: merged,
+        total,
+        page,
+        pageSize,
+        totalPages,
+        hasMore: page < totalPages,
+      }
     } catch (e) {
       log.error('获取统一历史失败', e instanceof Error ? e : new Error(String(e)))
-      return []
+      return { items: [], total: 0, page, pageSize, totalPages: 0, hasMore: false }
     }
   },
 

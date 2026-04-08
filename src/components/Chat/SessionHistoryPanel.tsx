@@ -2,15 +2,15 @@
  * 会话历史面板
  *
  * 显示所有历史会话（localStorage + Claude Code 原生），支持恢复和删除
- * 支持滚动加载更多（每次显示20条）
+ * 支持服务端分页加载 + 按项目/全局范围切换
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { historyService } from '../../services/historyService'
-import type { UnifiedHistoryItem } from '../../services/historyService'
+import type { UnifiedHistoryItem, HistoryScope } from '../../services/historyService'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { Clock, MessageSquare, Trash2, RotateCcw, HardDrive, Loader2, X, ChevronDown } from 'lucide-react'
+import { Clock, MessageSquare, Trash2, RotateCcw, HardDrive, Loader2, X, ChevronDown, Globe, FolderOpen } from 'lucide-react'
 
 const PAGE_SIZE = 20
 
@@ -27,8 +27,12 @@ interface SessionHistoryPanelProps {
 export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
   const { t } = useTranslation('chat')
   const [allHistory, setAllHistory] = useState<UnifiedHistoryItem[]>([])
-  const [displayCount, setDisplayCount] = useState(PAGE_SIZE)
+  const [scope, setScope] = useState<HistoryScope>('workspace')
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [restoring, setRestoring] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'claude-code'>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -36,28 +40,69 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const currentWorkspace = useWorkspaceStore(state => state.getCurrentWorkspace())
 
-  // 加载历史会话
+  // 加载历史会话（首页或 scope 变化时）
   useEffect(() => {
-    loadHistory()
-  }, [currentWorkspace])
+    loadHistory(true)
+  }, [currentWorkspace, scope])
 
-  const loadHistory = async () => {
-    setLoading(true)
-    setDisplayCount(PAGE_SIZE) // 重置显示数量
+  const loadHistory = async (reset: boolean = true) => {
+    if (reset) {
+      setLoading(true)
+      setPage(1)
+    } else {
+      setLoadingMore(true)
+    }
+
     try {
-      const items = await historyService.getUnifiedHistory()
-      setAllHistory(items)
+      const currentPage = reset ? 1 : page
+      const result = await historyService.getUnifiedHistory(scope, currentPage, PAGE_SIZE)
+
+      if (reset) {
+        setAllHistory(result.items)
+      } else {
+        // 追加去重
+        const existingIds = new Set(allHistory.map(h => h.id))
+        const newItems = result.items.filter(item => !existingIds.has(item.id))
+        setAllHistory(prev => [...prev, ...newItems])
+      }
+
+      setTotalCount(result.total)
+      setHasMore(result.hasMore)
     } catch (e) {
       console.error('[SessionHistoryPanel] 加载历史失败:', e)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
   // 加载更多
-  const handleLoadMore = useCallback(() => {
-    setDisplayCount(prev => Math.min(prev + PAGE_SIZE, filteredHistory.length))
-  }, [displayCount, allHistory, filter, searchQuery])
+  const handleLoadMore = useCallback(async () => {
+    const nextPage = page + 1
+    setPage(nextPage)
+
+    setLoadingMore(true)
+    try {
+      const result = await historyService.getUnifiedHistory(scope, nextPage, PAGE_SIZE)
+      const existingIds = new Set(allHistory.map(h => h.id))
+      const newItems = result.items.filter(item => !existingIds.has(item.id))
+      setAllHistory(prev => [...prev, ...newItems])
+      setTotalCount(result.total)
+      setHasMore(result.hasMore)
+    } catch (e) {
+      console.error('[SessionHistoryPanel] 加载更多失败:', e)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [page, scope, allHistory])
+
+  // 切换 scope
+  const handleScopeChange = (newScope: HistoryScope) => {
+    if (newScope === scope) return
+    setScope(newScope)
+    setFilter('all')
+    setSearchQuery('')
+  }
 
   // 恢复会话
   const handleRestore = async (item: UnifiedHistoryItem) => {
@@ -86,6 +131,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
   const handleDelete = (sessionId: string, _source: 'local' | 'claude-code-native') => {
     historyService.deleteHistorySession(sessionId)
     setAllHistory(prev => prev.filter(h => h.id !== sessionId))
+    setTotalCount(prev => prev - 1)
   }
 
   // 判断日期分组
@@ -143,7 +189,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
     }
   }
 
-  // 过滤历史
+  // 过滤历史（客户端搜索）
   const filteredHistory = allHistory.filter(item => {
     if (filter !== 'all' && item.engineId !== filter) return false
     if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -151,10 +197,6 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
     }
     return true
   })
-
-  // 当前显示的历史
-  const displayedHistory = filteredHistory.slice(0, displayCount)
-  const hasMore = displayCount < filteredHistory.length
 
   // 按日期分组
   const groupedHistory = useMemo(() => {
@@ -165,13 +207,13 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
       earlier: [],
     }
 
-    for (const item of displayedHistory) {
+    for (const item of filteredHistory) {
       const group = getDateGroup(item.timestamp)
       groups[group].push(item)
     }
 
     return groups
-  }, [displayedHistory])
+  }, [filteredHistory])
 
   // 格式化文件大小
   const formatFileSize = (bytes: number) => {
@@ -218,10 +260,38 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
         </button>
       </div>
 
-      {/* 引擎筛选 */}
+      {/* 范围 + 引擎筛选 */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border-subtle shrink-0">
+        {/* 范围切换 */}
         <button
-          onClick={() => { setFilter('all'); setDisplayCount(PAGE_SIZE); }}
+          onClick={() => handleScopeChange('workspace')}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors ${
+            scope === 'workspace'
+              ? 'bg-primary/20 text-primary'
+              : 'text-text-secondary hover:bg-background-hover'
+          }`}
+        >
+          <FolderOpen className="w-3 h-3" />
+          当前项目
+        </button>
+        <button
+          onClick={() => handleScopeChange('global')}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors ${
+            scope === 'global'
+              ? 'bg-primary/20 text-primary'
+              : 'text-text-secondary hover:bg-background-hover'
+          }`}
+        >
+          <Globe className="w-3 h-3" />
+          全部
+        </button>
+
+        {/* 分隔符 */}
+        <span className="border-l border-border h-4" />
+
+        {/* 引擎筛选 */}
+        <button
+          onClick={() => setFilter('all')}
           className={`px-2 py-1 rounded-md text-xs transition-colors ${
             filter === 'all'
               ? 'bg-primary/20 text-primary'
@@ -231,7 +301,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
           全部
         </button>
         <button
-          onClick={() => { setFilter('claude-code'); setDisplayCount(PAGE_SIZE); }}
+          onClick={() => setFilter('claude-code')}
           className={`px-2 py-1 rounded-md text-xs transition-colors ${
             filter === 'claude-code'
               ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
@@ -248,7 +318,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
           type="text"
           placeholder={t('history.searchPlaceholder')}
           value={searchQuery}
-          onChange={(e) => { setSearchQuery(e.target.value); setDisplayCount(PAGE_SIZE); }}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full px-3 py-2 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
         />
       </div>
@@ -258,7 +328,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto min-h-0"
       >
-        {displayedHistory.length === 0 ? (
+        {filteredHistory.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-text-tertiary">
             <MessageSquare className="w-12 h-12 mb-4 opacity-50" />
             <p className="text-sm">{t('history.noHistory')}</p>
@@ -325,11 +395,6 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
                               {item.fileSize && (
                                 <span>{formatFileSize(item.fileSize)}</span>
                               )}
-                              {(item.inputTokens || item.outputTokens) && (
-                                <span>
-                                  {((item.inputTokens || 0) + (item.outputTokens || 0)).toLocaleString()} Tokens
-                                </span>
-                              )}
                             </div>
                           </div>
 
@@ -369,15 +434,20 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
           </>
         )}
 
-        {/* 加载更多按钮 */}
+        {/* 加载更多 */}
         {hasMore && (
           <div className="flex items-center justify-center py-3">
             <button
               onClick={handleLoadMore}
-              className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-background-hover rounded-md transition-colors"
+              disabled={loadingMore}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-background-hover rounded-md transition-colors disabled:opacity-50"
             >
-              <ChevronDown className="w-4 h-4" />
-              <span>{t('history.loadMore', { count: filteredHistory.length - displayCount })}</span>
+              {loadingMore ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+              <span>{loadingMore ? '加载中...' : `加载更多 (剩余 ${Math.max(0, totalCount - allHistory.length)} 条)`}</span>
             </button>
           </div>
         )}
