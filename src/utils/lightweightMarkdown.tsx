@@ -13,6 +13,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { DeferredMermaidDiagram } from '../components/Chat/DeferredMermaidDiagram';
+import { MarkdownRenderCache } from './cache';
 
 /** 渲染片段类型 */
 interface RenderPart {
@@ -465,6 +466,9 @@ function wrapTables(html: string): string {
   );
 }
 
+/** 流式渲染专用 Markdown 缓存实例（30 条上限，1 分钟 TTL） */
+const streamingMdCache = new MarkdownRenderCache(30);
+
 /** 将 Markdown 内容解析并净化为安全 HTML */
 function sanitizeMarkdown(content: string): string {
   const raw = marked.parse(content) as string;
@@ -533,7 +537,7 @@ export const ProgressiveStreamingMarkdown = memo(function ProgressiveStreamingMa
       if (completed) {
         return (
           <div className="break-words" style={{ contain: 'content' }}
-            dangerouslySetInnerHTML={{ __html: sanitizeMarkdown(content) }} />
+            dangerouslySetInnerHTML={{ __html: streamingMdCache.render(content) }} />
         );
       }
 
@@ -552,7 +556,7 @@ export const ProgressiveStreamingMarkdown = memo(function ProgressiveStreamingMa
       return (
         <>
           <div className="break-words" style={{ contain: 'content' }}
-            dangerouslySetInnerHTML={{ __html: sanitizeMarkdown(completedContent) }} />
+            dangerouslySetInnerHTML={{ __html: streamingMdCache.render(completedContent) }} />
           <LightweightMarkdown content={lastPara} />
         </>
       );
@@ -622,7 +626,7 @@ export const ProgressiveStreamingMarkdown = memo(function ProgressiveStreamingMa
           return (
             <span key={`streaming-${index}`}>
               <div className="break-words" style={{ contain: 'content' }}
-                dangerouslySetInnerHTML={{ __html: sanitizeMarkdown(completedParasContent) }} />
+                dangerouslySetInnerHTML={{ __html: streamingMdCache.render(completedParasContent) }} />
               <LightweightMarkdown content={lastPara} />
             </span>
           );
