@@ -114,6 +114,11 @@ export function DiffViewer({
         <span className="text-text-secondary">{t('diff.diffSummary')}</span>
         <span className="text-green-500">+{diff.addedCount} {t('diff.linesAdded')}</span>
         <span className="text-red-500">-{diff.removedCount} {t('diff.linesRemoved')}</span>
+        {diff.truncated && (
+          <span className="text-text-tertiary ml-auto">
+            Showing {diff.lines.length} of {diff.totalLines} lines
+          </span>
+        )}
       </div>
 
       {/* 差异内容 */}
@@ -122,47 +127,56 @@ export function DiffViewer({
           <div className="text-text-tertiary text-center py-8">{t('diff.noChanges')}</div>
         ) : (
           <div className="space-y-0.5">
-            {diff.lines.map((line, idx) => (
-              <div
-                key={idx}
-                className={`flex gap-4 px-2 py-0.5 ${
-                  line.type === 'added'
-                    ? 'bg-green-500/10'
-                    : line.type === 'removed'
-                      ? 'bg-red-500/10'
-                      : ''
-                }`}
-              >
-                {/* 旧行号 */}
-                <span className="w-8 text-right text-text-tertiary shrink-0 select-none">
-                  {line.oldLineNumber ?? '×'}
-                </span>
-                {/* 新行号 */}
-                <span className="w-8 text-right text-text-tertiary shrink-0 select-none">
-                  {line.newLineNumber ?? '×'}
-                </span>
-                {/* 标记 */}
-                <span
-                  className={`w-4 shrink-0 select-none font-bold ${
-                    line.type === 'added'
-                      ? 'text-green-500'
-                      : line.type === 'removed'
-                        ? 'text-red-500'
-                        : 'text-text-tertiary'
+            {diff.lines.map((line, idx) => {
+              const isFolded = line.content.startsWith('⋯') && line.content.endsWith('⋯');
+              return (
+                <div
+                  key={idx}
+                  className={`flex gap-4 px-2 py-0.5 ${
+                    isFolded
+                      ? 'bg-background-elevated/50 text-text-tertiary italic text-center justify-center'
+                      : line.type === 'added'
+                        ? 'bg-green-500/10'
+                        : line.type === 'removed'
+                          ? 'bg-red-500/10'
+                          : ''
                   }`}
                 >
-                  {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
-                </span>
-                {/* 内容 */}
-                <span
-                  className={`flex-1 whitespace-nowrap ${
-                    line.type === 'removed' ? 'text-text-tertiary line-through' : 'text-text-secondary'
-                  }`}
-                >
-                  {line.content || '\u00A0'}
-                </span>
-              </div>
-            ))}
+                  {!isFolded && (
+                    <>
+                      {/* 旧行号 */}
+                      <span className="w-8 text-right text-text-tertiary shrink-0 select-none">
+                        {line.oldLineNumber ?? '×'}
+                      </span>
+                      {/* 新行号 */}
+                      <span className="w-8 text-right text-text-tertiary shrink-0 select-none">
+                        {line.newLineNumber ?? '×'}
+                      </span>
+                      {/* 标记 */}
+                      <span
+                        className={`w-4 shrink-0 select-none font-bold ${
+                          line.type === 'added'
+                            ? 'text-green-500'
+                            : line.type === 'removed'
+                              ? 'text-red-500'
+                              : 'text-text-tertiary'
+                        }`}
+                      >
+                        {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
+                      </span>
+                    </>
+                  )}
+                  {/* 内容 */}
+                  <span
+                    className={`flex-1 whitespace-nowrap ${
+                      line.type === 'removed' && !isFolded ? 'text-text-tertiary line-through' : 'text-text-secondary'
+                    }`}
+                  >
+                    {line.content || '\u00A0'}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
