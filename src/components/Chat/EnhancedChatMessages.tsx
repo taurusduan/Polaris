@@ -662,11 +662,11 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
   const handleFilePathClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     if (!fullFilePath) return;
-    const isAbsolute = fullFilePath.startsWith('/') || /^[A-Za-z]:\\/.test(fullFilePath);
+    const isAbsolute = fullFilePath.startsWith('/') || /^[A-Za-z]:[\\/]/.test(fullFilePath);
     const absolutePath = isAbsolute
       ? fullFilePath
       : currentWorkspace
-        ? (currentWorkspace.path + (currentWorkspace.path.includes('\\') ? '\\' : '/') + fullFilePath)
+        ? (currentWorkspace.path.replace(/[\\/]+$/, '') + '/' + fullFilePath.replace(/^[\\/]+/, ''))
         : fullFilePath;
     const fileName = fullFilePath.split(/[/\\]/).pop() || fullFilePath;
     openFile(absolutePath, fileName);
@@ -849,26 +849,11 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
           {toolConfig.label}
         </span>
 
-        {/* 关键参数（有文件路径时可点击打开编辑器） */}
+        {/* 关键参数 */}
         {keyInfo && (
-          fullFilePath ? (
-            <button
-              type="button"
-              className={clsx(
-                'text-xs truncate flex-1 min-w-0 text-left cursor-pointer',
-                toolConfig.color,
-                'hover:underline hover:opacity-80 transition-opacity'
-              )}
-              onClick={handleFilePathClick}
-              title={fullFilePath}
-            >
-              {keyInfo}
-            </button>
-          ) : (
-            <span className={clsx('text-xs truncate flex-1 min-w-0', toolConfig.color)}>
-              {keyInfo}
-            </span>
-          )
+          <span className={clsx('text-xs truncate flex-1 min-w-0', toolConfig.color)}>
+            {keyInfo}
+          </span>
         )}
 
         {/* 右侧信息区 - 统一靠右对齐 */}
@@ -925,6 +910,21 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
               )}
             </div>
           </div>
+
+          {/* 文件路径：点击打开编辑器 */}
+          {fullFilePath && (
+            <div className="mb-3">
+              <button
+                type="button"
+                className="text-xs text-primary hover:underline cursor-pointer flex items-center gap-1"
+                onClick={handleFilePathClick}
+                title={fullFilePath}
+              >
+                <Code className="w-3 h-3 shrink-0" />
+                <span className="truncate">{fullFilePath}</span>
+              </button>
+            </div>
+          )}
 
           {/* Edit 工具：直接显示 Diff */}
           {showDiffButton && block.diffData && (
