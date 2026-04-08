@@ -205,7 +205,11 @@
     "scrollToBottom": "Scroll to bottom"
   },
   "contextMenu": {
-    "scrollToStart": "Scroll to message start"
+    "scrollToStart": "Scroll to message start",
+    "scrollToTop": "Scroll to top",
+    "scrollToBottom": "Scroll to bottom",
+    "copyMessage": "Copy message content",
+    "copied": "Copied"
   },
   "history": {
     "title": "Session History",

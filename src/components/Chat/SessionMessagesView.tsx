@@ -8,6 +8,7 @@ import { memo, useMemo, useRef, useCallback, useEffect, useSyncExternalStore } f
 import { Virtuoso } from 'react-virtuoso';
 import { sessionStoreManager } from '../../stores/conversationStore/sessionStoreManager';
 import { renderChatMessage } from './EnhancedChatMessages';
+import type { MessageScrollActions } from './EnhancedChatMessages';
 import type { ChatMessage, AssistantChatMessage } from '../../types/chat';
 import type { ConversationStoreInstance, ConversationState } from '../../stores/conversationStore/types';
 
@@ -159,6 +160,32 @@ export const SessionMessagesView = memo(function SessionMessagesView({ sessionId
     });
   }, []);
 
+  // 滚动到顶部
+  const scrollToTop = useCallback(() => {
+    if (!virtuosoRef.current) return;
+    virtuosoRef.current.scrollToIndex({
+      index: 0,
+      align: 'start',
+      behavior: 'smooth',
+    });
+  }, []);
+
+  // 滚动到底部
+  const scrollToBottom = useCallback(() => {
+    if (!virtuosoRef.current) return;
+    virtuosoRef.current.scrollTo({
+      top: Number.MAX_SAFE_INTEGER,
+      behavior: 'smooth',
+    });
+  }, []);
+
+  // 消息滚动操作集合
+  const scrollActions = useMemo<MessageScrollActions>(() => ({
+    scrollToMessage,
+    scrollToTop,
+    scrollToBottom,
+  }), [scrollToMessage, scrollToTop, scrollToBottom]);
+
   // streaming 时自动滚动到底部
   useEffect(() => {
     if (isStreaming && autoScrollRef.current && virtuosoRef.current) {
@@ -180,7 +207,7 @@ export const SessionMessagesView = memo(function SessionMessagesView({ sessionId
           style={{ height: '100%' }}
           data={displayMessages}
           itemContent={(index, item) => {
-            return renderChatMessage(item, index, scrollToMessage);
+            return renderChatMessage(item, index, scrollActions);
           }}
           components={{
             EmptyPlaceholder: () => null,
