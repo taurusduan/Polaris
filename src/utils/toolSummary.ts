@@ -297,8 +297,20 @@ export function generateCollapsedSummary(
 
   // Edit 工具：显示 diff 统计
   if (normalizedToolName.includes('edit') || normalizedToolName.includes('str_replace')) {
-    // 尝试解析 diff 统计
-    const diffStats = parseDiffStats(output);
+    // 优先从 output 解析 diff 统计
+    let diffStats = parseDiffStats(output);
+
+    // output 解析失败时，从 input 的 old_string/new_string 计算行数差
+    if (!diffStats && input) {
+      const oldStr = (input.old_string || input.old_str) as string | undefined
+      const newStr = (input.new_string || input.new_str) as string | undefined
+      if (typeof oldStr === 'string' && typeof newStr === 'string') {
+        const removed = oldStr.split('\n').length
+        const added = newStr.split('\n').length
+        diffStats = `+${added} -${removed}`
+      }
+    }
+
     return {
       target: filePath || toolName,
       summary: diffStats,

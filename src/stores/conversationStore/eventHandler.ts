@@ -5,6 +5,7 @@
  */
 
 import type { AIEvent } from '../../ai-runtime'
+import { isEditTool, extractEditDiff } from '../../utils/diffExtractor'
 import type { ConversationStore } from './types'
 
 /**
@@ -66,6 +67,19 @@ export function handleAIEvent(
         event.success ? 'completed' : 'failed',
         event.result ? JSON.stringify(event.result, null, 2) : undefined
       )
+
+      // Edit 工具：提取 diff 数据写入 block
+      const { currentMessage, toolBlockMap } = get()
+      const blockIdx = currentMessage ? toolBlockMap.get(callId) : undefined
+      if (blockIdx !== undefined && currentMessage) {
+        const block = currentMessage.blocks[blockIdx]
+        if (block?.type === 'tool_call' && isEditTool(block.name)) {
+          const diff = extractEditDiff(block)
+          if (diff) {
+            state.updateToolCallBlockDiff(callId, diff)
+          }
+        }
+      }
       break
     }
 

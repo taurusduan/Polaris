@@ -14,6 +14,7 @@ import { toAppError, ErrorSource } from '../../types/errors'
 import { sessionStoreManager } from './sessionStoreManager'
 import { parseWorkspaceReferences, buildWorkspaceSystemPrompt, getUserSystemPrompt } from '../../services/workspaceReference'
 import { MessageCompactor, isCompacted } from '../../utils/messageCompactor'
+import { isEditTool, extractEditDiff } from '../../utils/diffExtractor'
 
 // ============================================================================
 // 历史消息降级恢复
@@ -760,8 +761,31 @@ export function createConversationStore(
         // 清除旧会话的压缩快照，避免快照与消息不匹配
         compactor.clearSnapshots()
         _lastCompactionRange = null // 重置压缩范围，防止旧范围阻止新会话首次压缩
+
+        // 为已完成的 Edit 工具回填 diffData（历史消息可能缺失）
+        const processedMessages = messages.map(msg => {
+          if (msg.type !== 'assistant' || !msg.blocks) return msg
+          let modified = false
+          const blocks = msg.blocks.map(block => {
+            if (
+              block.type === 'tool_call' &&
+              block.status === 'completed' &&
+              !block.diffData &&
+              isEditTool(block.name)
+            ) {
+              const diff = extractEditDiff(block)
+              if (diff) {
+                modified = true
+                return { ...block, diffData: diff }
+              }
+            }
+            return block
+          })
+          return modified ? { ...msg, blocks } : msg
+        })
+
         set({
-          messages,
+          messages: processedMessages,
           archivedMessages: [],
           conversationId,
           isStreaming: false,
