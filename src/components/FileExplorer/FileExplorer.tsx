@@ -79,8 +79,8 @@ export function FileExplorer() {
   // 快捷键支持
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // F5 或 Ctrl+R 刷新
-      if (event.key === 'F5' || (event.ctrlKey && event.key === 'r')) {
+      // F5 或 Ctrl/Cmd+R 刷新
+      if (event.key === 'F5' || ((event.ctrlKey || event.metaKey) && event.key === 'r')) {
         event.preventDefault();
         refresh_directory();
       }
