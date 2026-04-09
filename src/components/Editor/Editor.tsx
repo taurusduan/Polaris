@@ -7,7 +7,6 @@ import { EditorState } from '@codemirror/state';
 import {
   EditorView,
   keymap,
-  highlightSpecialChars,
   drawSelection,
   dropCursor,
   rectangularSelection,
@@ -25,6 +24,7 @@ import { createLogger } from '../../utils/logger';
 import { useEditorBufferStore } from '../../stores/editorBufferStore';
 import { useEditorSettingsStore } from '../../stores/editorSettingsStore';
 import { indentGuides, indentGuideTheme } from './indentGuides';
+import { trailingWhitespaceHighlight } from './trailingWhitespace';
 
 const log = createLogger('Editor');
 
@@ -211,7 +211,7 @@ export function CodeMirrorEditor({
         modernTheme,
         fontTheme,
         syntaxHighlighting(customHighlightStyle, { fallback: true }),
-        highlightSpecialChars(),
+        ...trailingWhitespaceHighlight,
         drawSelection(),
         dropCursor(),
         rectangularSelection(),
