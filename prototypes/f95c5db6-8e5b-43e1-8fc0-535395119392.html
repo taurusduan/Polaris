@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD — 多模型引擎支持 · 统一推理网关</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg-card: #1a1d28;
+    --bg-card-hover: #1f2330;
+    --bg-input: #12141c;
+    --border: #2a2d3a;
+    --border-focus: #6c5ce7;
+    --text: #e1e4ed;
+    --text-secondary: #8b8fa3;
+    --text-muted: #565a6e;
+    --accent: #6c5ce7;
+    --accent-soft: rgba(108,92,231,0.15);
+    --green: #00d2a0;
+    --green-soft: rgba(0,210,160,0.12);
+    --red: #ff6b6b;
+    --red-soft: rgba(255,107,107,0.12);
+    --orange: #ffa94d;
+    --orange-soft: rgba(255,169,77,0.12);
+    --blue: #4dabf7;
+    --blue-soft: rgba(77,171,247,0.12);
+    --cyan: #22d3ee;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #1a1040 0%, #0f1117 60%);
+    border-bottom: 1px solid var(--border);
+    padding: 32px 40px;
+  }
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 12px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #e1e4ed, #6c5ce7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header p {
+    color: var(--text-secondary);
+    font-size: 15px;
+    max-width: 640px;
+  }
+
+  /* Layout */
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 40px; }
+
+  /* Section */
+  .section { margin-bottom: 40px; }
+  .section-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title .icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  /* Architecture Diagram */
+  .arch-diagram {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .arch-layer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    justify-content: center;
+  }
+  .arch-box {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 20px;
+    text-align: center;
+    min-width: 120px;
+    position: relative;
+  }
+  .arch-box.primary {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .arch-box.engine {
+    background: var(--blue-soft);
+    border-color: var(--blue);
+    color: var(--blue);
+    min-width: 140px;
+  }
+  .arch-box.model {
+    background: var(--green-soft);
+    border-color: var(--green);
+    color: var(--green);
+    min-width: 100px;
+    font-size: 13px;
+  }
+  .arch-arrow {
+    color: var(--text-muted);
+    font-size: 20px;
+    margin: 12px 0;
+  }
+  .arch-label {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  /* Module Cards */
+  .modules-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .module-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .module-card:hover {
+    border-color: var(--accent);
+    background: var(--bg-card-hover);
+  }
+  .module-card .priority {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    display: inline-block;
+    margin-bottom: 10px;
+  }
+  .priority.p0 { background: var(--red-soft); color: var(--red); }
+  .priority.p1 { background: var(--orange-soft); color: var(--orange); }
+  .priority.p2 { background: var(--blue-soft); color: var(--blue); }
+  .module-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .module-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .module-card .tag-list { margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .module-card .tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--bg-input);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  /* Prototype Panel */
+  .prototype-frame {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .proto-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-input);
+  }
+  .proto-tabs {
+    display: flex;
+    gap: 2px;
+  }
+  .proto-tab {
+    padding: 6px 16px;
+    font-size: 13px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    transition: all 0.15s;
+  }
+  .proto-tab.active {
+    background: var(--accent);
+    color: white;
+  }
+  .proto-tab:hover:not(.active) {
+    background: var(--border);
+  }
+  .proto-body {
+    display: flex;
+    min-height: 520px;
+  }
+
+  /* Sidebar */
+  .proto-sidebar {
+    width: 240px;
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    flex-shrink: 0;
+  }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+    transition: all 0.15s;
+  }
+  .sidebar-item:hover { background: var(--border); }
+  .sidebar-item.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .sidebar-item .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot.online { background: var(--green); }
+  .dot.offline { background: var(--text-muted); }
+  .dot.local { background: var(--cyan); }
+  .sidebar-section {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 16px 12px 6px;
+  }
+  .sidebar-item .badge {
+    margin-left: auto;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: var(--border);
+    color: var(--text-muted);
+  }
+
+  /* Main content */
+  .proto-content {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+  }
+  .content-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .content-header h2 { font-size: 18px; font-weight: 600; }
+  .btn {
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .btn.primary:hover { opacity: 0.9; }
+  .btn.sm { padding: 5px 12px; font-size: 12px; }
+  .btn.ghost { border-color: transparent; background: transparent; }
+
+  /* Provider Cards */
+  .provider-list { display: flex; flex-direction: column; gap: 12px; }
+  .provider-card {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .provider-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .provider-info { flex: 1; }
+  .provider-info h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .provider-info p { font-size: 12px; color: var(--text-secondary); }
+  .provider-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .status-badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .status-badge.connected { background: var(--green-soft); color: var(--green); }
+  .status-badge.disconnected { background: var(--red-soft); color: var(--red); }
+  .status-badge.local { background: var(--blue-soft); color: var(--blue); }
+
+  /* Model Selector */
+  .model-selector {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .selector-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .selector-row:last-child { border-bottom: none; }
+  .selector-label {
+    width: 80px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+  .selector-value {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .model-chip {
+    padding: 4px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .model-chip.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .model-chip .provider-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  /* Routing Table */
+  .routing-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .routing-table th {
+    text-align: left;
+    padding: 10px 16px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .routing-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .routing-table tr:hover td { background: var(--bg-card-hover); }
+  .fallback-tag {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-left: 8px;
+  }
+
+  /* Stats Grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+  }
+  .stat-card .stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .stat-card .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .stat-card .stat-change {
+    font-size: 11px;
+    margin-top: 4px;
+  }
+
+  /* Bar Chart (simplified CSS) */
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    height: 120px;
+    padding: 16px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .bar {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    min-height: 4px;
+    transition: height 0.3s;
+  }
+  .bar-label { font-size: 10px; color: var(--text-muted); }
+
+  /* Config Form */
+  .config-form {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 24px;
+  }
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+  }
+  .form-input {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--text-muted); }
+  .form-row { display: flex; gap: 16px; }
+  .form-row .form-group { flex: 1; }
+  .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+  /* Test Result */
+  .test-result {
+    margin-top: 12px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .test-result.success { background: var(--green-soft); color: var(--green); }
+  .test-result.error { background: var(--red-soft); color: var(--red); }
+
+  /* Timeline */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .timeline-item {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    border-left: 2px solid var(--border);
+    padding-left: 24px;
+    margin-left: 8px;
+    position: relative;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 22px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+  }
+  .timeline-item .phase-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .timeline-item h4 { font-size: 14px; margin-bottom: 4px; }
+  .timeline-item p { font-size: 12px; color: var(--text-secondary); }
+
+  /* Hidden panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-badge">PRD · 需求原型</div>
+  <h1>多模型引擎支持 — 统一推理网关</h1>
+  <p>支持 OpenAI 兼容 API、Ollama 本地模型等多引擎接入，按场景智能路由，打造灵活的多模型 AI 开发助手</p>
+</div>
+
+<div class="container">
+
+  <!-- Architecture -->
+  <div class="section">
+    <div class="section-title">
+      <span class="icon" style="background:var(--accent-soft);color:var(--accent);">&#9670;</span>
+      目标架构
+    </div>
+    <div class="arch-diagram">
+      <div class="arch-label">UI 层</div>
+      <div class="arch-layer">
+        <div class="arch-box">对话</div>
+        <div class="arch-box">Scheduler</div>
+        <div class="arch-box">代码审查</div>
+        <div class="arch-box">协议任务</div>
+      </div>
+      <div class="arch-arrow">&#8595;</div>
+      <div class="arch-label">路由层</div>
+      <div class="arch-layer">
+        <div class="arch-box primary">Smart Router<br><small style="font-weight:400;opacity:0.7;">场景 → 模型映射</small></div>
+      </div>
+      <div class="arch-arrow">&#8595;</div>
+      <div class="arch-label">引擎层</div>
+      <div class="arch-layer">
+        <div class="arch-box engine">Claude CLI<br><small>Engine</small></div>
+        <div class="arch-box engine">OpenAI Compat<br><small>Engine</small></div>
+        <div class="arch-box engine">Ollama<br><small>Engine</small></div>
+      </div>
+      <div class="arch-arrow">&#8595;</div>
+      <div class="arch-label">Tool Calling 适配</div>
+      <div class="arch-layer">
+        <div class="arch-box primary">Unified Tool Adapter<br><small style="font-weight:400;opacity:0.7;">Claude / OpenAI / Prompt 模式</small></div>
+      </div>
+      <div class="arch-arrow">&#8595;</div>
+      <div class="arch-label">模型层</div>
+      <div class="arch-layer">
+        <div class="arch-box model">Claude<br>Sonnet/Opus</div>
+        <div class="arch-box model">DeepSeek<br>V3/R1</div>
+        <div class="arch-box model">GPT-4o</div>
+        <div class="arch-box model">Qwen3</div>
+        <div class="arch-box model">Llama 4<br><small>本地</small></div>
+        <div class="arch-box model">GLM-4</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Module Cards -->
+  <div class="section">
+    <div class="section-title">
+      <span class="icon" style="background:var(--green-soft);color:var(--green);">&#9632;</span>
+      功能模块
+    </div>
+    <div class="modules-grid">
+      <div class="module-card">
+        <span class="priority p0">P0</span>
+        <h3>M1 · OpenAI 兼容引擎</h3>
+        <p>新增 OpenAICompatibleEngine，支持 DeepSeek、GPT-4o、Moonshot 等所有 OpenAI 兼容 API，包含 SSE 流式解析与 Function Calling 适配</p>
+        <div class="tag-list">
+          <span class="tag">SSE Streaming</span>
+          <span class="tag">Function Calling</span>
+          <span class="tag">自定义端点</span>
+        </div>
+      </div>
+      <div class="module-card">
+        <span class="priority p1">P1</span>
+        <h3>M2 · Ollama 本地引擎</h3>
+        <p>直连 Ollama REST API，自动发现本地模型、管理模型下载/删除、硬件资源监控、模型能力检测</p>
+        <div class="tag-list">
+          <span class="tag">模型发现</span>
+          <span class="tag">下载管理</span>
+          <span class="tag">资源监控</span>
+        </div>
+      </div>
+      <div class="module-card">
+        <span class="priority p0">P0</span>
+        <h3>M3 · 模型管理面板</h3>
+        <p>左侧面板新增「模型」Tab，提供商管理、分场景模型选择、连接测试、预置主流模型配置模板</p>
+        <div class="tag-list">
+          <span class="tag">提供商管理</span>
+          <span class="tag">模型选择器</span>
+          <span class="tag">连接测试</span>
+        </div>
+      </div>
+      <div class="module-card">
+        <span class="priority p2">P2</span>
+        <h3>M4 · 智能路由引擎</h3>
+        <p>根据任务类型自动路由最优模型，用户可配置路由规则，支持 Fallback 策略和成本感知路由</p>
+        <div class="tag-list">
+          <span class="tag">场景路由</span>
+          <span class="tag">Fallback</span>
+          <span class="tag">成本感知</span>
+        </div>
+      </div>
+      <div class="module-card">
+        <span class="priority p1">P1</span>
+        <h3>M5 · Tool Calling 适配</h3>
+        <p>抽象各模型 Tool Calling 格式差异，不支持时降级为 Prompt 模式，MCP 工具定义自动转换</p>
+        <div class="tag-list">
+          <span class="tag">格式适配</span>
+          <span class="tag">Prompt 降级</span>
+          <span class="tag">MCP 转换</span>
+        </div>
+      </div>
+      <div class="module-card">
+        <span class="priority p2">P2</span>
+        <h3>M6 · 用量统计仪表盘</h3>
+        <p>Token 用量按模型/日期/任务类型统计，成本估算，使用趋势图表，预算告警</p>
+        <div class="tag-list">
+          <span class="tag">Token 统计</span>
+          <span class="tag">成本估算</span>
+          <span class="tag">趋势图表</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UI Prototype -->
+  <div class="section">
+    <div class="section-title">
+      <span class="icon" style="background:var(--blue-soft);color:var(--blue);">&#9671;</span>
+      界面原型
+    </div>
+    <div class="prototype-frame">
+      <div class="proto-toolbar">
+        <div class="proto-tabs">
+          <button class="proto-tab active" onclick="showPanel('providers')">提供商</button>
+          <button class="proto-tab" onclick="showPanel('selector')">模型选择</button>
+          <button class="proto-tab" onclick="showPanel('routing')">路由规则</button>
+          <button class="proto-tab" onclick="showPanel('stats')">用量统计</button>
+          <button class="proto-tab" onclick="showPanel('config')">添加提供商</button>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn sm">检测 Ollama</button>
+          <button class="btn sm primary">+ 添加提供商</button>
+        </div>
+      </div>
+      <div class="proto-body">
+        <!-- Sidebar -->
+        <div class="proto-sidebar">
+          <div class="sidebar-section">已连接</div>
+          <div class="sidebar-item active">
+            <span class="dot online"></span>
+            Claude (Anthropic)
+            <span class="badge">3 模型</span>
+          </div>
+          <div class="sidebar-item">
+            <span class="dot online"></span>
+            DeepSeek
+            <span class="badge">2 模型</span>
+          </div>
+          <div class="sidebar-item">
+            <span class="dot local"></span>
+            Ollama (本地)
+            <span class="badge">4 模型</span>
+          </div>
+          <div class="sidebar-section">未连接</div>
+          <div class="sidebar-item">
+            <span class="dot offline"></span>
+            OpenAI
+            <span class="badge">未配置</span>
+          </div>
+          <div class="sidebar-item">
+            <span class="dot offline"></span>
+            Moonshot
+            <span class="badge">未配置</span>
+          </div>
+          <div class="sidebar-item">
+            <span class="dot offline"></span>
+            GLM (智谱)
+            <span class="badge">未配置</span>
+          </div>
+        </div>
+        <!-- Content Panels -->
+        <div class="proto-content">
+          <!-- Providers Panel -->
+          <div class="panel active" id="panel-providers">
+            <div class="content-header">
+              <h2>模型提供商</h2>
+              <button class="btn">刷新全部</button>
+            </div>
+            <div class="provider-list">
+              <div class="provider-card">
+                <div class="provider-logo" style="background:var(--accent-soft);color:var(--accent);">C</div>
+                <div class="provider-info">
+                  <h4>Claude (Anthropic)</h4>
+                  <p>api.anthropic.com · claude-sonnet-4-20250514, claude-opus-4-20250515, claude-haiku-4-5-20251001</p>
+                </div>
+                <div class="provider-meta">
+                  <span class="status-badge connected">已连接</span>
+                  <span style="font-size:12px;color:var(--text-muted);">12ms</span>
+                  <button class="btn sm ghost">配置</button>
+                </div>
+              </div>
+              <div class="provider-card">
+                <div class="provider-logo" style="background:#4dabf7;color:white;">D</div>
+                <div class="provider-info">
+                  <h4>DeepSeek</h4>
+                  <p>api.deepseek.com · deepseek-chat, deepseek-reasoner</p>
+                </div>
+                <div class="provider-meta">
+                  <span class="status-badge connected">已连接</span>
+                  <span style="font-size:12px;color:var(--text-muted);">85ms</span>
+                  <button class="btn sm ghost">配置</button>
+                </div>
+              </div>
+              <div class="provider-card">
+                <div class="provider-logo" style="background:var(--blue-soft);color:var(--cyan);">O</div>
+                <div class="provider-info">
+                  <h4>Ollama (本地)</h4>
+                  <p>localhost:11434 · llama3.1:8b, qwen3:8b, codellama:13b, deepseek-coder-v2:16b</p>
+                </div>
+                <div class="provider-meta">
+                  <span class="status-badge local">本地运行</span>
+                  <span style="font-size:12px;color:var(--text-muted);">GPU 6.2GB</span>
+                  <button class="btn sm ghost">管理模型</button>
+                </div>
+              </div>
+              <div class="provider-card" style="opacity:0.5;">
+                <div class="provider-logo" style="background:#444;color:#888;">G</div>
+                <div class="provider-info">
+                  <h4>OpenAI</h4>
+                  <p>未配置 · 支持 gpt-4o, gpt-4o-mini, o3-mini 等</p>
+                </div>
+                <div class="provider-meta">
+                  <span class="status-badge disconnected">未连接</span>
+                  <button class="btn sm">配置</button>
+                </div>
+              </div>
+              <div class="provider-card" style="opacity:0.5;">
+                <div class="provider-logo" style="background:#444;color:#888;">M</div>
+                <div class="provider-info">
+                  <h4>Moonshot (Kimi)</h4>
+                  <p>未配置 · 支持 moonshot-v1-8k, moonshot-v1-32k 等</p>
+                </div>
+                <div class="provider-meta">
+                  <span class="status-badge disconnected">未连接</span>
+                  <button class="btn sm">配置</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Selector Panel -->
+          <div class="panel" id="panel-selector">
+            <div class="content-header">
+              <h2>默认模型选择</h2>
+              <button class="btn sm">重置为推荐</button>
+            </div>
+            <div class="model-selector">
+              <div class="selector-row">
+                <div class="selector-label">日常对话</div>
+                <div class="selector-value">
+                  <span class="model-chip active">
+                    <span class="provider-dot" style="background:var(--accent);"></span>
+                    Claude Sonnet 4
+                  </span>
+                  <span class="model-chip">
+                    <span class="provider-dot" style="background:#4dabf7;"></span>
+                    DeepSeek Chat
+                  </span>
+                  <span class="model-chip">
+                    <span class="provider-dot" style="background:var(--cyan);"></span>
+                    Llama 3.1 (本地)
+                  </span>
+                </div>
+              </div>
+              <div class="selector-row">
+                <div class="selector-label">代码编写</div>
+                <div class="selector-value">
+                  <span class="model-chip active">
+                    <span class="provider-dot" style="background:var(--accent);"></span>
+                    Claude Sonnet 4
+                  </span>
+                  <span class="model-chip">
+                    <span class="provider-dot" style="background:#4dabf7;"></span>
+                    DeepSeek Coder V2
+                  </span>
+                  <span class="model-chip">
+                    <span class="provider-dot" style="background:var(--cyan);"></span>
+                    CodeLlama (本地)
+                  </span>
+                </div>
+              </div>
+              <div class="selector-row">
+                <div class="selector-label">任务计划</div>
+                <div class="selector-value">
+                  <span class="model-chip active">
+                    <span class="provider-dot" style="background:var(--accent);"></span>
+                    Claude Opus 4
+                  </span>
+                  <span class="model-chip">
+                    <span class="provider-dot" style="background:var(--accent);"></span>
+                    Claude Sonnet 4
+                  </span>
+                </div>
+              </div>
+              <div class="selector-row">
+                <div class="selector-label">代码审查</div>
+                <div class="selector-value">
+                  <span class="model-chip active">
+                    <span class="provider-dot" style="background:#4dabf7;"></span>
+                    DeepSeek Reasoner
+                  </span>
+                  <span class="model-chip">
+                    <span class="provider-dot" style="background:var(--accent);"></span>
+                    Claude Opus 4
+                  </span>
+                </div>
+              </div>
+              <div class="selector-row">
+                <div class="selector-label">快速补全</div>
+                <div class="selector-value">
+                  <span class="model-chip active">
+                    <span class="provider-dot" style="background:var(--cyan);"></span>
+                    Qwen3 (本地)
+                  </span>
+                  <span class="model-chip">
+                    <span class="provider-dot" style="background:var(--accent);"></span>
+                    Claude Haiku 4.5
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:8px;">
+              * 选择「本地」模型无需网络连接，不产生 API 费用，但可能不支持工具调用等高级功能
+            </div>
+          </div>
+
+          <!-- Routing Panel -->
+          <div class="panel" id="panel-routing">
+            <div class="content-header">
+              <h2>智能路由规则</h2>
+              <button class="btn sm">+ 新增规则</button>
+            </div>
+            <table class="routing-table">
+              <thead>
+                <tr>
+                  <th>场景</th>
+                  <th>主模型</th>
+                  <th>Fallback</th>
+                  <th>条件</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>日常对话</td>
+                  <td>Claude Sonnet 4</td>
+                  <td>DeepSeek Chat <span class="fallback-tag">(自动)</span></td>
+                  <td>默认</td>
+                  <td><button class="btn sm ghost">编辑</button></td>
+                </tr>
+                <tr>
+                  <td>代码编写</td>
+                  <td>Claude Sonnet 4</td>
+                  <td>DeepSeek Coder V2 <span class="fallback-tag">(自动)</span></td>
+                  <td>默认</td>
+                  <td><button class="btn sm ghost">编辑</button></td>
+                </tr>
+                <tr>
+                  <td>复杂推理</td>
+                  <td>Claude Opus 4</td>
+                  <td>DeepSeek Reasoner <span class="fallback-tag">(自动)</span></td>
+                  <td>消息 &gt; 2000 tokens</td>
+                  <td><button class="btn sm ghost">编辑</button></td>
+                </tr>
+                <tr>
+                  <td>离线模式</td>
+                  <td>Llama 3.1 (本地)</td>
+                  <td>无</td>
+                  <td>网络不可用时</td>
+                  <td><button class="btn sm ghost">编辑</button></td>
+                </tr>
+                <tr>
+                  <td>预算节省</td>
+                  <td>DeepSeek Chat</td>
+                  <td>Qwen3 (本地) <span class="fallback-tag">(自动)</span></td>
+                  <td>月预算 &gt; 80%</td>
+                  <td><button class="btn sm ghost">编辑</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Stats Panel -->
+          <div class="panel" id="panel-stats">
+            <div class="content-header">
+              <h2>用量统计</h2>
+              <div style="display:flex;gap:8px;">
+                <button class="btn sm">今日</button>
+                <button class="btn sm" style="background:var(--accent-soft);border-color:var(--accent);color:var(--accent);">本月</button>
+                <button class="btn sm">全部</button>
+              </div>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-label">总 Token 消耗</div>
+                <div class="stat-value">2.4M</div>
+                <div class="stat-change" style="color:var(--green);">+12% vs 上月</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">预估费用</div>
+                <div class="stat-value" style="color:var(--orange);">$47.2</div>
+                <div class="stat-change" style="color:var(--text-muted);">预算 $80</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">请求数</div>
+                <div class="stat-value">1,847</div>
+                <div class="stat-change" style="color:var(--green);">+8% vs 上月</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">本地模型占比</div>
+                <div class="stat-value" style="color:var(--cyan);">23%</div>
+                <div class="stat-change" style="color:var(--green);">节省 $12.5</div>
+              </div>
+            </div>
+            <div class="bar-chart">
+              <div class="bar-group">
+                <div class="bar" style="height:80px;background:var(--accent);"></div>
+                <div class="bar-label">Claude</div>
+              </div>
+              <div class="bar-group">
+                <div class="bar" style="height:45px;background:#4dabf7;"></div>
+                <div class="bar-label">DeepSeek</div>
+              </div>
+              <div class="bar-group">
+                <div class="bar" style="height:30px;background:var(--cyan);"></div>
+                <div class="bar-label">Ollama</div>
+              </div>
+              <div class="bar-group">
+                <div class="bar" style="height:12px;background:var(--text-muted);"></div>
+                <div class="bar-label">GPT-4o</div>
+              </div>
+              <div class="bar-group">
+                <div class="bar" style="height:8px;background:var(--orange);"></div>
+                <div class="bar-label">其他</div>
+              </div>
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center;">
+              按模型的 Token 消耗分布（本月）
+            </div>
+          </div>
+
+          <!-- Config Panel -->
+          <div class="panel" id="panel-config">
+            <div class="content-header">
+              <h2>添加提供商</h2>
+            </div>
+            <div style="margin-bottom:16px;display:flex;gap:8px;">
+              <span class="model-chip active">OpenAI 兼容</span>
+              <span class="model-chip">Ollama (本地)</span>
+              <span class="model-chip">自定义</span>
+            </div>
+            <div class="config-form">
+              <div class="form-group">
+                <label class="form-label">提供商名称</label>
+                <input class="form-input" placeholder="例: DeepSeek, Moonshot, 自定义 API" value="DeepSeek">
+              </div>
+              <div class="form-group">
+                <label class="form-label">API Base URL</label>
+                <input class="form-input" placeholder="https://api.example.com/v1" value="https://api.deepseek.com/v1">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">API Key</label>
+                  <input class="form-input" type="password" placeholder="sk-..." value="sk-••••••••••••••••">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">默认模型</label>
+                  <input class="form-input" placeholder="模型 ID" value="deepseek-chat">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">最大 Tokens</label>
+                  <input class="form-input" placeholder="4096" value="8192">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Tool Calling</label>
+                  <select class="form-input">
+                    <option>自动检测</option>
+                    <option>支持 (Function Calling)</option>
+                    <option>不支持 (Prompt 降级)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn" onclick="showTestResult('success')">测试连接</button>
+                <button class="btn primary">保存</button>
+                <button class="btn">取消</button>
+              </div>
+              <div class="test-result success" id="test-result" style="display:none;">
+                &#10003; 连接成功 · deepseek-chat 可用 · 延迟 85ms · 支持 Function Calling
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Implementation Timeline -->
+  <div class="section">
+    <div class="section-title">
+      <span class="icon" style="background:var(--orange-soft);color:var(--orange);">&#9679;</span>
+      分阶段实施路线
+    </div>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="phase-label">Phase 1 · P0</div>
+        <h4>OpenAI 兼容引擎 + 模型管理面板</h4>
+        <p>实现 OpenAICompatibleEngine（Rust HTTP 客户端 + TS 适配），提供商 CRUD 面板，连接测试，预置模板。扩展 EngineId 枚举，新增 HTTP 会话管理。</p>
+      </div>
+      <div class="timeline-item">
+        <div class="phase-label">Phase 2 · P1</div>
+        <h4>Ollama 本地模型 + Tool Calling 适配</h4>
+        <p>OllamaEngine（REST 直连），模型发现/下载管理，硬件监控。Unified Tool Adapter 抽象层，Prompt 降级模式。MCP 工具定义格式转换器。</p>
+      </div>
+      <div class="timeline-item">
+        <div class="phase-label">Phase 3 · P2</div>
+        <h4>智能路由 + 用量统计</h4>
+        <p>SmartRouter 基于场景/成本/可用性自动选择模型。Token 计量中间件，成本估算引擎，趋势仪表盘。Fallback 策略配置 UI。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Existing Scaffolding -->
+  <div class="section">
+    <div class="section-title">
+      <span class="icon" style="background:var(--green-soft);color:var(--green);">&#10003;</span>
+      已有架构基础（可直接复用）
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;">
+        <h4 style="font-size:13px;margin-bottom:6px;">BaseCLIEngine 抽象基类</h4>
+        <p style="font-size:12px;color:var(--text-secondary);">src/ai-runtime/base/base-cli-engine.ts — 已有 CLI 引擎通用逻辑，HTTP API Engine 可参考其接口设计</p>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;">
+        <h4 style="font-size:13px;margin-bottom:6px;">CLIEngineConfig 预留字段</h4>
+        <p style="font-size:12px;color:var(--text-secondary);">model, apiKey, apiBase, extraArgs — 已定义但未使用，可直接激活</p>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;">
+        <h4 style="font-size:13px;margin-bottom:6px;">AIEngineRegistry</h4>
+        <p style="font-size:12px;color:var(--text-secondary);">src/ai-runtime/engine-registry.ts — 工厂注册 + 生命周期管理，新引擎注册即用</p>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;">
+        <h4 style="font-size:13px;margin-bottom:6px;">AgentRunner 适配层</h4>
+        <p style="font-size:12px;color:var(--text-secondary);">src/core/agents/AgentRunner.ts — 高层抽象，新引擎只需注册 AgentRunner 适配器</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.proto-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function showTestResult(type) {
+  const el = document.getElementById('test-result');
+  el.style.display = 'flex';
+  el.className = 'test-result ' + type;
+  if (type === 'success') {
+    el.innerHTML = '&#10003; 连接成功 · deepseek-chat 可用 · 延迟 85ms · 支持 Function Calling';
+  }
+}
+</script>
+
+</body>
+</html>
