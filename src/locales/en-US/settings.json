@@ -64,7 +64,7 @@
     "claudeCode": {
       "name": "Claude Code",
       "placeholder": "Enter the full path to Claude CLI",
-      "example": "e.g., C:\\Users\\[Username]\\AppData\\Roaming\\npm\\claude.cmd"
+      "example": "e.g., C:\\Users\\...\\claude.cmd (Windows) or /usr/local/bin/claude (macOS/Linux)"
     }
   },
   "validation": {

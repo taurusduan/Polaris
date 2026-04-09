@@ -64,15 +64,12 @@ futures-util = "0.3"
 md5 = "0.7"
 tauri-plugin-notification = "2.3.3"
 
-# 集成模块依赖
-tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+# 集成模块依赖（rustls：纯 Rust TLS，不依赖系统 OpenSSL）
+tokio-tungstenite = { version = "0.21", features = ["rustls-tls-native-roots"] }
 async-trait = "0.1"
 
 # 定时任务依赖
 cron = "0.12"
-
-# 单例锁依赖
-libloading = "0.8"
 
 # 终端 PTY 支持
 portable-pty = "0.8"
@@ -83,3 +80,11 @@ notify = { version = "6", features = ["macos_kqueue"] }
 
 [dev-dependencies]
 tempfile = "3"
+
+# ── 平台条件依赖 ──
+
+[target.'cfg(windows)'.dependencies]
+libloading = "0.8"
+
+[target.'cfg(not(windows))'.dependencies]
+libc = "0.2"

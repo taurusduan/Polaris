@@ -8,9 +8,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
-/// Windows 进程创建标志：不创建新窗口
 #[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+use crate::utils::CREATE_NO_WINDOW;
 
 /// 配置存储管理器
 pub struct ConfigStore {
@@ -332,15 +331,21 @@ impl ConfigStore {
         {
             let home = env::var("HOME").unwrap_or_default();
             let common_paths = vec![
-                // macOS Homebrew
+                // macOS Homebrew (Apple Silicon)
                 "/opt/homebrew/bin/claude".to_string(),
+                // macOS Homebrew (Intel)
                 "/usr/local/bin/claude".to_string(),
                 // Linux 系统路径
                 "/usr/bin/claude".to_string(),
-                "/usr/local/bin/claude".to_string(),
                 // npm 全局路径
                 format!("{}/.npm-global/bin/claude", home),
                 format!("{}/.local/bin/claude", home),
+                // Volta（跨平台 Node 版本管理器）
+                format!("{}/.volta/bin/claude", home),
+                // Snap（Ubuntu 等）
+                "/snap/bin/claude".to_string(),
+                // nvm 默认版本
+                format!("{}/.nvm/versions/node/current/bin/claude", home),
             ];
 
             for path in common_paths {

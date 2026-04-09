@@ -90,7 +90,7 @@ export interface Config {
   workDir?: string;
   /** 会话保存路径 */
   sessionDir?: string;
-  /** Git 二进制路径 (Windows) */
+  /** Git 二进制路径（自定义 Git 安装位置时使用） */
   gitBinPath?: string;
   /** 百度翻译配置 */
   baiduTranslate?: BaiduTranslateConfig;

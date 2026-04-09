@@ -1,12 +1,18 @@
-/*! 单例锁模块
+/*! 工具模块
  *
- * 用于确保同一时刻只有一个实例运行调度器
- * Windows: 使用 Named Mutex
- * Unix: 使用文件锁 (flock)
+ * 单例锁：确保同一时刻只有一个实例运行调度器
+ *   Windows: 使用 Named Mutex
+ *   Unix: 使用文件锁 (flock)
+ *
+ * 跨平台常量：统一管理 Windows 进程创建标志
  */
 
 use std::io;
 use std::sync::Mutex;
+
+/// Windows 进程创建标志：不创建新窗口
+#[cfg(windows)]
+pub const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// 全局锁存储（用于持久化持有的锁）
 static HELD_LOCK: Mutex<Option<SchedulerLock>> = Mutex::new(None);

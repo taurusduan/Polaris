@@ -118,4 +118,4 @@ pub fn is_binary_bytes(bytes: &[u8]) -> bool {
 }
 
 #[cfg(windows)]
-pub const CREATE_NO_WINDOW: u32 = 0x08000000;
+pub use crate::utils::CREATE_NO_WINDOW;

@@ -64,7 +64,7 @@ function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps) {
         brightCyan: '#29b8db',
         brightWhite: '#e5e5e5',
       },
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: 'Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", "Courier New", monospace',
       fontSize: 14,
       lineHeight: 1.2,
       cursorBlink: true,

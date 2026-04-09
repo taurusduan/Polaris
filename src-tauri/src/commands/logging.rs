@@ -11,7 +11,7 @@ use crate::AppState;
 use std::os::windows::process::CommandExt;
 
 #[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+use crate::utils::CREATE_NO_WINDOW;
 
 /// 获取日志目录
 #[tauri::command]

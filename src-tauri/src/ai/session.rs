@@ -12,9 +12,8 @@ use crate::error::{AppError, Result};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
-/// Windows 进程创建标志：不创建新窗口
 #[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+use crate::utils::CREATE_NO_WINDOW;
 
 /// 会话信息
 #[allow(dead_code)]
