@@ -25,6 +25,7 @@ import { useEditorBufferStore } from '../../stores/editorBufferStore';
 import { useEditorSettingsStore } from '../../stores/editorSettingsStore';
 import { indentGuides, indentGuideTheme } from './indentGuides';
 import { trailingWhitespaceHighlight } from './trailingWhitespace';
+import { rainbowBrackets } from './rainbowBrackets';
 
 const log = createLogger('Editor');
 
@@ -221,6 +222,7 @@ export function CodeMirrorEditor({
         highlightSelectionMatches(),
         history(),
         bracketMatching(),
+        ...rainbowBrackets,
         closeBrackets(),
         indentOnInput(),
         foldGutter(),
