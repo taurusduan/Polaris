@@ -80,6 +80,8 @@ export interface FileExplorerState {
   is_refreshing: boolean;
   /** 剪贴板状态 */
   clipboard: FileClipboard | null;
+  /** 高亮路径（Reveal in Explorer 临时高亮） */
+  highlighted_path: string | null;
 }
 
 export interface FileExplorerActions {
@@ -123,6 +125,8 @@ export interface FileExplorerActions {
   paste_file: (targetPath: string) => Promise<void>;
   /** 清除剪贴板 */
   clear_clipboard: () => void;
+  /** 在文件树中定位并高亮指定路径 */
+  revealPath: (targetPath: string) => Promise<void>;
 }
 
 export type FileExplorerStore = FileExplorerState & FileExplorerActions;

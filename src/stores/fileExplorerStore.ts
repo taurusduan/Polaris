@@ -98,6 +98,7 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
   loading_folders: new Set(), // 正在加载的文件夹
   is_refreshing: false, // 是否正在刷新
   clipboard: null, // 剪贴板状态
+  highlighted_path: null as string | null, // 高亮路径（Reveal in Explorer）
 
   // 加载目录内容
   load_directory: async (path: string) => {
@@ -589,6 +590,66 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
   // 清除剪贴板
   clear_clipboard: () => {
     set({ clipboard: null });
+  },
+
+  // 在文件树中定位并高亮指定路径
+  revealPath: async (targetPath: string) => {
+    const { current_path, expanded_folders } = get();
+    const normalized = normalizePath(targetPath);
+    const normalizedRoot = normalizePath(current_path);
+
+    // 1. 收集从工作区根到目标文件的所有祖先目录
+    const relative = normalized.startsWith(normalizedRoot + '/')
+      ? normalized.slice(normalizedRoot.length + 1)
+      : '';
+    if (!relative) return;
+
+    const parts = relative.split('/');
+    const dirsToExpand: string[] = [];
+    let accumulated = current_path;
+    for (let i = 0; i < parts.length - 1; i++) {
+      accumulated = joinPath(accumulated, parts[i]);
+      dirsToExpand.push(accumulated);
+    }
+
+    // 2. 展开所有祖先目录
+    const newExpanded = new Set(expanded_folders);
+    for (const dir of dirsToExpand) {
+      newExpanded.add(normalizePath(dir));
+    }
+    set({ expanded_folders: newExpanded });
+
+    // 3. 逐级加载目录内容（需要父级先加载才能加载子级）
+    for (const dir of dirsToExpand) {
+      await get().load_folder_content(dir);
+    }
+
+    // 4. 在树中查找目标文件并选中
+    const findFile = (files: FileInfo[]): FileInfo | null => {
+      for (const f of files) {
+        if (normalizePath(f.path) === normalized) return f;
+        if (f.children) {
+          const found = findFile(f.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const file = findFile(get().file_tree);
+    if (file) {
+      set({
+        selected_file: file,
+        highlighted_path: normalized,
+      });
+
+      // 2 秒后自动清除高亮
+      setTimeout(() => {
+        if (get().highlighted_path === normalized) {
+          set({ highlighted_path: null });
+        }
+      }, 2000);
+    }
   },
 }));
 

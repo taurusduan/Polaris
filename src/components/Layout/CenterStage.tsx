@@ -10,6 +10,7 @@ import { X, FileDiff, FileText, Image as ImageIcon } from 'lucide-react'
 import { useTabStore, Tab } from '@/stores/tabStore'
 import { useFileEditorStore } from '@/stores/fileEditorStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { useFileExplorerStore } from '@/stores/fileExplorerStore'
 import { DiffViewer } from '@/components/Diff/DiffViewer'
 import { EditorPanel, BreadcrumbBar } from '@/components/Editor'
 import { TabContextMenu } from './TabContextMenu'
@@ -290,6 +291,12 @@ export function TabBar({ className = '' }: TabBarProps) {
             const relative = tab.filePath.replace(currentWorkspace.path, '').replace(/^[/\\]/, '')
             navigator.clipboard.writeText(relative)
             toast.addToast({ title: '复制成功', message: '已复制相对路径', type: 'success' })
+          }
+        }}
+        onRevealInExplorer={(tabId) => {
+          const tab = tabs.find(t => t.id === tabId)
+          if (tab?.filePath) {
+            useFileExplorerStore.getState().revealPath(tab.filePath)
           }
         }}
       />

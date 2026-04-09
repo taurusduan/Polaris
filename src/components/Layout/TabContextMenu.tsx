@@ -17,6 +17,7 @@ interface TabContextMenuProps {
   onCloseSaved?: () => void
   onCopyPath?: (tabId: string) => void
   onCopyRelativePath?: (tabId: string) => void
+  onRevealInExplorer?: (tabId: string) => void
   tabId: string
 }
 
@@ -32,6 +33,7 @@ export function TabContextMenu({
   onCloseSaved,
   onCopyPath,
   onCopyRelativePath,
+  onRevealInExplorer,
   tabId,
 }: TabContextMenuProps) {
   const { t } = useTranslation('common')
@@ -124,9 +126,20 @@ export function TabContextMenu({
       </button>
 
       {/* 路径操作（仅 editor tab 有 filePath 时显示） */}
-      {(onCopyPath || onCopyRelativePath) && (
+      {(onCopyPath || onCopyRelativePath || onRevealInExplorer) && (
         <>
           <div className="my-1 border-t border-border-subtle" />
+          {onRevealInExplorer && (
+            <button
+              onClick={() => {
+                onRevealInExplorer(tabId)
+                onClose()
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-background-hover transition-colors"
+            >
+              {t('tabs.revealInExplorer', '在文件树中定位')}
+            </button>
+          )}
           {onCopyPath && (
             <button
               onClick={() => {

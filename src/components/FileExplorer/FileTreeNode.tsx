@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, useCallback } from 'react';
+import { memo, useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronDown, Folder, Loader2, Copy, FolderOpen } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -73,9 +73,13 @@ export const FileTreeNode = memo<FileTreeNodeProps>(({
     copy_file,
     cut_file,
     paste_file,
-    clipboard
+    clipboard,
+    selected_file: storeSelectedFile,
+    highlighted_path,
   } = useFileExplorerStore();
   const { openFile } = useFileEditorStore();
+
+  const nodeRef = useRef<HTMLDivElement>(null);
 
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
@@ -108,6 +112,15 @@ export const FileTreeNode = memo<FileTreeNodeProps>(({
       }
     }
   }, [file.is_dir, file.path, isExpanded, file.children, load_folder_content, get_cached_folder_content]);
+
+  // Reveal in Explorer: scroll into view when highlighted
+  const isHighlighted = highlighted_path != null && normalizePath(file.path) === highlighted_path;
+
+  useEffect(() => {
+    if (isHighlighted && nodeRef.current) {
+      nodeRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isHighlighted]);
 
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -362,12 +375,13 @@ export const FileTreeNode = memo<FileTreeNodeProps>(({
   };
 
   return (
-    <div>
+    <div ref={nodeRef}>
       <div
         className={clsx(
           'flex items-center px-2 py-1.5 cursor-pointer rounded transition-colors',
           'hover:bg-background-hover',
-          isSelected && 'bg-primary/20 border-l-2 border-primary'
+          isSelected && 'bg-primary/20 border-l-2 border-primary',
+          isHighlighted && 'animate-pulse bg-primary/30 ring-1 ring-primary/50 rounded'
         )}
         style={{ paddingLeft: `${level * 16 + 8}px` }}
         onClick={handleClick}
@@ -419,7 +433,7 @@ export const FileTreeNode = memo<FileTreeNodeProps>(({
               file={child}
               level={level + 1}
               isExpanded={expandedFolders.has(normalizePath(child.path))}
-              isSelected={false}
+              isSelected={storeSelectedFile?.path === child.path}
               expandedFolders={expandedFolders}
               loadingFolders={loadingFolders}
             />
