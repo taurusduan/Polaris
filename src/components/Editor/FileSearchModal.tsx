@@ -139,27 +139,16 @@ export function FileSearchModal({ onClose }: FileSearchModalProps) {
     selected?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex]);
 
-  // 深度搜索：输入停止 300ms 后触发（仅在已加载树无结果或结果少时）
+  // 深度搜索：输入停止 300ms 后始终触发（覆盖未展开目录中的文件）
   useEffect(() => {
     clearTimeout(deepSearchTimer.current);
     deepSearchAbort.current?.abort();
     deepSearchAbort.current = null;
 
     const q = query.trim();
-    if (!q || loadedFiles.length === 0) {
+    if (!q) {
       setDeepResults(null);
       setIsDeepSearching(false);
-      return;
-    }
-
-    // 当已加载文件数量较少（< 20）且查询有内容时，触发深度搜索
-    // 或者当已加载树的匹配结果较少时也触发
-    const quickMatches = loadedFiles.filter(f =>
-      f.name.toLowerCase().includes(q.toLowerCase())
-    );
-    if (quickMatches.length >= 10 && loadedFiles.length >= 50) {
-      // 已有足够多的结果，不需要深度搜索
-      setDeepResults(null);
       return;
     }
 
@@ -185,7 +174,7 @@ export function FileSearchModal({ onClose }: FileSearchModalProps) {
     return () => {
       clearTimeout(deepSearchTimer.current);
     };
-  }, [query, loadedFiles, deep_search]);
+  }, [query, deep_search]);
 
   // 选中文件：打开编辑器并关闭模态框
   const handleSelect = useCallback((file: FileInfo) => {
