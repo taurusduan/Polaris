@@ -4,6 +4,7 @@
 
 import { useTranslation } from 'react-i18next';
 import type { Config } from '../../../types';
+import { platform } from '../../../utils/path';
 
 interface AdvancedTabProps {
   config: Config;
@@ -78,8 +79,8 @@ export function AdvancedTab({ config, onConfigChange, loading }: AdvancedTabProp
         <h3 className="text-sm font-medium text-text-primary mb-3">{t('advanced.debugInfo')}</h3>
 
         <div className="text-xs text-text-tertiary space-y-1">
-          <p><span className="text-text-secondary">{t('advanced.configFile')}：</span>~/.config/claude-code-pro/config.json</p>
-          <p><span className="text-text-secondary">{t('advanced.logDir')}：</span>~/.local/share/claude-code-pro/logs</p>
+          <p><span className="text-text-secondary">{t('advanced.configFile')}：</span>{platform === 'windows' ? '%APPDATA%\\claude-code-pro\\config.json' : '~/.config/claude-code-pro/config.json'}</p>
+          <p><span className="text-text-secondary">{t('advanced.logDir')}：</span>{platform === 'windows' ? '%LOCALAPPDATA%\\claude-code-pro\\logs' : '~/.local/share/claude-code-pro/logs'}</p>
           <p><span className="text-text-secondary">{t('advanced.currentEngine')}：</span>{config.defaultEngine}</p>
         </div>
       </div>

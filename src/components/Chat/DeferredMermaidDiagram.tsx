@@ -11,6 +11,7 @@
 import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getMermaidConfig } from '../../utils/mermaid-config';
+import { modKey } from '../../utils/path';
 import {
   type ViewMode,
   type DiagramState,
@@ -326,7 +327,7 @@ export const DeferredMermaidDiagram = memo(function DeferredMermaidDiagram({
           )}
 
           <div className="ml-auto text-xs text-text-muted">
-            {diagramState.viewMode === 'chart' && 'Ctrl + 滚轮缩放'}
+            {diagramState.viewMode === 'chart' && `${modKey} + 滚轮缩放`}
           </div>
         </div>
 

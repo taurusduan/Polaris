@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useConfigStore } from '../../stores';
 import { Button, ClaudePathSelector } from './index';
+import { isWindows } from '../../utils/path';
 
 export function ConnectingOverlay() {
   const { t } = useTranslation('common');
@@ -85,8 +86,7 @@ export function ConnectingOverlay() {
               <p className="font-medium text-text-secondary">{t('connection.solutions')}</p>
               <ol className="space-y-1 list-decimal list-inside">
                 <li>{t('connection.solution1')} <code className="px-1 py-0.5 rounded">claude --version</code></li>
-                <li>{t('connection.solution2')} <code className="px-1 py-0.5 rounded">where claude</code></li>
-                <li>{t('connection.solution3')} <code className="px-1 py-0.5 rounded">which claude</code></li>
+                <li>{t('connection.solution2')} <code className="px-1 py-0.5 rounded">{isWindows ? 'where claude' : 'which claude'}</code></li>
                 <li>{t('connection.solution4')} <code className="px-1 py-0.5 rounded">npm install -g @anthropic-ai/claude-3-dev</code></li>
               </ol>
             </div>
