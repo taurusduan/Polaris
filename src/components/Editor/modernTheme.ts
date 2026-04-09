@@ -58,10 +58,11 @@ const syntax = {
 // UI 强调色
 const accent = {
   primary: '#58a6ff',       // 主强调色 - 蓝色
-  selection: 'rgba(88, 166, 255, 0.25)',    // 选区
-  selectionFocused: 'rgba(88, 166, 255, 0.35)',  // 聚焦时选区
-  match: 'rgba(88, 166, 255, 0.15)',        // 匹配高亮
-  bracketMatch: 'rgba(38, 139, 210, 0.15)', // 括号匹配背景
+  selection: 'rgba(88, 166, 255, 0.30)',           // 选区（非聚焦）
+  selectionFocused: 'rgba(88, 166, 255, 0.50)',    // 聚焦时选区
+  match: 'rgba(88, 166, 255, 0.25)',               // 匹配高亮
+  matchSelected: 'rgba(255, 215, 0, 0.35)',        // 搜索匹配（当前选中）
+  bracketMatch: 'rgba(38, 139, 210, 0.25)',        // 括号匹配背景
   cursor: '#58a6ff',       // 光标
   gutterActive: '#e6edf3', // 活跃行号
 };
@@ -163,24 +164,32 @@ export const modernDarkTheme = EditorView.theme({
   },
 
   // ===== 选区 =====
-  '.cm-selectionBackground': {
+  '& ::selection': {
     background: accent.selection,
   },
 
-  '&.cm-focused .cm-selectionBackground': {
+  '.cm-selectionLayer .cm-selectionBackground': {
+    background: accent.selection,
+  },
+
+  '&.cm-focused .cm-selectionLayer .cm-selectionBackground': {
     background: accent.selectionFocused,
   },
 
-  // ===== 匹配高亮 =====
+  // ===== 匹配高亮（双击选词后相同词高亮）=====
   '.cm-selectionMatch': {
     backgroundColor: accent.match,
+  },
+
+  '.cm-selectionMatch-selected': {
+    backgroundColor: accent.selectionFocused,
   },
 
   // ===== 括号匹配 =====
   '.cm-matchingBracket': {
     color: accent.primary,
     backgroundColor: accent.bracketMatch,
-    borderBottom: '1px solid rgba(88, 166, 255, 0.3)',
+    outline: '1px solid rgba(88, 166, 255, 0.4)',
   },
 
   '.cm-nonmatchingBracket': {
@@ -189,8 +198,13 @@ export const modernDarkTheme = EditorView.theme({
   },
 
   // ===== 搜索高亮 =====
-  '.cm-searchMatch .cm-searchMatch-selected': {
-    backgroundColor: 'rgba(255, 215, 0, 0.3)',
+  '.cm-searchMatch': {
+    backgroundColor: 'rgba(255, 215, 0, 0.20)',
+  },
+
+  '.cm-searchMatch.cm-searchMatch-selected': {
+    backgroundColor: accent.matchSelected,
+    outline: '1px solid rgba(255, 215, 0, 0.5)',
   },
 
   // ===== Lint Gutter (错误/警告标记) =====
