@@ -19,6 +19,7 @@ import { TerminalPanel } from './components/Terminal/TerminalPanel';
 const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then(m => ({ default: m.SettingsModal })));
 const DeveloperPanel = lazy(() => import('./components/Developer/DeveloperPanel').then(m => ({ default: m.DeveloperPanel })));
 const CreateWorkspaceModal = lazy(() => import('./components/Workspace/CreateWorkspaceModal').then(m => ({ default: m.CreateWorkspaceModal })));
+const FileSearchModal = lazy(() => import('./components/Editor/FileSearchModal').then(m => ({ default: m.FileSearchModal })));
 import { useConfigStore, useViewStore, useWorkspaceStore, useTabStore, useIntegrationStore } from './stores';
 import { initEditorFileChangeListener } from './stores/fileEditorStore';
 import { sessionStoreManager } from './stores/conversationStore';
@@ -65,6 +66,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
+  const [showFileSearch, setShowFileSearch] = useState(false);
   const [showEngineSwitchConfirm, setShowEngineSwitchConfirm] = useState(false);
   const [pendingEngineId, setPendingEngineId] = useState<EngineId | null>(null);
   // 使用 ref 确保初始化只执行一次
@@ -375,6 +377,11 @@ function App() {
           log.error('切换 DevTools 失败', error as Error);
         }
       }
+      // Shift+Ctrl+R / Shift+Cmd+R — 文件快速搜索
+      if (e.key === 'R' && e.shiftKey && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setShowFileSearch(prev => !prev);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -495,6 +502,12 @@ function App() {
       {showCreateWorkspace && (
         <Suspense fallback={<div className="flex items-center justify-center text-text-muted">{t('status.loading')}</div>}>
           <CreateWorkspaceModal onClose={() => setShowCreateWorkspace(false)} />
+        </Suspense>
+      )}
+
+      {showFileSearch && (
+        <Suspense fallback={null}>
+          <FileSearchModal onClose={() => setShowFileSearch(false)} />
         </Suspense>
       )}
 
