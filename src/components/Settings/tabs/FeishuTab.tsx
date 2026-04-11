@@ -14,7 +14,7 @@ import {
   useIntegrationInstances,
   useActiveIntegrationInstance,
 } from '../../../stores';
-import type { Config, IntegrationDisplayMode, PlatformInstance } from '../../../types';
+import type { Config, PlatformInstance } from '../../../types';
 import {
   ConnectionStateLabels,
   type ConnectionState,
@@ -413,37 +413,6 @@ export function FeishuTab({ config, onConfigChange, loading }: FeishuTabProps) {
                   />
                 </div>
 
-                {/* 复选框选项 */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={editingInstance.config.autoConnect}
-                        onChange={(e) => updateEditingConfig({ autoConnect: e.target.checked })}
-                        className="w-4 h-4"
-                      />
-                      自动连接
-                    </label>
-                  </div>
-                </div>
-
-                {/* 显示模式 */}
-                <div>
-                  <label className="block text-xs text-text-secondary mb-2">显示模式</label>
-                  <select
-                    value={editingInstance.config.displayMode}
-                    onChange={(e) =>
-                      updateEditingConfig({ displayMode: e.target.value as IntegrationDisplayMode })
-                    }
-                    className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    disabled={loading}
-                  >
-                    <option value="chat">聊天模式</option>
-                    <option value="separate">分离模式</option>
-                    <option value="both">两者都有</option>
-                  </select>
-                </div>
 
                 {/* 操作按钮 */}
                 <div className="flex items-center gap-3 p-3 bg-surface rounded-lg">
