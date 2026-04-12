@@ -54,8 +54,18 @@ jobs:
       - name: Build frontend
         run: pnpm run build
 
+      - name: Remove resources from Tauri config (temporary)
+        run: |
+          # Remove resources from bundle config to avoid build error
+          sed -i 's/"resources": \[/"resources_disabled": [/g' src-tauri/tauri.conf.json
+
       - name: Build MCP binaries
         run: cargo build --manifest-path src-tauri/Cargo.toml --release --bin polaris-todo-mcp --bin polaris-requirements-mcp --bin polaris-scheduler-mcp
+
+      - name: Restore resources in Tauri config
+        run: |
+          # Restore resources for final build
+          sed -i 's/"resources_disabled": [/"resources": [/g' src-tauri/tauri.conf.json
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
