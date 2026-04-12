@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type {
   AssistantMessage,
   ClaudeCodeSessionState,
@@ -7,6 +8,21 @@ import type {
   CompletionNotification,
 } from '../types'
 import { getClaudeCodeSessionManager } from '../core/ClaudeCodeSessionManager'
+
+/** 持久化版本号，用于迁移 */
+const PERSIST_VERSION = 1
+
+/** 最大保存消息数量 */
+const MAX_MESSAGES = 100
+
+/**
+ * 助手持久化状态
+ */
+export interface AssistantPersistState {
+  messages: AssistantMessage[]
+  completionNotifications: CompletionNotification[]
+  version: number
+}
 
 /**
  * 助手 Store 状态
@@ -79,222 +95,257 @@ export interface AssistantActions {
 export type AssistantStore = AssistantState & AssistantActions
 
 /**
- * 创建助手 Store
+ * 创建助手 Store（带持久化）
  */
-export const useAssistantStore = create<AssistantStore>((set, get) => ({
-  // 初始状态
-  messages: [],
-  isLoading: false,
-  streamingMessageId: null,
-  claudeCodeSessions: new Map(),
-  activeClaudeCodeSessionId: null,
-  executionPanelExpanded: false,
-  executionPanelSessionId: null,
-  error: null,
-  completionNotifications: [],
-  hasUnreadNotifications: false,
+export const useAssistantStore = create<AssistantStore>()(
+  persist(
+    (set, get) => ({
+      // 初始状态
+      messages: [],
+      isLoading: false,
+      streamingMessageId: null,
+      claudeCodeSessions: new Map(),
+      activeClaudeCodeSessionId: null,
+      executionPanelExpanded: false,
+      executionPanelSessionId: null,
+      error: null,
+      completionNotifications: [],
+      hasUnreadNotifications: false,
 
-  // 消息操作
-  addMessage: (message) => {
-    set((state) => ({
-      messages: [...state.messages, message],
-    }))
-  },
+      // 消息操作
+      addMessage: (message) => {
+        set((state) => {
+          const newMessages = [...state.messages, message]
+          // 限制消息数量
+          if (newMessages.length > MAX_MESSAGES) {
+            return { messages: newMessages.slice(-MAX_MESSAGES) }
+          }
+          return { messages: newMessages }
+        })
+      },
 
-  updateLastAssistantMessage: (content) => {
-    set((state) => {
-      const messages = [...state.messages]
-      const lastIdx = messages.length - 1
-      if (lastIdx >= 0 && messages[lastIdx].role === 'assistant') {
-        messages[lastIdx] = {
-          ...messages[lastIdx],
-          content,
+      updateLastAssistantMessage: (content) => {
+        set((state) => {
+          const messages = [...state.messages]
+          const lastIdx = messages.length - 1
+          if (lastIdx >= 0 && messages[lastIdx].role === 'assistant') {
+            messages[lastIdx] = {
+              ...messages[lastIdx],
+              content,
+            }
+          }
+          return { messages }
+        })
+      },
+
+      appendToLastAssistantMessage: (delta) => {
+        set((state) => {
+          const messages = [...state.messages]
+          const lastIdx = messages.length - 1
+          if (lastIdx >= 0 && messages[lastIdx].role === 'assistant') {
+            messages[lastIdx] = {
+              ...messages[lastIdx],
+              content: messages[lastIdx].content + delta,
+            }
+          }
+          return { messages }
+        })
+      },
+
+      clearMessages: () => {
+        set({ messages: [] })
+      },
+
+      setLoading: (loading) => {
+        set({ isLoading: loading })
+      },
+
+      setError: (error) => {
+        set({ error })
+      },
+
+      setStreamingMessageId: (id) => {
+        set({ streamingMessageId: id })
+      },
+
+      // Claude Code 会话管理
+      createClaudeCodeSession: (type, label) => {
+        const manager = getClaudeCodeSessionManager()
+        const sessionId = manager.createSession(type, label)
+
+        // 同步状态到 store
+        const sessionState = manager.getSession(sessionId)!
+        set((state) => {
+          const newSessions = new Map(state.claudeCodeSessions)
+          newSessions.set(sessionId, sessionState)
+          return {
+            claudeCodeSessions: newSessions,
+            activeClaudeCodeSessionId: sessionId,
+            executionPanelSessionId: sessionId,
+          }
+        })
+
+        return sessionId
+      },
+
+      getClaudeCodeSession: (sessionId) => {
+        return get().claudeCodeSessions.get(sessionId)
+      },
+
+      getAllClaudeCodeSessions: () => {
+        return Array.from(get().claudeCodeSessions.values())
+      },
+
+      getRunningSessions: () => {
+        return Array.from(get().claudeCodeSessions.values()).filter(
+          (s) => s.status === 'running'
+        )
+      },
+
+      updateSessionStatus: (sessionId, status) => {
+        set((state) => {
+          const session = state.claudeCodeSessions.get(sessionId)
+          if (!session) return state
+
+          const newSessions = new Map(state.claudeCodeSessions)
+          newSessions.set(sessionId, {
+            ...session,
+            status,
+            lastActiveAt: Date.now(),
+          })
+
+          return { claudeCodeSessions: newSessions }
+        })
+      },
+
+      addSessionEvent: (sessionId, event) => {
+        set((state) => {
+          const session = state.claudeCodeSessions.get(sessionId)
+          if (!session) return state
+
+          const newSessions = new Map(state.claudeCodeSessions)
+          newSessions.set(sessionId, {
+            ...session,
+            events: [...session.events, event],
+            lastActiveAt: Date.now(),
+          })
+
+          return { claudeCodeSessions: newSessions }
+        })
+      },
+
+      // Claude Code 执行控制
+      executeInSession: async (sessionId, params) => {
+        const manager = getClaudeCodeSessionManager()
+
+        // 更新状态为运行中
+        get().updateSessionStatus(sessionId, 'running')
+
+        try {
+          await manager.executeInSession(sessionId, params.prompt)
+        } catch (error) {
+          get().updateSessionStatus(sessionId, 'error')
+          throw error
         }
-      }
-      return { messages }
-    })
-  },
+      },
 
-  appendToLastAssistantMessage: (delta) => {
-    set((state) => {
-      const messages = [...state.messages]
-      const lastIdx = messages.length - 1
-      if (lastIdx >= 0 && messages[lastIdx].role === 'assistant') {
-        messages[lastIdx] = {
-          ...messages[lastIdx],
-          content: messages[lastIdx].content + delta,
+      abortSession: async (sessionId) => {
+        const manager = getClaudeCodeSessionManager()
+        await manager.abortSession(sessionId)
+        get().updateSessionStatus(sessionId, 'idle')
+      },
+
+      abortAllSessions: async () => {
+        const runningSessions = get().getRunningSessions()
+        await Promise.all(runningSessions.map((s) => get().abortSession(s.id)))
+      },
+
+      // UI 控制
+      toggleExecutionPanel: () => {
+        set((state) => ({
+          executionPanelExpanded: !state.executionPanelExpanded,
+        }))
+      },
+
+      setExecutionPanelSession: (sessionId) => {
+        set({
+          executionPanelSessionId: sessionId,
+          executionPanelExpanded: sessionId !== null,
+        })
+      },
+
+      // 完成通知管理
+      addCompletionNotification: (notification) => {
+        set((state) => ({
+          completionNotifications: [...state.completionNotifications, notification],
+          hasUnreadNotifications: true,
+        }))
+      },
+
+      getPendingNotifications: () => {
+        return get().completionNotifications.filter((n) => !n.handled)
+      },
+
+      markNotificationHandled: (id, handleType) => {
+        set((state) => {
+          const notifications = state.completionNotifications.map((n) =>
+            n.id === id ? { ...n, handled: true, handleType } : n
+          )
+          const hasUnread = notifications.some((n) => !n.handled)
+          return { completionNotifications: notifications, hasUnreadNotifications: hasUnread }
+        })
+      },
+
+      updateNotificationError: (id, error) => {
+        set((state) => {
+          const notifications = state.completionNotifications.map((n) =>
+            n.id === id ? { ...n, lastError: error, retryCount: (n.retryCount || 0) + 1 } : n
+          )
+          return { completionNotifications: notifications }
+        })
+      },
+
+      clearNotifications: () => {
+        set({ completionNotifications: [], hasUnreadNotifications: false })
+      },
+
+      // 初始化
+      initialize: () => {
+        // 创建 primary 会话
+        const hasPrimary = get().claudeCodeSessions.has('primary')
+        if (!hasPrimary) {
+          get().createClaudeCodeSession('primary', '主会话')
         }
-      }
-      return { messages }
-    })
-  },
+      },
+    }),
+    {
+      name: 'assistant-store',
+      storage: createJSONStorage(() => localStorage),
+      version: PERSIST_VERSION,
+      // 只持久化必要的状态
+      partialize: (state): AssistantPersistState => ({
+        messages: state.messages,
+        completionNotifications: state.completionNotifications,
+        version: PERSIST_VERSION,
+      }),
+      // 恢复状态时的迁移处理
+      migrate: (persistedState: unknown, version: number): AssistantPersistState => {
+        const state = persistedState as AssistantPersistState
 
-  clearMessages: () => {
-    set({ messages: [] })
-  },
+        // 版本迁移
+        if (version < PERSIST_VERSION) {
+          console.log('[AssistantStore] 迁移到版本', PERSIST_VERSION)
+        }
 
-  setLoading: (loading) => {
-    set({ isLoading: loading })
-  },
-
-  setError: (error) => {
-    set({ error })
-  },
-
-  setStreamingMessageId: (id) => {
-    set({ streamingMessageId: id })
-  },
-
-  // Claude Code 会话管理
-  createClaudeCodeSession: (type, label) => {
-    const manager = getClaudeCodeSessionManager()
-    const sessionId = manager.createSession(type, label)
-
-    // 同步状态到 store
-    const sessionState = manager.getSession(sessionId)!
-    set((state) => {
-      const newSessions = new Map(state.claudeCodeSessions)
-      newSessions.set(sessionId, sessionState)
-      return {
-        claudeCodeSessions: newSessions,
-        activeClaudeCodeSessionId: sessionId,
-        executionPanelSessionId: sessionId,
-      }
-    })
-
-    return sessionId
-  },
-
-  getClaudeCodeSession: (sessionId) => {
-    return get().claudeCodeSessions.get(sessionId)
-  },
-
-  getAllClaudeCodeSessions: () => {
-    return Array.from(get().claudeCodeSessions.values())
-  },
-
-  getRunningSessions: () => {
-    return Array.from(get().claudeCodeSessions.values()).filter(
-      (s) => s.status === 'running'
-    )
-  },
-
-  updateSessionStatus: (sessionId, status) => {
-    set((state) => {
-      const session = state.claudeCodeSessions.get(sessionId)
-      if (!session) return state
-
-      const newSessions = new Map(state.claudeCodeSessions)
-      newSessions.set(sessionId, {
-        ...session,
-        status,
-        lastActiveAt: Date.now(),
-      })
-
-      return { claudeCodeSessions: newSessions }
-    })
-  },
-
-  addSessionEvent: (sessionId, event) => {
-    set((state) => {
-      const session = state.claudeCodeSessions.get(sessionId)
-      if (!session) return state
-
-      const newSessions = new Map(state.claudeCodeSessions)
-      newSessions.set(sessionId, {
-        ...session,
-        events: [...session.events, event],
-        lastActiveAt: Date.now(),
-      })
-
-      return { claudeCodeSessions: newSessions }
-    })
-  },
-
-  // Claude Code 执行控制
-  executeInSession: async (sessionId, params) => {
-    const manager = getClaudeCodeSessionManager()
-
-    // 更新状态为运行中
-    get().updateSessionStatus(sessionId, 'running')
-
-    try {
-      await manager.executeInSession(sessionId, params.prompt)
-    } catch (error) {
-      get().updateSessionStatus(sessionId, 'error')
-      throw error
+        return {
+          messages: state?.messages || [],
+          completionNotifications: state?.completionNotifications || [],
+          version: PERSIST_VERSION,
+        }
+      },
     }
-  },
-
-  abortSession: async (sessionId) => {
-    const manager = getClaudeCodeSessionManager()
-    await manager.abortSession(sessionId)
-    get().updateSessionStatus(sessionId, 'idle')
-  },
-
-  abortAllSessions: async () => {
-    const runningSessions = get().getRunningSessions()
-    await Promise.all(runningSessions.map((s) => get().abortSession(s.id)))
-  },
-
-  // UI 控制
-  toggleExecutionPanel: () => {
-    set((state) => ({
-      executionPanelExpanded: !state.executionPanelExpanded,
-    }))
-  },
-
-  setExecutionPanelSession: (sessionId) => {
-    set({
-      executionPanelSessionId: sessionId,
-      executionPanelExpanded: sessionId !== null,
-    })
-  },
-
-  // 完成通知管理
-  addCompletionNotification: (notification) => {
-    set((state) => ({
-      completionNotifications: [...state.completionNotifications, notification],
-      hasUnreadNotifications: true,
-    }))
-  },
-
-  getPendingNotifications: () => {
-    return get().completionNotifications.filter((n) => !n.handled)
-  },
-
-  markNotificationHandled: (id, handleType) => {
-    set((state) => {
-      const notifications = state.completionNotifications.map((n) =>
-        n.id === id ? { ...n, handled: true, handleType } : n
-      )
-      const hasUnread = notifications.some((n) => !n.handled)
-      return { completionNotifications: notifications, hasUnreadNotifications: hasUnread }
-    })
-  },
-
-  updateNotificationError: (id, error) => {
-    set((state) => {
-      const notifications = state.completionNotifications.map((n) =>
-        n.id === id ? { ...n, lastError: error, retryCount: (n.retryCount || 0) + 1 } : n
-      )
-      return { completionNotifications: notifications }
-    })
-  },
-
-  clearNotifications: () => {
-    set({ completionNotifications: [], hasUnreadNotifications: false })
-  },
-
-  // 初始化
-  initialize: () => {
-    // 创建 primary 会话
-    const hasPrimary = get().claudeCodeSessions.has('primary')
-    if (!hasPrimary) {
-      get().createClaudeCodeSession('primary', '主会话')
-    }
-  },
-}))
+  )
+)
 
 /**
  * 初始化助手 Store
