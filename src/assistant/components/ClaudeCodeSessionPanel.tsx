@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { ChevronUp, ChevronDown, Loader2, CheckCircle, XCircle, Bell, FileText, Code, Wrench } from 'lucide-react'
 import { useAssistantStore } from '../store/assistantStore'
+import { useAssistant } from '../hooks/useAssistant'
 import { SessionTab } from './SessionTab'
 import { cn } from '../../utils'
-import type { ClaudeCodeExecutionEvent } from '../types'
+import type { ClaudeCodeExecutionEvent, CompletionNotification } from '../types'
 
 /**
  * Claude Code 多会话面板
@@ -164,16 +165,24 @@ function EventItem({ event }: { event: ClaudeCodeExecutionEvent }) {
  * 完成通知面板
  */
 export function CompletionNotificationPanel() {
-  const { completionNotifications, hasUnreadNotifications, markNotificationHandled } = useAssistantStore()
+  const { completionNotifications, hasUnreadNotifications } = useAssistantStore()
+  const { handleNotification } = useAssistant()
   const [isExpanded, setIsExpanded] = useState(false)
 
   const pendingNotifications = completionNotifications.filter((n) => !n.handled)
 
   if (pendingNotifications.length === 0) return null
 
-  const handleImmediate = (notificationId: string) => {
-    markNotificationHandled(notificationId, 'immediate')
-    // 立即处理会触发 useAssistant.handleNotification
+  const onImmediate = (notification: CompletionNotification) => {
+    handleNotification(notification, 'immediate')
+  }
+
+  const onDelayed = (notification: CompletionNotification) => {
+    handleNotification(notification, 'delayed')
+  }
+
+  const onIgnored = (notification: CompletionNotification) => {
+    handleNotification(notification, 'ignored')
   }
 
   return (
@@ -217,7 +226,7 @@ export function CompletionNotificationPanel() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    handleImmediate(notification.id)
+                    onImmediate(notification)
                   }}
                   className="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary/80"
                 >
@@ -226,7 +235,7 @@ export function CompletionNotificationPanel() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    markNotificationHandled(notification.id, 'delayed')
+                    onDelayed(notification)
                   }}
                   className="px-2 py-1 text-xs bg-background-hover text-text-secondary rounded hover:bg-background-surface"
                 >
@@ -235,7 +244,7 @@ export function CompletionNotificationPanel() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    markNotificationHandled(notification.id, 'ignored')
+                    onIgnored(notification)
                   }}
                   className="px-2 py-1 text-xs text-text-muted hover:text-text-secondary"
                 >
