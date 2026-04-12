@@ -62,8 +62,17 @@ impl ConversationStore {
     }
 
     /// 设置会话的工作目录
+    /// 工作目录变更时自动清除 AI 会话 ID，因为 Claude Code 会话是目录绑定的
     pub fn set_work_dir(&mut self, conversation_id: &str, work_dir: String) {
         if let Some(state) = self.states.get_mut(conversation_id) {
+            let dir_changed = match &state.work_dir {
+                Some(old_dir) => old_dir != &work_dir,
+                None => true,
+            };
+            if dir_changed {
+                state.ai_session_id = None;
+                state.pending_resume = false;
+            }
             state.work_dir = Some(work_dir);
         }
     }
@@ -161,6 +170,31 @@ mod tests {
         let state = store.get("conv1").unwrap();
         assert_eq!(state.work_dir, None);
         assert_eq!(state.message_count, 0);
+    }
+
+    #[test]
+    fn test_set_work_dir_clears_session() {
+        let mut store = ConversationStore::new();
+
+        // 创建会话并设置 AI session
+        store.get_or_create("conv1");
+        store.set_ai_session("conv1", "ai_session_123".to_string());
+        store.get_mut("conv1").unwrap().pending_resume = true;
+
+        // 切换到不同目录
+        store.set_work_dir("conv1", "/new/path".to_string());
+        let state = store.get("conv1").unwrap();
+
+        // AI session 应被清除
+        assert_eq!(state.work_dir, Some("/new/path".to_string()));
+        assert!(state.ai_session_id.is_none());
+        assert!(!state.pending_resume);
+
+        // 设置相同目录不应清除 session
+        store.set_ai_session("conv1", "ai_session_456".to_string());
+        store.set_work_dir("conv1", "/new/path".to_string());
+        let state = store.get("conv1").unwrap();
+        assert_eq!(state.ai_session_id, Some("ai_session_456".to_string()));
     }
 
     #[test]
