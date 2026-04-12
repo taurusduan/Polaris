@@ -58,6 +58,6 @@ macOS/Linux 常见路径：`/usr/local/bin/claude`
 | 追加 | 在默认提示词后追加自定义内容 |
 | 替换 | 完全替换为自定义内容 |
 
-支持变量：`{{workspaceName}}`、`{{workspacePath}}`、`{{contextWorkspaces}}`、`{{date}}`、`{{time}}`、`{{defaultPrompt}}`
+支持变量：<code v-pre>`{{workspaceName}}`</code>、<code v-pre>`{{workspacePath}}`</code>、<code v-pre>`{{contextWorkspaces}}`</code>、<code v-pre>`{{date}}`</code>、<code v-pre>`{{time}}`</code>、<code v-pre>`{{defaultPrompt}}`</code>
 
 提供字符计数、预览功能、重置/填入默认按钮。

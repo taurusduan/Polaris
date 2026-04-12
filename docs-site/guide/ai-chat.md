@@ -129,13 +129,13 @@ AI 回复支持以下内容类型：
 | 追加 | 在默认提示词后追加自定义内容 |
 | 替换 | 完全替换为自定义内容 |
 
-支持变量插值：`{{workspaceName}}`、`{{workspacePath}}`、`{{date}}`、`{{time}}`、`{{defaultPrompt}}` 等。
+支持变量插值：<code v-pre>`{{workspaceName}}`</code>、<code v-pre>`{{workspacePath}}`</code>、<code v-pre>`{{date}}`</code>、<code v-pre>`{{time}}`</code>、<code v-pre>`{{defaultPrompt}}`</code> 等。
 
 ## 快捷片段
 
-在输入框中输入 `/` 可触发快捷片段列表。片段支持变量占位符（`{{变量名}}`），可在 **设置 → 快捷片段** 中管理。
+在输入框中输入 `/` 可触发快捷片段列表。片段支持变量占位符（<code v-pre>`{{变量名}}`</code>），可在 **设置 → 快捷片段** 中管理。
 
-可用自动变量：`{{date}}`、`{{time}}`、`{{workspaceName}}`、`{{workspacePath}}`。
+可用自动变量：<code v-pre>`{{date}}`</code>、<code v-pre>`{{time}}`</code>、<code v-pre>`{{workspaceName}}`</code>、<code v-pre>`{{workspacePath}}`</code>。
 
 ## 上下文管理
 
