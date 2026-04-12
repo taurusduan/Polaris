@@ -50,32 +50,32 @@ Polaris 是一款基于 Tauri 2.x 构建的跨平台桌面应用，为 [Claude C
 ### 1. 安装依赖
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### 2. 启动开发模式
 
 ```bash
-npm run tauri dev
+pnpm run tauri dev
 ```
 
 ### 3. 构建
 
 ```bash
 # 构建前端
-npm run build
+pnpm run build
 
 # 构建 Tauri 应用
-npm run tauri build
+pnpm run tauri build
 ```
 
 ### 4. 其他命令
 
 ```bash
-npm run dev          # 仅启动前端开发服务器
-npm run preview      # 预览生产构建
-npm run test         # 运行测试
-npm run lint         # 代码检查
+pnpm run dev          # 仅启动前端开发服务器
+pnpm run preview      # 预览生产构建
+pnpm run test         # 运行测试
+pnpm run lint         # 代码检查
 ```
 
 ## 项目结构
