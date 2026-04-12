@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: Polaris
-  text: Claude Code 可视化平台
+  text: Claude Code 可视化客户端
   tagline: 为 Claude Code CLI 打造的图形化桌面客户端，提供直观的对话、编辑、集成一站式体验
   actions:
     - theme: brand
