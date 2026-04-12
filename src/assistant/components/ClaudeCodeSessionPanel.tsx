@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { ChevronUp, ChevronDown, Loader2, CheckCircle, XCircle, Bell, FileText, Code, Wrench, Trash2, ChevronRight, ChevronLeft, Layers } from 'lucide-react'
+import { ChevronUp, ChevronDown, Loader2, CheckCircle, XCircle, Bell, FileText, Code, Wrench, Trash2, ChevronRight, ChevronLeft, Layers, Square, CheckSquare } from 'lucide-react'
 import { useAssistantStore } from '../store/assistantStore'
 import { useAssistant } from '../hooks/useAssistant'
 import { SessionTab } from './SessionTab'
@@ -73,18 +73,113 @@ function SessionStatusSummary({ sessions }: { sessions: ClaudeCodeSessionState[]
 }
 
 /**
+ * 批量操作工具栏
+ */
+function BatchOperationsToolbar({
+  sessions,
+  selectedIds,
+  onToggleSelectAll,
+  onAbortSelected,
+  onClearSelected,
+  onClearAllCompleted,
+}: {
+  sessions: ClaudeCodeSessionState[]
+  selectedIds: Set<string>
+  onToggleSelectAll: () => void
+  onAbortSelected: () => void
+  onClearSelected: () => void
+  onClearAllCompleted: () => void
+}) {
+  const runningSessions = sessions.filter((s) => s.status === 'running')
+  const completedOrErrorSessions = sessions.filter((s) => s.status === 'completed' || s.status === 'error')
+
+  // 仅在有多个会话时显示工具栏
+  if (sessions.length <= 1) return null
+
+  return (
+    <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-subtle bg-background-surface shrink-0">
+      <div className="flex items-center gap-2">
+        {/* 全选按钮 */}
+        <button
+          onClick={onToggleSelectAll}
+          className="p-1 text-text-muted hover:text-text-primary transition-colors"
+          title={selectedIds.size === sessions.length ? '取消全选' : '全选'}
+        >
+          {selectedIds.size === sessions.length ? (
+            <CheckSquare className="w-3.5 h-3.5 text-primary" />
+          ) : (
+            <Square className="w-3.5 h-3.5" />
+          )}
+        </button>
+        <span className="text-xs text-text-muted">
+          {selectedIds.size > 0 ? `已选 ${selectedIds.size} 个` : `${sessions.length} 个会话`}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-1">
+        {/* 中断选中 */}
+        {runningSessions.length > 0 && (
+          <button
+            onClick={onAbortSelected}
+            disabled={selectedIds.size === 0}
+            className={cn(
+              'px-2 py-0.5 text-xs rounded transition-colors',
+              selectedIds.size > 0
+                ? 'text-danger hover:bg-danger/10'
+                : 'text-text-tertiary cursor-not-allowed'
+            )}
+          >
+            中断选中
+          </button>
+        )}
+
+        {/* 清除选中 */}
+        {completedOrErrorSessions.length > 0 && (
+          <button
+            onClick={onClearSelected}
+            disabled={selectedIds.size === 0}
+            className={cn(
+              'px-2 py-0.5 text-xs rounded transition-colors',
+              selectedIds.size > 0
+                ? 'text-text-secondary hover:bg-background-hover'
+                : 'text-text-tertiary cursor-not-allowed'
+            )}
+          >
+            清除选中
+          </button>
+        )}
+
+        {/* 清除所有已完成 */}
+        {completedOrErrorSessions.length > 0 && (
+          <button
+            onClick={onClearAllCompleted}
+            className="px-2 py-0.5 text-xs text-text-muted hover:text-text-secondary hover:bg-background-hover rounded transition-colors"
+          >
+            清除已完成
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Claude Code 多会话面板
  */
 export function ClaudeCodeSessionPanel() {
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [panelHeight, setPanelHeight] = useState(DEFAULT_PANEL_HEIGHT)
   const [autoScroll, setAutoScroll] = useState(true)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const logContainerRef = useRef<HTMLDivElement>(null)
   const {
     claudeCodeSessions,
     executionPanelSessionId,
     setExecutionPanelSession,
     clearSessionEvents,
+    abortSessions,
+    clearCompletedSessions,
+    clearSessions,
   } = useAssistantStore()
 
   const sessions = Array.from(claudeCodeSessions.values())
@@ -114,7 +209,47 @@ export function ClaudeCodeSessionPanel() {
     setPanelHeight(newHeight)
   }
 
+  // 批量操作处理
+  const handleToggleSelectAll = () => {
+    if (selectedIds.size === sessions.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(sessions.map((s) => s.id)))
+    }
+  }
+
+  const handleSelectSession = (sessionId: string) => {
+    setSelectedIds((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(sessionId)) {
+        newSet.delete(sessionId)
+      } else {
+        newSet.add(sessionId)
+      }
+      return newSet
+    })
+  }
+
+  const handleAbortSelected = async () => {
+    const toAbort = sessions.filter((s) => selectedIds.has(s.id) && s.status === 'running')
+    await abortSessions(toAbort.map((s) => s.id))
+    setSelectedIds(new Set())
+  }
+
+  const handleClearSelected = () => {
+    const toClear = sessions.filter((s) => selectedIds.has(s.id) && (s.status === 'completed' || s.status === 'error'))
+    clearSessions(toClear.map((s) => s.id))
+    setSelectedIds(new Set())
+  }
+
+  const handleClearAllCompleted = () => {
+    clearCompletedSessions()
+    setSelectedIds(new Set())
+  }
+
   if (sessions.length === 0) return null
+
+  const showBatchToolbar = sessions.length > 1
 
   return (
     <div
@@ -162,6 +297,18 @@ export function ClaudeCodeSessionPanel() {
       {/* 展开内容 */}
       {!isCollapsed && (
         <div className="flex-1 min-h-0 flex flex-col">
+          {/* 批量操作工具栏 */}
+          {showBatchToolbar && (
+            <BatchOperationsToolbar
+              sessions={sessions}
+              selectedIds={selectedIds}
+              onToggleSelectAll={handleToggleSelectAll}
+              onAbortSelected={handleAbortSelected}
+              onClearSelected={handleClearSelected}
+              onClearAllCompleted={handleClearAllCompleted}
+            />
+          )}
+
           {/* 会话标签栏 */}
           <div className="flex items-center gap-1 px-2 py-1 border-b border-border/50 overflow-x-auto shrink-0">
             {sessions.map((session) => (
@@ -170,6 +317,9 @@ export function ClaudeCodeSessionPanel() {
                 session={session}
                 isActive={executionPanelSessionId === session.id}
                 onClick={() => setExecutionPanelSession(session.id)}
+                isSelected={selectedIds.has(session.id)}
+                onSelect={() => handleSelectSession(session.id)}
+                showCheckbox={showBatchToolbar}
               />
             ))}
           </div>

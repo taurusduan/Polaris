@@ -1,4 +1,4 @@
-import { Loader2, CheckCircle, XCircle, Code, Clock } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, Code, Clock, Square, CheckSquare } from 'lucide-react'
 import type { ClaudeCodeSessionState } from '../types'
 import { cn } from '../../utils'
 
@@ -15,14 +15,25 @@ interface SessionTabProps {
   session: ClaudeCodeSessionState
   isActive: boolean
   onClick: () => void
+  /** 是否选中（批量操作模式） */
+  isSelected?: boolean
+  /** 选择回调 */
+  onSelect?: () => void
+  /** 是否显示选择框 */
+  showCheckbox?: boolean
 }
 
 /**
  * 会话标签
  */
-export function SessionTab({ session, isActive, onClick }: SessionTabProps) {
+export function SessionTab({ session, isActive, onClick, isSelected, onSelect, showCheckbox }: SessionTabProps) {
   const duration = formatDuration(session.createdAt, session.status === 'running' ? undefined : session.lastActiveAt)
   const isRunning = session.status === 'running'
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onSelect?.()
+  }
 
   return (
     <button
@@ -30,10 +41,22 @@ export function SessionTab({ session, isActive, onClick }: SessionTabProps) {
         'flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors',
         isActive
           ? 'bg-primary/20 text-primary'
-          : 'text-text-muted hover:bg-background-surface'
+          : 'text-text-muted hover:bg-background-surface',
+        isSelected && 'ring-1 ring-primary/50'
       )}
       onClick={onClick}
     >
+      {/* 选择框 */}
+      {showCheckbox && (
+        <span onClick={handleCheckboxClick} className="shrink-0">
+          {isSelected ? (
+            <CheckSquare className="w-3 h-3 text-primary" />
+          ) : (
+            <Square className="w-3 h-3 text-text-tertiary hover:text-text-secondary" />
+          )}
+        </span>
+      )}
+
       {/* 状态图标 */}
       {session.status === 'running' && (
         <Loader2 className="w-3 h-3 animate-spin" />

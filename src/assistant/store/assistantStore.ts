@@ -78,6 +78,11 @@ export interface AssistantActions {
   abortSession: (sessionId: string) => Promise<void>
   abortAllSessions: () => Promise<void>
 
+  // 批量会话操作
+  abortSessions: (sessionIds: string[]) => Promise<void>
+  clearCompletedSessions: () => void
+  clearSessions: (sessionIds: string[]) => void
+
   // UI 控制
   toggleExecutionPanel: () => void
   setExecutionPanelSession: (sessionId: string | null) => void
@@ -275,6 +280,31 @@ export const useAssistantStore = create<AssistantStore>()(
       abortAllSessions: async () => {
         const runningSessions = get().getRunningSessions()
         await Promise.all(runningSessions.map((s) => get().abortSession(s.id)))
+      },
+
+      // 批量会话操作
+      abortSessions: async (sessionIds) => {
+        await Promise.all(sessionIds.map((id) => get().abortSession(id)))
+      },
+
+      clearCompletedSessions: () => {
+        set((state) => {
+          const newSessions = new Map(state.claudeCodeSessions)
+          Array.from(newSessions.entries()).forEach(([id, session]) => {
+            if (session.status === 'completed' || session.status === 'error') {
+              newSessions.delete(id)
+            }
+          })
+          return { claudeCodeSessions: newSessions }
+        })
+      },
+
+      clearSessions: (sessionIds) => {
+        set((state) => {
+          const newSessions = new Map(state.claudeCodeSessions)
+          sessionIds.forEach((id) => newSessions.delete(id))
+          return { claudeCodeSessions: newSessions }
+        })
       },
 
       // UI 控制
