@@ -49,6 +49,8 @@ pub struct IntegrationManager {
     active_sessions: Arc<Mutex<HashMap<String, tokio::task::JoinHandle<()>>>>,
     /// 实例注册表（多配置管理）
     instance_registry: Arc<Mutex<InstanceRegistry>>,
+    /// 每个会话的消息处理串行锁（确保同一会话消息按序处理，不同会话并行）
+    conversation_queues: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>,
 }
 
 /// AI 消息处理上下文
@@ -79,6 +81,7 @@ impl IntegrationManager {
             session_map: HashMap::new(),
             active_sessions: Arc::new(Mutex::new(HashMap::new())),
             instance_registry: Arc::new(Mutex::new(InstanceRegistry::new())),
+            conversation_queues: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -134,15 +137,20 @@ impl IntegrationManager {
                 registry.activate(active_id);
             }
 
-            tracing::info!("[IntegrationManager] ✅ 从配置加载了 {} 个 QQ Bot 实例", registry.count());
+            tracing::info!("[IntegrationManager] ✅ QQ Bot 实例已加载 (共 {} 个)", config.instances.len());
 
             if let Some(active_instance) = registry.get_active(Platform::QQBot) {
                 if let InstanceConfig::QQBot(qqbot_cfg) = &active_instance.config {
                     if qqbot_cfg.enabled && !qqbot_cfg.app_id.is_empty() && !qqbot_cfg.client_secret.is_empty() {
-                        let adapter = QQBotAdapter::new(qqbot_cfg.clone());
+                        // 只在 adapters 中不存在时才创建，避免覆盖已有连接
                         let mut adapters = self.adapters.lock().await;
-                        adapters.insert(Platform::QQBot, Box::new(adapter));
-                        tracing::info!("[IntegrationManager] ✅ 激活实例: {}", active_instance.name);
+                        if !adapters.contains_key(&Platform::QQBot) {
+                            let adapter = QQBotAdapter::new(qqbot_cfg.clone());
+                            adapters.insert(Platform::QQBot, Box::new(adapter));
+                            tracing::info!("[IntegrationManager] ✅ 创建 QQBot 适配器: {}", active_instance.name);
+                        } else {
+                            tracing::info!("[IntegrationManager] ✅ QQBot 适配器已存在，跳过重建");
+                        }
                     }
                 }
             }
@@ -178,15 +186,20 @@ impl IntegrationManager {
                 registry.activate(active_id);
             }
 
-            tracing::info!("[IntegrationManager] ✅ 从配置加载了 {} 个 Feishu 实例", registry.count());
+            tracing::info!("[IntegrationManager] ✅ Feishu 实例已加载 (共 {} 个)", config.instances.len());
 
             if let Some(active_instance) = registry.get_active(Platform::Feishu) {
                 if let InstanceConfig::Feishu(feishu_cfg) = &active_instance.config {
                     if feishu_cfg.enabled && !feishu_cfg.app_id.is_empty() && !feishu_cfg.app_secret.is_empty() {
-                        let adapter = FeishuAdapter::new(feishu_cfg.clone());
+                        // 只在 adapters 中不存在时才创建，避免覆盖已有连接
                         let mut adapters = self.adapters.lock().await;
-                        adapters.insert(Platform::Feishu, Box::new(adapter));
-                        tracing::info!("[IntegrationManager] ✅ 激活实例: {}", active_instance.name);
+                        if !adapters.contains_key(&Platform::Feishu) {
+                            let adapter = FeishuAdapter::new(feishu_cfg.clone());
+                            adapters.insert(Platform::Feishu, Box::new(adapter));
+                            tracing::info!("[IntegrationManager] ✅ 创建 Feishu 适配器: {}", active_instance.name);
+                        } else {
+                            tracing::info!("[IntegrationManager] ✅ Feishu 适配器已存在，跳过重建");
+                        }
                     }
                 }
             }
@@ -1492,6 +1505,7 @@ impl IntegrationManager {
         let adapters = self.adapters.clone();
         let conversation_states = self.conversation_states.clone();
         let active_sessions = self.active_sessions.clone();
+        let conversation_queues = self.conversation_queues.clone();
 
         if let (Some(rx), Some(app_handle)) = (rx, app_handle) {
             tracing::info!("[IntegrationManager] 🚀 启动消息处理任务");
@@ -1503,31 +1517,63 @@ impl IntegrationManager {
                 while let Some(msg) = rx.recv().await {
                     // 使用消息自身携带的 platform，而不是启动时的 platform
                     let msg_platform = msg.platform;
+                    let conv_id = msg.conversation_id.clone();
 
                     tracing::info!(
                         "[IntegrationManager] 📩 收到消息: id={}, platform={}, conversation={}",
                         msg.id,
                         msg_platform,
-                        msg.conversation_id
+                        conv_id
                     );
 
-                    // 发送到前端
+                    // 发送到前端（同步 emit，不阻塞）
                     if let Err(e) = app_handle.emit("integration:message", &msg) {
                         tracing::error!("[IntegrationManager] ❌ 发送消息到前端失败: {}", e);
                     } else {
                         tracing::info!("[IntegrationManager] ✅ 消息已发送到前端");
                     }
 
-                    // 处理消息（使用消息来源的平台）
-                    Self::handle_message(
-                        msg,
-                        app_handle.clone(),
-                        msg_platform,
-                        adapters.clone(),
-                        engine_registry.clone(),
-                        conversation_states.clone(),
-                        active_sessions.clone(),
-                    ).await;
+                    // 获取或创建 per-conversation 串行锁
+                    let conv_lock = {
+                        let mut queues = conversation_queues.lock().await;
+                        queues.entry(conv_id.clone()).or_default().clone()
+                    };
+
+                    // clone 所有 Arc 引用给 spawned 任务使用
+                    let task_app_handle = app_handle.clone();
+                    let task_adapters = adapters.clone();
+                    let task_engine_registry = engine_registry.clone();
+                    let task_conversation_states = conversation_states.clone();
+                    let task_active_sessions = active_sessions.clone();
+                    let task_conversation_queues = conversation_queues.clone();
+
+                    // spawn 处理任务：同一会话串行，不同会话并行
+                    tokio::spawn(async move {
+                        // 等待同一会话的前一条消息处理完成
+                        let _guard = conv_lock.lock().await;
+
+                        Self::handle_message(
+                            msg,
+                            task_app_handle,
+                            msg_platform,
+                            task_adapters,
+                            task_engine_registry,
+                            task_conversation_states,
+                            task_active_sessions,
+                        ).await;
+
+                        // 尝试清理空闲的队列条目，避免内存泄漏
+                        {
+                            let mut queues = task_conversation_queues.lock().await;
+                            if let Some(lock) = queues.get(&conv_id) {
+                                // strong_count == 2 表示只有 queues map 和当前引用持有
+                                // （没有其他任务在等锁）
+                                if Arc::strong_count(lock) <= 2 {
+                                    queues.remove(&conv_id);
+                                }
+                            }
+                        }
+                    });
                 }
 
                 tracing::warn!("[IntegrationManager] ⚠️ 消息处理任务结束");
