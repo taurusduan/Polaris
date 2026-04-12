@@ -71,6 +71,7 @@ export interface AssistantActions {
   getRunningSessions: () => ClaudeCodeSessionState[]
   updateSessionStatus: (sessionId: string, status: ClaudeCodeSessionState['status']) => void
   addSessionEvent: (sessionId: string, event: ClaudeCodeExecutionEvent) => void
+  clearSessionEvents: (sessionId: string) => void
 
   // Claude Code 执行控制
   executeInSession: (sessionId: string, params: InvokeClaudeCodeParams) => Promise<void>
@@ -229,6 +230,21 @@ export const useAssistantStore = create<AssistantStore>()(
             ...session,
             events: [...session.events, event],
             lastActiveAt: Date.now(),
+          })
+
+          return { claudeCodeSessions: newSessions }
+        })
+      },
+
+      clearSessionEvents: (sessionId) => {
+        set((state) => {
+          const session = state.claudeCodeSessions.get(sessionId)
+          if (!session) return state
+
+          const newSessions = new Map(state.claudeCodeSessions)
+          newSessions.set(sessionId, {
+            ...session,
+            events: [],
           })
 
           return { claudeCodeSessions: newSessions }
