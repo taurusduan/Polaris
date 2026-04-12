@@ -51,6 +51,12 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build frontend
+        run: pnpm run build
+
+      - name: Build MCP binaries
+        run: cargo build --manifest-path src-tauri/Cargo.toml --release --bin polaris-todo-mcp --bin polaris-requirements-mcp --bin polaris-scheduler-mcp
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
