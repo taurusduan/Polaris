@@ -108,6 +108,7 @@ export interface TextContent {
 export interface ImageContent {
   type: 'image';
   url: string;
+  fileName?: string;
   localPath?: string;
 }
 
@@ -121,6 +122,7 @@ export interface FileContent {
 export interface AudioContent {
   type: 'audio';
   url: string;
+  fileName?: string;
   transcript?: string;
 }
 
@@ -140,6 +142,7 @@ export interface IntegrationMessage {
   senderName: string;
   content: MessageContent;
   timestamp: number;
+  platformMessageId?: string;
   raw?: unknown;
 }
 
