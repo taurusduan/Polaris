@@ -182,8 +182,8 @@ function App() {
             const { initialize, startPlatform } = useIntegrationStore.getState();
             await initialize(qqbotConfig, feishuConfig);
 
-            // 自动连接 QQ Bot（如果配置了）
-            if (qqbotConfig?.enabled && qqbotConfig.instances.length > 0) {
+            // 自动连接 QQ Bot（始终启用，无需 enabled 开关）
+            if (qqbotConfig && qqbotConfig.instances.length > 0) {
               const activeInstance = qqbotConfig.activeInstanceId
                 ? qqbotConfig.instances.find(i => i.id === qqbotConfig.activeInstanceId)
                 : qqbotConfig.instances.find(i => i.enabled);
@@ -194,8 +194,8 @@ function App() {
               }
             }
 
-            // 自动连接 Feishu（如果配置了）
-            if (feishuConfig?.enabled && feishuConfig.instances.length > 0) {
+            // 自动连接 Feishu（始终启用，无需 enabled 开关）
+            if (feishuConfig && feishuConfig.instances.length > 0) {
               const activeInstance = feishuConfig.activeInstanceId
                 ? feishuConfig.instances.find(i => i.id === feishuConfig.activeInstanceId)
                 : feishuConfig.instances.find(i => i.enabled);

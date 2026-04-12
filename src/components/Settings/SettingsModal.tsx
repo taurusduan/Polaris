@@ -200,16 +200,12 @@ export function SettingsModal({ onClose, initialTab }: SettingsModalProps) {
 
               {activeTab === 'qqbot' && (
                 <QQBotTab
-                  config={localConfig}
-                  onConfigChange={setLocalConfig}
                   loading={loading}
                 />
               )}
 
               {activeTab === 'feishu' && (
                 <FeishuTab
-                  config={localConfig}
-                  onConfigChange={setLocalConfig}
                   loading={loading}
                 />
               )}

@@ -14,7 +14,7 @@ import {
   useIntegrationInstances,
   useActiveIntegrationInstance,
 } from '../../../stores';
-import type { Config, PlatformInstance } from '../../../types';
+import type { PlatformInstance } from '../../../types';
 import {
   ConnectionStateLabels,
   type ConnectionState,
@@ -24,8 +24,6 @@ import { createLogger } from '../../../utils/logger';
 const log = createLogger('FeishuTab');
 
 interface FeishuTabProps {
-  config: Config;
-  onConfigChange: (config: Config) => void;
   loading: boolean;
 }
 
@@ -58,7 +56,7 @@ function createEmptyInstance(): PlatformInstance {
   };
 }
 
-export function FeishuTab({ config, onConfigChange, loading }: FeishuTabProps) {
+export function FeishuTab({ loading }: FeishuTabProps) {
   const feishuStatus = useIntegrationStatus('feishu');
   const instances = useIntegrationInstances('feishu');
   const activeInstance = useActiveIntegrationInstance('feishu');
@@ -112,15 +110,6 @@ export function FeishuTab({ config, onConfigChange, loading }: FeishuTabProps) {
       setEditingInstance(activeInstance);
     }
   }, [activeInstance?.id, editingInstance?.id]);
-
-  const feishuConfig = config.feishu || { enabled: false, instances: [], activeInstanceId: undefined };
-
-  const handleEnabledChange = (enabled: boolean) => {
-    onConfigChange({
-      ...config,
-      feishu: { ...feishuConfig, enabled }
-    });
-  };
 
   const handleSave = async () => {
     if (!editingInstance) return;
@@ -256,32 +245,16 @@ export function FeishuTab({ config, onConfigChange, loading }: FeishuTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* 总开关 */}
       <div className="p-4 bg-surface rounded-lg border border-border">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <div className="text-sm font-medium text-text-primary">启用飞书集成</div>
+            <div className="text-sm font-medium text-text-primary">飞书集成</div>
             <div className="text-xs text-text-secondary">通过飞书机器人接收和发送消息</div>
           </div>
-          <button
-            type="button"
-            onClick={() => handleEnabledChange(!feishuConfig.enabled)}
-            className={`relative w-11 h-6 rounded-full transition-colors ${
-              feishuConfig.enabled ? 'bg-primary' : 'bg-border'
-            }`}
-          >
-            <span
-              className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                feishuConfig.enabled ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
         </div>
 
-        {feishuConfig.enabled && (
-          <>
-            {/* 实例列表 */}
-            <div className="mb-4">
+        {/* 实例列表 */}
+        <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs text-text-secondary">机器人实例</label>
                 <button
@@ -536,8 +509,6 @@ export function FeishuTab({ config, onConfigChange, loading }: FeishuTabProps) {
                 </div>
               </div>
             </div>
-          </>
-        )}
       </div>
     </div>
   );

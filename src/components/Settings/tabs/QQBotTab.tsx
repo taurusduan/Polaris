@@ -14,7 +14,7 @@ import {
   useIntegrationInstances,
   useActiveIntegrationInstance,
 } from '../../../stores';
-import type { Config, PlatformInstance } from '../../../types';
+import type { PlatformInstance } from '../../../types';
 import {
   ConnectionStateLabels,
   type ConnectionState,
@@ -24,8 +24,6 @@ import { createLogger } from '../../../utils/logger';
 const log = createLogger('QQBotTab');
 
 interface QQBotTabProps {
-  config: Config;
-  onConfigChange: (config: Config) => void;
   loading: boolean;
 }
 
@@ -58,7 +56,7 @@ function createEmptyInstance(): PlatformInstance {
   };
 }
 
-export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
+export function QQBotTab({ loading }: QQBotTabProps) {
   const qqbotStatus = useIntegrationStatus('qqbot');
   const instances = useIntegrationInstances('qqbot');
   const activeInstance = useActiveIntegrationInstance('qqbot');
@@ -120,14 +118,6 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
       setEditingInstance(activeInstance);
     }
   }, [activeInstance?.id, editingInstance?.id]); // 只比较 ID，避免对象引用变化
-
-  // 启用/禁用 QQ Bot 集成
-  const handleEnabledChange = (enabled: boolean) => {
-    onConfigChange({
-      ...config,
-      qqbot: { ...config.qqbot, enabled }
-    });
-  };
 
   // 保存实例配置
   const handleSave = async () => {
@@ -277,32 +267,16 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* 总开关 */}
       <div className="p-4 bg-surface rounded-lg border border-border">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <div className="text-sm font-medium text-text-primary">启用 QQ Bot 集成</div>
+            <div className="text-sm font-medium text-text-primary">QQ Bot 集成</div>
             <div className="text-xs text-text-secondary">通过 QQ 机器人接收和发送消息</div>
           </div>
-          <button
-            type="button"
-            onClick={() => handleEnabledChange(!config.qqbot?.enabled)}
-            className={`relative w-11 h-6 rounded-full transition-colors ${
-              config.qqbot?.enabled ? 'bg-primary' : 'bg-border'
-            }`}
-          >
-            <span
-              className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                config.qqbot?.enabled ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
         </div>
 
-        {config.qqbot?.enabled && (
-          <>
-            {/* 实例列表 */}
-            <div className="mb-4">
+        {/* 实例列表 */}
+        <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs text-text-secondary">机器人实例</label>
                 <button
@@ -560,8 +534,6 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
                 </div>
               </div>
             </div>
-          </>
-        )}
       </div>
     </div>
   );
