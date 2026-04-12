@@ -135,8 +135,8 @@ export class AssistantEngine {
       // 更新工具调用信息到消息
       if (pendingToolCalls.length > 0) {
         useAssistantStore.getState().updateLastAssistantMessage(currentContent)
-        // 更新消息的 toolCalls
-        setImmediate(() => {
+        // 更新消息的 toolCalls - 使用 Promise.resolve 替代 setImmediate
+        Promise.resolve().then(() => {
           const messages = useAssistantStore.getState().messages
           const lastMsg = messages[messages.length - 1]
           if (lastMsg && lastMsg.role === 'assistant') {
