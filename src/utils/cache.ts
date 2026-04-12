@@ -11,6 +11,16 @@ marked.setOptions({
   gfm: true,
 });
 
+// 自定义链接渲染：所有链接在新标签页打开，防止 SPA 页面跳转导致状态丢失
+const linkRenderer = {
+  link({ href, text }: { href: string; text: string }) {
+    const safeHref = href.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const safeText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${safeText}</a>`;
+  },
+};
+marked.use({ renderer: linkRenderer });
+
 interface CacheEntry<T> {
   value: T;
   timestamp: number;
