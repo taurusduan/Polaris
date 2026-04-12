@@ -251,30 +251,41 @@ impl IntegrationManager {
         active_sessions: Arc<Mutex<HashMap<String, tokio::task::JoinHandle<()>>>>,
         instance_registry: Arc<Mutex<InstanceRegistry>>,
     ) {
-        let text = match msg.content.as_text() {
-            Some(t) => t,
-            None => {
-                tracing::debug!("[IntegrationManager] 非文本消息，跳过处理");
-                return;
-            }
-        };
-
         let conversation_id = msg.conversation_id.clone();
 
         // 注入默认工作区（从当前激活实例配置中读取）
-        {
+        let work_dir = {
             let mut states = conversation_states.lock().await;
             let state = states.get_or_create(&conversation_id);
             if state.work_dir.is_none() {
-                if let Some(work_dir) = Self::get_instance_work_dir(&instance_registry, platform).await {
-                    tracing::info!("[IntegrationManager] 📂 注入默认工作区: conversation={}, work_dir={}", conversation_id, work_dir);
-                    state.work_dir = Some(work_dir);
+                if let Some(wd) = Self::get_instance_work_dir(&instance_registry, platform).await {
+                    tracing::info!("[IntegrationManager] 📂 注入默认工作区: conversation={}, work_dir={}", conversation_id, wd);
+                    state.work_dir = Some(wd);
                 }
             }
+            state.work_dir.clone()
+        };
+
+        // 处理媒体内容：下载文件并构造文本描述
+        let text = if msg.content.has_media() {
+            Self::handle_media_content(&msg, &adapters, &work_dir).await
+        } else {
+            match msg.content.as_text() {
+                Some(t) => t.to_string(),
+                None => {
+                    tracing::debug!("[IntegrationManager] 非文本消息，跳过处理");
+                    return;
+                }
+            }
+        };
+
+        if text.is_empty() {
+            tracing::debug!("[IntegrationManager] 消息内容为空，跳过处理");
+            return;
         }
 
         // 1. 解析命令
-        if let Some(cmd) = CommandParser::parse(text) {
+        if let Some(cmd) = CommandParser::parse(&text) {
             tracing::info!("[IntegrationManager] 📋 识别到命令: {:?}", cmd);
 
             let reply = Self::handle_command(
@@ -297,7 +308,7 @@ impl IntegrationManager {
             let ctx = ProcessAiMessageContext {
                 engine_registry: registry.clone(),
                 conversation_id,
-                message: text.to_string(),
+                message: text,
                 app_handle,
                 platform,
                 adapters,
@@ -309,6 +320,65 @@ impl IntegrationManager {
             tracing::warn!("[IntegrationManager] ⚠️ engine_registry 未设置，无法调用 AI");
             Self::send_reply(&adapters, platform, &conversation_id, "⚠️ AI 服务未初始化").await;
         }
+    }
+
+    /// 处理消息中的媒体内容：下载文件并构造文本描述
+    async fn handle_media_content(
+        msg: &IntegrationMessage,
+        adapters: &Arc<Mutex<HashMap<Platform, Box<dyn PlatformIntegration>>>>,
+        work_dir: &Option<String>,
+    ) -> String {
+        let mut parts: Vec<String> = Vec::new();
+
+        // 提取原始文本（Mixed 内容可能包含文字）
+        if let Some(text) = msg.content.as_text() {
+            if !text.is_empty() {
+                parts.push(text.to_string());
+            }
+        }
+
+        // 确定保存目录
+        let media_dir = match work_dir {
+            Some(dir) => std::path::PathBuf::from(dir).join(".media"),
+            None => dirs::data_local_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("claude-code-pro")
+                .join("media"),
+        };
+
+        // 创建目录（如不存在）
+        if let Err(e) = tokio::fs::create_dir_all(&media_dir).await {
+            tracing::error!("[IntegrationManager] ❌ 创建媒体目录失败: {}", e);
+            parts.push("⚠️ 媒体文件保存失败：无法创建目录".to_string());
+            return parts.join("\n");
+        }
+
+        // 调用适配器下载媒体
+        let downloads = {
+            let mut adapters_lock = adapters.lock().await;
+            if let Some(adapter) = adapters_lock.get_mut(&msg.platform) {
+                adapter.download_media(msg, &media_dir).await
+            } else {
+                vec![]
+            }
+        };
+        // 适配器锁已释放
+
+        // 构造文本描述
+        for dl in downloads {
+            match &dl.local_path {
+                Some(path) => {
+                    parts.push(format!("[{}] 已保存到: {}", dl.label, path));
+                }
+                None => {
+                    parts.push(format!("[{}] 下载失败", dl.label));
+                }
+            }
+        }
+
+        let result = parts.join("\n");
+        tracing::info!("[IntegrationManager] 📎 媒体处理结果: {} chars", result.len());
+        result
     }
 
     /// 获取当前平台激活实例的默认工作目录
