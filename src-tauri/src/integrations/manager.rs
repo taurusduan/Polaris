@@ -49,8 +49,6 @@ pub struct IntegrationManager {
     active_sessions: Arc<Mutex<HashMap<String, tokio::task::JoinHandle<()>>>>,
     /// 实例注册表（多配置管理）
     instance_registry: Arc<Mutex<InstanceRegistry>>,
-    /// 每个会话的消息处理串行锁（确保同一会话消息按序处理，不同会话并行）
-    conversation_queues: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>,
 }
 
 /// AI 消息处理上下文
@@ -81,7 +79,6 @@ impl IntegrationManager {
             session_map: HashMap::new(),
             active_sessions: Arc::new(Mutex::new(HashMap::new())),
             instance_registry: Arc::new(Mutex::new(InstanceRegistry::new())),
-            conversation_queues: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -1620,7 +1617,6 @@ impl IntegrationManager {
         let adapters = self.adapters.clone();
         let conversation_states = self.conversation_states.clone();
         let active_sessions = self.active_sessions.clone();
-        let conversation_queues = self.conversation_queues.clone();
         let instance_registry = self.instance_registry.clone();
 
         if let (Some(rx), Some(app_handle)) = (rx, app_handle) {
@@ -1649,26 +1645,26 @@ impl IntegrationManager {
                         tracing::info!("[IntegrationManager] ✅ 消息已发送到前端");
                     }
 
-                    // 获取或创建 per-conversation 串行锁
-                    let conv_lock = {
-                        let mut queues = conversation_queues.lock().await;
-                        queues.entry(conv_id.clone()).or_default().clone()
-                    };
-
                     // clone 所有 Arc 引用给 spawned 任务使用
                     let task_app_handle = app_handle.clone();
                     let task_adapters = adapters.clone();
                     let task_engine_registry = engine_registry.clone();
                     let task_conversation_states = conversation_states.clone();
                     let task_active_sessions = active_sessions.clone();
-                    let task_conversation_queues = conversation_queues.clone();
                     let task_instance_registry = instance_registry.clone();
 
-                    // spawn 处理任务：同一会话串行，不同会话并行
+                    // spawn 处理任务：收到新消息时立即中断该会话的旧任务
                     tokio::spawn(async move {
-                        // 等待同一会话的前一条消息处理完成
-                        let _guard = conv_lock.lock().await;
+                        // 1. 中断该会话的活跃 AI 任务（如果有）
+                        {
+                            let mut sessions = task_active_sessions.lock().await;
+                            if let Some(handle) = sessions.remove(&conv_id) {
+                                handle.abort();
+                                tracing::info!("[IntegrationManager] 🛑 中断旧任务，处理新消息: {}", conv_id);
+                            }
+                        }
 
+                        // 2. 处理新消息
                         Self::handle_message(
                             msg,
                             task_app_handle,
@@ -1679,18 +1675,6 @@ impl IntegrationManager {
                             task_active_sessions,
                             task_instance_registry,
                         ).await;
-
-                        // 尝试清理空闲的队列条目，避免内存泄漏
-                        {
-                            let mut queues = task_conversation_queues.lock().await;
-                            if let Some(lock) = queues.get(&conv_id) {
-                                // strong_count == 2 表示只有 queues map 和当前引用持有
-                                // （没有其他任务在等锁）
-                                if Arc::strong_count(lock) <= 2 {
-                                    queues.remove(&conv_id);
-                                }
-                            }
-                        }
                     });
                 }
 
