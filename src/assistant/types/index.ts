@@ -51,6 +51,8 @@ export interface InvokeClaudeCodeParams {
   reason?: string
   /** 是否后台执行，默认 true */
   background?: boolean
+  /** 是否自动汇报结果给 AI，默认 true */
+  autoReport?: boolean
 }
 
 // ============================================
@@ -123,6 +125,8 @@ export interface CompletionNotification {
   retryCount?: number
   /** 最后错误信息 */
   lastError?: string
+  /** 是否已自动汇报给 AI */
+  autoReported?: boolean
 }
 
 // ============================================

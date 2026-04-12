@@ -295,6 +295,11 @@ ${historyParts.join('\n\n')}
           type: 'assistant_notification' as any,
           notification,
         } as any)
+
+        // 自动汇报给 AI（核心改动）
+        if (params.autoReport !== false && output) {
+          this.autoReportToAI(params.prompt, output, notification.id)
+        }
       }
 
       if (event.type === 'error') {
@@ -429,6 +434,80 @@ ${result}
     this.conversationHistory.push({ role: 'assistant', content: currentContent })
 
     yield { type: 'message_complete' }
+  }
+
+  /**
+   * 自动将后台任务结果汇报给 AI
+   * 用于实现 AI 主动汇报能力
+   */
+  private autoReportToAI(
+    prompt: string,
+    result: string,
+    notificationId: string
+  ): void {
+    if (!this.llmEngine || !result) return
+
+    // 构建汇报消息
+    const reportMessage = `后台任务已完成。
+
+**执行的提示词：**
+${prompt}
+
+**执行结果：**
+${result}
+
+请根据以上结果主动向用户汇报，并建议下一步操作。`
+
+    // 添加到对话历史
+    this.conversationHistory.push({ role: 'user', content: reportMessage })
+
+    // 标记通知已自动汇报
+    useAssistantStore.getState().markNotificationAutoReported(notificationId)
+
+    // 异步处理，不阻塞主流程
+    this.processAutoReport(reportMessage).catch((error) => {
+      console.error('[AssistantEngine] 自动汇报失败:', error)
+    })
+  }
+
+  /**
+   * 处理自动汇报的 LLM 调用
+   */
+  private async processAutoReport(reportMessage: string): Promise<void> {
+    if (!this.llmEngine) return
+
+    // 创建新的 LLM 会话处理汇报
+    const session = this.llmEngine.createSession({
+      options: { systemPrompt: getSystemPrompt() },
+    })
+
+    const task = {
+      id: `task-auto-report-${Date.now()}`,
+      kind: 'chat' as const,
+      input: { prompt: this.buildPromptWithHistory(reportMessage) },
+    }
+
+    // 创建助手消息用于流式更新
+    const assistantMessageId = `assistant-auto-report-${Date.now()}`
+    useAssistantStore.getState().addMessage({
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now(),
+    })
+    useAssistantStore.getState().setStreamingMessageId(assistantMessageId)
+
+    let currentContent = ''
+
+    for await (const event of session.run(task)) {
+      if (event.type === 'assistant_message' && event.isDelta) {
+        currentContent += event.content
+        useAssistantStore.getState().appendToLastAssistantMessage(event.content)
+      }
+    }
+
+    useAssistantStore.getState().setStreamingMessageId(null)
+    this.conversationHistory.push({ role: 'assistant', content: currentContent })
   }
 
   /**

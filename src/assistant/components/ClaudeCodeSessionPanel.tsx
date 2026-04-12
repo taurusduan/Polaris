@@ -257,34 +257,68 @@ export function CompletionNotificationPanel() {
                   )}
                 </div>
               )}
+              {/* 自动汇报状态 */}
+              {notification.autoReported && (
+                <div className="text-xs text-success mb-2 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" />
+                  <span>AI 已自动处理</span>
+                </div>
+              )}
               <div className="flex gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onImmediate(notification)
-                  }}
-                  className="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary/80"
-                >
-                  立即处理
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDelayed(notification)
-                  }}
-                  className="px-2 py-1 text-xs bg-background-hover text-text-secondary rounded hover:bg-background-surface"
-                >
-                  稍后处理
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onIgnored(notification)
-                  }}
-                  className="px-2 py-1 text-xs text-text-muted hover:text-text-secondary"
-                >
-                  忽略
-                </button>
+                {notification.autoReported ? (
+                  // 已自动汇报时，提供"查看详情"和"忽略"
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onImmediate(notification)
+                      }}
+                      className="px-2 py-1 text-xs bg-background-hover text-text-secondary rounded hover:bg-background-surface"
+                    >
+                      查看详情
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onIgnored(notification)
+                      }}
+                      className="px-2 py-1 text-xs text-text-muted hover:text-text-secondary"
+                    >
+                      忽略
+                    </button>
+                  </>
+                ) : (
+                  // 未自动汇报时，提供完整选项
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onImmediate(notification)
+                      }}
+                      className="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary/80"
+                    >
+                      立即处理
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDelayed(notification)
+                      }}
+                      className="px-2 py-1 text-xs bg-background-hover text-text-secondary rounded hover:bg-background-surface"
+                    >
+                      稍后处理
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onIgnored(notification)
+                      }}
+                      className="px-2 py-1 text-xs text-text-muted hover:text-text-secondary"
+                    >
+                      忽略
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))}
