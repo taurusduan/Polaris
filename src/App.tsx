@@ -18,6 +18,7 @@ import { TerminalPanel } from './components/Terminal/TerminalPanel';
 // 这些组件使用命名导出，所以需要使用 then 提取
 const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then(m => ({ default: m.SettingsModal })));
 const DeveloperPanel = lazy(() => import('./components/Developer/DeveloperPanel').then(m => ({ default: m.DeveloperPanel })));
+const IntegrationPanel = lazy(() => import('./components/Integration/IntegrationPanel').then(m => ({ default: m.IntegrationPanel })));
 const CreateWorkspaceModal = lazy(() => import('./components/Workspace/CreateWorkspaceModal').then(m => ({ default: m.CreateWorkspaceModal })));
 const FileSearchModal = lazy(() => import('./components/Editor/FileSearchModal').then(m => ({ default: m.FileSearchModal })));
 import { useConfigStore, useViewStore, useWorkspaceStore, useTabStore, useIntegrationStore } from './stores';
@@ -445,6 +446,11 @@ function App() {
               developerContent={
                 <Suspense fallback={<div className="flex items-center justify-center h-full text-text-muted">{t('status.loading')}</div>}>
                   <DeveloperPanel fillRemaining />
+                </Suspense>
+              }
+              integrationContent={
+                <Suspense fallback={<div className="flex items-center justify-center h-full text-text-muted">{t('status.loading')}</div>}>
+                  <IntegrationPanel />
                 </Suspense>
               }
             />

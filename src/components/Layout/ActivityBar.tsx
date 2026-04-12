@@ -6,7 +6,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, ClipboardList, Terminal, Code2, PanelRight } from 'lucide-react'
+import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, ClipboardList, Terminal, Code2, PanelRight, Bot } from 'lucide-react'
 import { useViewStore } from '@/stores/viewStore'
 import { ActivityBarIcon } from './ActivityBarIcon'
 import { RadialMenu, RadialMenuTrigger } from './RadialMenu'
@@ -113,6 +113,11 @@ export function ActivityBar({ className, onOpenSettings, onToggleRightPanel, rig
       id: 'developer' as const,
       icon: Code2,
       label: t('labels.developerPanel'),
+    },
+    {
+      id: 'integration' as const,
+      icon: Bot,
+      label: t('labels.integrationPanel'),
     },
   ]
 

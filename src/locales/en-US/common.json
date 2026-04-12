@@ -73,6 +73,7 @@
     "view": "View",
     "toolPanel": "Tool Panel",
     "developerPanel": "Developer",
+    "integrationPanel": "Bots",
     "newChat": "New Chat",
     "exportChat": "Export Chat",
     "sessionHistory": "Session History"
