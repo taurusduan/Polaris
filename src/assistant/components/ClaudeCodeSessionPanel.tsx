@@ -166,7 +166,7 @@ function EventItem({ event }: { event: ClaudeCodeExecutionEvent }) {
  */
 export function CompletionNotificationPanel() {
   const { completionNotifications, hasUnreadNotifications } = useAssistantStore()
-  const { handleNotification } = useAssistant()
+  const { handleNotification, retryNotification } = useAssistant()
   const [isExpanded, setIsExpanded] = useState(false)
 
   const pendingNotifications = completionNotifications.filter((n) => !n.handled)
@@ -183,6 +183,10 @@ export function CompletionNotificationPanel() {
 
   const onIgnored = (notification: CompletionNotification) => {
     handleNotification(notification, 'ignored')
+  }
+
+  const onRetry = (notification: CompletionNotification) => {
+    retryNotification(notification)
   }
 
   return (
@@ -222,6 +226,24 @@ export function CompletionNotificationPanel() {
               <div className="text-xs text-text-muted mb-2 line-clamp-2">
                 {notification.resultSummary}
               </div>
+              {/* 错误信息和重试按钮 */}
+              {notification.lastError && (
+                <div className="text-xs text-danger mb-2 flex items-center gap-2">
+                  <XCircle className="w-3 h-3" />
+                  <span>处理失败 ({notification.retryCount || 0}/3): {notification.lastError}</span>
+                  {(notification.retryCount || 0) < 3 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRetry(notification)
+                      }}
+                      className="text-primary hover:underline"
+                    >
+                      重试
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={(e) => {

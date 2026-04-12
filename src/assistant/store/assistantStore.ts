@@ -69,6 +69,7 @@ export interface AssistantActions {
   addCompletionNotification: (notification: CompletionNotification) => void
   getPendingNotifications: () => CompletionNotification[]
   markNotificationHandled: (id: string, handleType: 'immediate' | 'delayed' | 'ignored') => void
+  updateNotificationError: (id: string, error: string) => void
   clearNotifications: () => void
 
   // 初始化
@@ -269,6 +270,15 @@ export const useAssistantStore = create<AssistantStore>((set, get) => ({
       )
       const hasUnread = notifications.some((n) => !n.handled)
       return { completionNotifications: notifications, hasUnreadNotifications: hasUnread }
+    })
+  },
+
+  updateNotificationError: (id, error) => {
+    set((state) => {
+      const notifications = state.completionNotifications.map((n) =>
+        n.id === id ? { ...n, lastError: error, retryCount: (n.retryCount || 0) + 1 } : n
+      )
+      return { completionNotifications: notifications }
     })
   },
 

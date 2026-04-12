@@ -119,6 +119,10 @@ export interface CompletionNotification {
   handled: boolean
   /** 处理方式 */
   handleType?: 'immediate' | 'delayed' | 'ignored'
+  /** 重试次数 */
+  retryCount?: number
+  /** 最后错误信息 */
+  lastError?: string
 }
 
 // ============================================

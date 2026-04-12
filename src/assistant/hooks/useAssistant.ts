@@ -3,6 +3,9 @@ import { useAssistantStore } from '../store/assistantStore'
 import { getAssistantEngine } from '../core/AssistantEngine'
 import type { CompletionNotification } from '../types'
 
+/** 最大重试次数 */
+const MAX_RETRY_COUNT = 3
+
 /**
  * 助手交互 Hook
  */
@@ -53,10 +56,43 @@ export function useAssistant() {
           // 处理事件
         }
       } catch (error) {
-        store.setError((error as Error).message)
+        const errorMessage = (error as Error).message
+        store.setError(errorMessage)
+
+        // 检查是否可以重试
+        const retryCount = notification.retryCount || 0
+        if (retryCount < MAX_RETRY_COUNT) {
+          store.updateNotificationError(notification.id, errorMessage)
+        }
       } finally {
         store.setLoading(false)
       }
+    }
+  }, [store])
+
+  /**
+   * 重试失败的通知
+   */
+  const retryNotification = useCallback(async (notification: CompletionNotification) => {
+    if (!notification.fullResult) return
+
+    // 重置状态
+    store.markNotificationHandled(notification.id, 'immediate')
+    store.setLoading(true)
+
+    try {
+      const engine = getAssistantEngine()
+      for await (const _ of engine.processMessage(
+        `重试处理后台任务结果。\n\n执行的提示词：${notification.prompt}\n\n执行结果：\n${notification.fullResult}\n\n请根据以上结果继续处理。`
+      )) {
+        // 处理事件
+      }
+    } catch (error) {
+      const errorMessage = (error as Error).message
+      store.setError(errorMessage)
+      store.updateNotificationError(notification.id, errorMessage)
+    } finally {
+      store.setLoading(false)
     }
   }, [store])
 
@@ -76,6 +112,7 @@ export function useAssistant() {
     abort,
     clearMessages: store.clearMessages,
     handleNotification,
+    retryNotification,
 
     // UI
     executionPanelExpanded: store.executionPanelExpanded,
