@@ -3,6 +3,7 @@ pub mod config;
 pub mod events;
 pub mod git;
 pub mod prompt;
+pub mod prompt_snippet;
 pub mod scheduler;
 pub mod todo;
 pub mod requirement;

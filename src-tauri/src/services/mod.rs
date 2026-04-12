@@ -5,6 +5,7 @@ pub mod logger;
 pub mod mcp_config_service;
 pub mod mcp_diagnostics_service;
 pub mod prompt_store;
+pub mod prompt_snippet_service;
 pub mod scheduler;
 pub mod scheduler_daemon;
 pub mod scheduler_mcp_server;

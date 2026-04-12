@@ -98,6 +98,9 @@ use commands::terminal::{
     terminal_close, terminal_list, terminal_get,
 };
 use commands::diagnostics::get_todo_mcp_diagnostics;
+use commands::prompt_snippet::{
+    snippet_list, snippet_get, snippet_create, snippet_update, snippet_delete,
+};
 
 use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
@@ -268,6 +271,12 @@ pub fn run() {
             detect_claude,
             // MCP 诊断
             get_todo_mcp_diagnostics,
+            // Prompt Snippet 快捷片段
+            snippet_list,
+            snippet_get,
+            snippet_create,
+            snippet_update,
+            snippet_delete,
             // 聊天相关（统一接口）
             start_chat,
             continue_chat,
