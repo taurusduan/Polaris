@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
+import { Trash2 } from 'lucide-react'
 import { useAssistantStore } from '../store/assistantStore'
 import { useConfigStore } from '../../stores/configStore'
-import { getAssistantEngine, resetAssistantEngine } from '../core/AssistantEngine'
+import { getAssistantEngine, resetAssistantEngine, clearConversation } from '../core/AssistantEngine'
 import { AssistantChat } from './AssistantChat'
 import { AssistantInput } from './AssistantInput'
 import { ClaudeCodeSessionPanel, CompletionNotificationPanel } from './ClaudeCodeSessionPanel'
@@ -11,7 +12,7 @@ import { DEFAULT_ASSISTANT_CONFIG } from '../types'
  * 助手面板 - 主界面
  */
 export function AssistantPanel() {
-  const { claudeCodeSessions, initialize } = useAssistantStore()
+  const { claudeCodeSessions, initialize, messages } = useAssistantStore()
   const { config } = useConfigStore()
   const prevConfigRef = useRef<string>('')
 
@@ -46,6 +47,11 @@ export function AssistantPanel() {
     }
   }, [config?.assistant])
 
+  // 清空对话
+  const handleClearConversation = () => {
+    clearConversation()
+  }
+
   const sessionCount = claudeCodeSessions.size
   const runningCount = Array.from(claudeCodeSessions.values()).filter(
     (s) => s.status === 'running'
@@ -53,6 +59,7 @@ export function AssistantPanel() {
 
   const assistantConfig = config?.assistant || DEFAULT_ASSISTANT_CONFIG
   const isConfigured = assistantConfig.enabled && !!assistantConfig.llm.apiKey
+  const hasMessages = messages.length > 0
 
   return (
     <div className="flex flex-col h-full bg-background-elevated">
@@ -69,6 +76,16 @@ export function AssistantPanel() {
                 </span>
               )}
             </span>
+          )}
+          {/* 清空对话按钮 */}
+          {hasMessages && (
+            <button
+              onClick={handleClearConversation}
+              className="p-1 text-text-muted hover:text-text-primary hover:bg-background-hover rounded transition-colors"
+              title="清空对话"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           )}
         </div>
       </div>

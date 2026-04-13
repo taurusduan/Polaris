@@ -575,6 +575,18 @@ ${result}
   }
 
   /**
+   * 清空对话历史（不清理引擎本身）
+   */
+  clearHistory(): void {
+    // 清空对话历史
+    this.conversationHistory = []
+
+    // 清理所有后台任务订阅
+    this.backgroundUnsubscribes.forEach((unsubscribe) => unsubscribe())
+    this.backgroundUnsubscribes.clear()
+  }
+
+  /**
    * 清理资源
    */
   cleanup(): void {
@@ -612,4 +624,41 @@ export function resetAssistantEngine(): void {
     engineInstance.cleanup()
     engineInstance = null
   }
+}
+
+/**
+ * 清空对话（包括消息、会话、通知、历史）
+ */
+export function clearConversation(): void {
+  const store = useAssistantStore.getState()
+
+  // 1. 检查是否有正在运行的任务
+  const runningSessions = store.getRunningSessions()
+  if (runningSessions.length > 0) {
+    // 中断所有运行中的任务
+    store.abortAllSessions()
+  }
+
+  // 2. 清理 store 状态
+  store.clearMessages()
+  store.clearNotifications()
+
+  // 3. 清理所有非 primary 会话
+  const allSessions = store.getAllClaudeCodeSessions()
+  const nonPrimarySessions = allSessions.filter(s => s.id !== 'primary')
+  if (nonPrimarySessions.length > 0) {
+    store.clearSessions(nonPrimarySessions.map(s => s.id))
+  }
+
+  // 4. 清理 Engine 内部历史
+  if (engineInstance) {
+    engineInstance.clearHistory()
+  }
+
+  // 5. 重置错误状态
+  store.setError(null)
+  store.setStreamingMessageId(null)
+  store.setLoading(false)
+
+  console.log('[AssistantEngine] 对话已清空')
 }
