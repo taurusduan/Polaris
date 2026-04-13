@@ -36,6 +36,8 @@ export class AssistantEngine {
   private eventUnsubscribe: (() => void) | null = null
   /** 对话历史，用于多轮对话 */
   private conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = []
+  /** 后台任务订阅清理函数映射 */
+  private backgroundUnsubscribes: Map<string, () => void> = new Map()
 
   /**
    * 初始化引擎
@@ -251,6 +253,12 @@ ${historyParts.join('\n\n')}
     const events: ClaudeCodeExecutionEvent[] = []
     let output = ''
 
+    // 清理该会话之前的订阅（如果存在）
+    const existingUnsubscribe = this.backgroundUnsubscribes.get(sessionId)
+    if (existingUnsubscribe) {
+      existingUnsubscribe()
+    }
+
     // 订阅事件
     // 注意：使用 _routeSessionId 匹配前端会话 ID，而不是 event.sessionId（后端会话 ID）
     const unsubscribe = this.eventBus.onAny((event: AIEvent) => {
@@ -281,6 +289,7 @@ ${historyParts.join('\n\n')}
       // 会话结束，创建通知
       if (event.type === 'session_end') {
         unsubscribe()
+        this.backgroundUnsubscribes.delete(sessionId)
         // 更新会话状态为已完成
         useAssistantStore.getState().updateSessionStatus(sessionId, 'completed')
         const notification: CompletionNotification = {
@@ -309,6 +318,7 @@ ${historyParts.join('\n\n')}
 
       if (event.type === 'error') {
         unsubscribe()
+        this.backgroundUnsubscribes.delete(sessionId)
         // 更新会话状态为错误
         useAssistantStore.getState().updateSessionStatus(sessionId, 'error')
         const notification: CompletionNotification = {
@@ -329,6 +339,9 @@ ${historyParts.join('\n\n')}
         } as any)
       }
     })
+
+    // 保存订阅清理函数
+    this.backgroundUnsubscribes.set(sessionId, unsubscribe)
 
     // 开始执行
     useAssistantStore.getState().executeInSession(sessionId, params)
@@ -539,9 +552,16 @@ ${result}
     this.eventUnsubscribe = this.eventBus.onAny((event: AIEvent) => {
       // 同步会话状态
       if (event.type === 'session_start' || event.type === 'session_end') {
-        const eventWithSession = event as { sessionId?: string; type: string }
-        const sessionId = eventWithSession.sessionId
+        const eventWithSession = event as { sessionId?: string; _routeSessionId?: string; type: string }
+        // 优先使用 _routeSessionId（前端会话 ID）
+        const sessionId = eventWithSession._routeSessionId || eventWithSession.sessionId
         if (sessionId) {
+          // 检查是否是 Claude Code 会话，如果是则跳过（由 executeClaudeCodeBackground 管理）
+          const claudeCodeSession = useAssistantStore.getState().getClaudeCodeSession(sessionId)
+          if (claudeCodeSession) {
+            // Claude Code 会话由 executeClaudeCodeBackground 管理状态，这里不处理
+            return
+          }
           const status = event.type === 'session_start' ? 'running' : 'idle'
           useAssistantStore.getState().updateSessionStatus(sessionId, status)
         }
@@ -553,6 +573,10 @@ ${result}
    * 清理资源
    */
   cleanup(): void {
+    // 清理所有后台任务订阅
+    this.backgroundUnsubscribes.forEach((unsubscribe) => unsubscribe())
+    this.backgroundUnsubscribes.clear()
+
     if (this.eventUnsubscribe) {
       this.eventUnsubscribe()
       this.eventUnsubscribe = null

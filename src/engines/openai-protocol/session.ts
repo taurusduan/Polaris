@@ -62,6 +62,8 @@ export class OpenAISession extends EventEmitter implements AISession {
       yield* this.streamCompletion()
     } catch (error) {
       this.status = 'idle'
+      // 清理 AbortController
+      this.abortController = null
       throw error
     }
 
