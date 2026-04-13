@@ -243,5 +243,14 @@
     "preview": "Preview",
     "previewDefault": "(Using default prompt)",
     "previewDefaultLabel": "[Default Prompt]"
+  },
+  "assistant": {
+    "enable": "Enable AI Assistant",
+    "enableDescription": "Enable AI Assistant feature in sidebar",
+    "llmConfig": "LLM Configuration",
+    "baseUrl": "API Base URL",
+    "apiKey": "API Key",
+    "model": "Model Name",
+    "temperature": "Temperature"
   }
 }

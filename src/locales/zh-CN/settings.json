@@ -243,5 +243,14 @@
     "preview": "预览",
     "previewDefault": "（使用默认提示词）",
     "previewDefaultLabel": "[默认提示词]"
+  },
+  "assistant": {
+    "enable": "启用 AI 助手",
+    "enableDescription": "启用后可在侧边栏使用 AI 助手功能",
+    "llmConfig": "LLM 配置",
+    "baseUrl": "API 地址",
+    "apiKey": "API Key",
+    "model": "模型名称",
+    "temperature": "温度参数"
   }
 }
