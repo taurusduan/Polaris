@@ -11,6 +11,78 @@ import type {
   CompletionNotification,
 } from '../types'
 
+/** 流式更新节流间隔（毫秒） */
+const STREAM_THROTTLE_INTERVAL = 16 // ~60fps
+
+/**
+ * 流式更新节流器
+ * 使用 requestAnimationFrame 实现平滑更新
+ */
+class StreamingThrottler {
+  private pendingContent: string = ''
+  private rafId: number | null = null
+  private lastUpdateTime: number = 0
+  private flushCallback: ((content: string) => void) | null = null
+
+  /**
+   * 设置刷新回调
+   */
+  setFlushCallback(callback: (content: string) => void): void {
+    this.flushCallback = callback
+  }
+
+  /**
+   * 添加内容（节流更新）
+   */
+  append(content: string): void {
+    this.pendingContent += content
+
+    const now = performance.now()
+    const timeSinceLastUpdate = now - this.lastUpdateTime
+
+    // 如果距离上次更新超过阈值，立即刷新
+    if (timeSinceLastUpdate >= STREAM_THROTTLE_INTERVAL) {
+      this.flush()
+      return
+    }
+
+    // 否则调度下一次刷新
+    if (!this.rafId) {
+      this.rafId = requestAnimationFrame(() => {
+        this.flush()
+      })
+    }
+  }
+
+  /**
+   * 立即刷新所有待处理内容
+   */
+  flush(): void {
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId)
+      this.rafId = null
+    }
+
+    if (this.pendingContent && this.flushCallback) {
+      this.flushCallback(this.pendingContent)
+      this.pendingContent = ''
+      this.lastUpdateTime = performance.now()
+    }
+  }
+
+  /**
+   * 重置状态
+   */
+  reset(): void {
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId)
+      this.rafId = null
+    }
+    this.pendingContent = ''
+    this.lastUpdateTime = 0
+  }
+}
+
 /**
  * 助手引擎配置
  */
@@ -38,6 +110,8 @@ export class AssistantEngine {
   private conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = []
   /** 后台任务订阅清理函数映射 */
   private backgroundUnsubscribes: Map<string, () => void> = new Map()
+  /** 流式更新节流器 */
+  private streamingThrottler: StreamingThrottler = new StreamingThrottler()
 
   /**
    * 初始化引擎
@@ -63,6 +137,11 @@ export class AssistantEngine {
     })
 
     this.llmEngine.setTools(ASSISTANT_TOOLS)
+
+    // 设置流式更新节流器的回调
+    this.streamingThrottler.setFlushCallback((content) => {
+      useAssistantStore.getState().appendToLastAssistantMessage(content)
+    })
 
     // 订阅事件
     this.subscribeToEvents()
@@ -119,15 +198,18 @@ export class AssistantEngine {
       useAssistantStore.getState().addMessage(assistantMessage)
       useAssistantStore.getState().setStreamingMessageId(assistantMessageId)
 
+      // 重置流式节流器
+      this.streamingThrottler.reset()
+
       let currentContent = ''
       const pendingToolCalls: ToolCallInfo[] = []
 
       for await (const event of session.run(task)) {
-        // 处理文本增量
+        // 处理文本增量（使用节流器）
         if (event.type === 'assistant_message' && event.isDelta) {
           currentContent += event.content
-          // 实时更新消息内容
-          useAssistantStore.getState().appendToLastAssistantMessage(event.content)
+          // 使用节流器更新，减少渲染频率
+          this.streamingThrottler.append(event.content)
           yield { type: 'content_delta', content: event.content }
         }
 
@@ -143,7 +225,8 @@ export class AssistantEngine {
         }
       }
 
-      // 清除流式状态
+      // 刷新剩余内容并清除流式状态
+      this.streamingThrottler.flush()
       useAssistantStore.getState().setStreamingMessageId(null)
 
       // 更新工具调用信息到消息
@@ -263,6 +346,7 @@ ${historyParts.join('\n\n')}
   ): void {
     const events: ClaudeCodeExecutionEvent[] = []
     let output = ''
+    let isCompleted = false // 防止重复处理
 
     // 清理该会话之前的订阅（如果存在）
     const existingUnsubscribe = this.backgroundUnsubscribes.get(sessionId)
@@ -273,10 +357,17 @@ ${historyParts.join('\n\n')}
     // 订阅事件
     // 注意：使用 _routeSessionId 匹配前端会话 ID，而不是 event.sessionId（后端会话 ID）
     const unsubscribe = this.eventBus.onAny((event: AIEvent) => {
+      // 如果已完成，忽略后续事件
+      if (isCompleted) return
+
       const eventWithRouteId = event as { sessionId?: string; _routeSessionId?: string }
       // 优先使用 _routeSessionId（前端会话 ID），其次使用 sessionId
       const eventSessionId = eventWithRouteId._routeSessionId || eventWithRouteId.sessionId
-      if (eventSessionId !== sessionId) return
+
+      // 关键修复：如果事件中没有 sessionId，检查是否是当前会话相关的事件
+      // 通过检查事件的其他特征来判断（如 tool 相关信息）
+      // 但最可靠的方式是确保事件总是携带正确的 sessionId
+      if (eventSessionId && eventSessionId !== sessionId) return
 
       const execEvent: ClaudeCodeExecutionEvent = {
         type: event.type as any,
@@ -299,6 +390,7 @@ ${historyParts.join('\n\n')}
 
       // 会话结束，创建通知
       if (event.type === 'session_end') {
+        isCompleted = true
         unsubscribe()
         this.backgroundUnsubscribes.delete(sessionId)
         // 更新会话状态为已完成
@@ -328,6 +420,7 @@ ${historyParts.join('\n\n')}
       }
 
       if (event.type === 'error') {
+        isCompleted = true
         unsubscribe()
         this.backgroundUnsubscribes.delete(sessionId)
         // 更新会话状态为错误
@@ -453,16 +546,22 @@ ${result}
     })
     useAssistantStore.getState().setStreamingMessageId(assistantMessageId)
 
+    // 重置流式节流器
+    this.streamingThrottler.reset()
+
     let currentContent = ''
 
     for await (const event of session.run(task)) {
       if (event.type === 'assistant_message' && event.isDelta) {
         currentContent += event.content
-        useAssistantStore.getState().appendToLastAssistantMessage(event.content)
+        // 使用节流器更新
+        this.streamingThrottler.append(event.content)
         yield { type: 'content_delta', content: event.content }
       }
     }
 
+    // 刷新剩余内容
+    this.streamingThrottler.flush()
     useAssistantStore.getState().setStreamingMessageId(null)
     this.conversationHistory.push({ role: 'assistant', content: currentContent })
 
@@ -535,15 +634,21 @@ ${result}
     })
     useAssistantStore.getState().setStreamingMessageId(assistantMessageId)
 
+    // 重置流式节流器
+    this.streamingThrottler.reset()
+
     let currentContent = ''
 
     for await (const event of session.run(task)) {
       if (event.type === 'assistant_message' && event.isDelta) {
         currentContent += event.content
-        useAssistantStore.getState().appendToLastAssistantMessage(event.content)
+        // 使用节流器更新
+        this.streamingThrottler.append(event.content)
       }
     }
 
+    // 刷新剩余内容
+    this.streamingThrottler.flush()
     useAssistantStore.getState().setStreamingMessageId(null)
     this.conversationHistory.push({ role: 'assistant', content: currentContent })
 

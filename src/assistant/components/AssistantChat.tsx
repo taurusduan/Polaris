@@ -1,18 +1,118 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, memo, useCallback, useState } from 'react'
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import { useAssistantStore } from '../store/assistantStore'
 import { ProgressiveStreamingMarkdown } from '../../utils/lightweightMarkdown'
+import type { AssistantMessage } from '../types'
+
+/** 视口扩展常量 */
+const VIEWPORT_EXTENSION = { top: 50, bottom: 100 }
 
 /**
- * 助手对话消息流
+ * 用户消息气泡组件
+ */
+const UserMessageBubble = memo(function UserMessageBubble({
+  message,
+}: {
+  message: AssistantMessage
+}) {
+  return (
+    <div className="flex justify-end mb-4">
+      <div className="max-w-[80%] px-3 py-2 rounded-lg text-sm bg-primary text-white">
+        <span className="whitespace-pre-wrap break-words">{message.content}</span>
+      </div>
+    </div>
+  )
+})
+
+/**
+ * 助手消息气泡组件
+ */
+const AssistantMessageBubble = memo(function AssistantMessageBubble({
+  message,
+  isStreaming,
+}: {
+  message: AssistantMessage
+  isStreaming: boolean
+}) {
+  return (
+    <div className="mb-4 text-left">
+      <div className="inline-block max-w-[80%] px-3 py-2 rounded-lg text-sm bg-background-surface text-text-primary">
+        <div className="prose prose-sm max-w-none dark:prose-invert">
+          <ProgressiveStreamingMarkdown
+            content={message.content}
+            completed={!isStreaming}
+          />
+        </div>
+      </div>
+
+      {/* 工具调用指示 */}
+      {message.toolCalls && message.toolCalls.length > 0 && (
+        <div className="mt-2 text-left">
+          {message.toolCalls.map((tc) => (
+            <div
+              key={tc.id}
+              className="inline-flex items-center gap-1 px-2 py-1 bg-background-surface rounded text-xs text-text-muted"
+            >
+              {tc.status === 'running' && (
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              )}
+              {tc.status === 'completed' && (
+                <span className="w-2 h-2 rounded-full bg-success" />
+              )}
+              {tc.status === 'error' && (
+                <span className="w-2 h-2 rounded-full bg-danger" />
+              )}
+              <span>Claude Code: {tc.arguments.reason || tc.arguments.prompt?.slice(0, 30)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+})
+
+/**
+ * 消息渲染器
+ */
+const MessageRenderer = memo(function MessageRenderer({
+  message,
+  streamingMessageId,
+}: {
+  message: AssistantMessage
+  streamingMessageId: string | null
+}) {
+  const isStreaming = streamingMessageId === message.id
+
+  if (message.role === 'user') {
+    return <UserMessageBubble message={message} />
+  }
+
+  return <AssistantMessageBubble message={message} isStreaming={isStreaming} />
+})
+
+/**
+ * 助手对话消息流（带虚拟列表优化）
  */
 export function AssistantChat() {
   const { messages, streamingMessageId } = useAssistantStore()
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const virtuosoRef = useRef<VirtuosoHandle>(null)
+  const [autoScroll, setAutoScroll] = useState(true)
 
-  // 自动滚动到底部
+  // 自动滚动：流式输出时跟随到底部
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (autoScroll && streamingMessageId && virtuosoRef.current) {
+      virtuosoRef.current.scrollToIndex({
+        index: messages.length - 1,
+        behavior: 'smooth',
+        align: 'end',
+      })
+    }
+  }, [messages.length, streamingMessageId, autoScroll])
+
+  // 底部状态变化
+  const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
+    setAutoScroll(atBottom)
+  }, [])
 
   if (messages.length === 0) {
     return (
@@ -28,59 +128,25 @@ export function AssistantChat() {
   }
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-3">
-      {messages.map((message) => (
-        <div
-          key={message.id}
-          className={`mb-4 ${
-            message.role === 'user' ? 'text-right' : 'text-left'
-          }`}
-        >
-          <div
-            className={`inline-block max-w-[80%] px-3 py-2 rounded-lg text-sm ${
-              message.role === 'user'
-                ? 'bg-primary text-white'
-                : 'bg-background-surface text-text-primary'
-            }`}
-          >
-            {message.role === 'user' ? (
-              <span className="whitespace-pre-wrap break-words">{message.content}</span>
-            ) : (
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                <ProgressiveStreamingMarkdown
-                  content={message.content}
-                  completed={streamingMessageId !== message.id}
-                />
-              </div>
-            )}
+    <div className="h-full">
+      <Virtuoso
+        ref={virtuosoRef}
+        style={{ height: '100%' }}
+        data={messages}
+        itemContent={(_index, message) => (
+          <div className="px-4">
+            <MessageRenderer
+              message={message}
+              streamingMessageId={streamingMessageId}
+            />
           </div>
-
-          {/* 工具调用指示 */}
-          {message.toolCalls && message.toolCalls.length > 0 && (
-            <div className="mt-2 text-left">
-              {message.toolCalls.map((tc) => (
-                <div
-                  key={tc.id}
-                  className="inline-flex items-center gap-1 px-2 py-1 bg-background-surface rounded text-xs text-text-muted"
-                >
-                  {tc.status === 'running' && (
-                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  )}
-                  {tc.status === 'completed' && (
-                    <span className="w-2 h-2 rounded-full bg-success" />
-                  )}
-                  {tc.status === 'error' && (
-                    <span className="w-2 h-2 rounded-full bg-danger" />
-                  )}
-                  <span>Claude Code: {tc.arguments.reason || tc.arguments.prompt?.slice(0, 30)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-
-      <div ref={messagesEndRef} />
+        )}
+        followOutput={autoScroll ? (streamingMessageId ? true : 'smooth') : false}
+        atBottomStateChange={handleAtBottomStateChange}
+        atBottomThreshold={100}
+        increaseViewportBy={VIEWPORT_EXTENSION}
+        initialTopMostItemIndex={messages.length - 1}
+      />
     </div>
   )
 }

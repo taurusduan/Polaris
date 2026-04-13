@@ -10,10 +10,8 @@
  */
 
 import { memo, useCallback, useMemo, useState } from 'react';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
 import { DeferredMermaidDiagram } from '../components/Chat/DeferredMermaidDiagram';
-import { MarkdownRenderCache, MARKDOWN_ALLOWED_TAGS, MARKDOWN_ALLOWED_ATTR, wrapTables } from './cache';
+import { MarkdownRenderCache } from './cache';
 
 /** 渲染片段类型 */
 interface RenderPart {
@@ -447,21 +445,8 @@ export default LightweightMarkdown;
 // 渐进式流式 Markdown 渲染器
 // ============================================================================
 
-/** DOMPurify 安全配置（复用共享常量，含 GFM 任务列表支持） */
-const SANITIZE_CONFIG = {
-  ALLOWED_TAGS: MARKDOWN_ALLOWED_TAGS,
-  ALLOWED_ATTR: MARKDOWN_ALLOWED_ATTR,
-};
-
-/** 流式渲染专用 Markdown 缓存实例（30 条上限，1 分钟 TTL） */
-const streamingMdCache = new MarkdownRenderCache(30);
-
-/** 将 Markdown 内容解析并净化为安全 HTML */
-function sanitizeMarkdown(content: string): string {
-  const raw = marked.parse(content) as string;
-  const sanitized = DOMPurify.sanitize(raw, SANITIZE_CONFIG);
-  return wrapTables(sanitized);
-}
+/** 流式渲染专用 Markdown 缓存实例（50 条上限，1 分钟 TTL，提高命中率） */
+const streamingMdCache = new MarkdownRenderCache(50);
 
 /**
  * 已完成文本块渲染器（单一容器）
@@ -477,7 +462,8 @@ const CompletedTextBlock = memo(function CompletedTextBlock({
 }) {
   const html = useMemo(() => {
     if (!content.trim()) return null;
-    return sanitizeMarkdown(content);
+    // 使用缓存渲染，提高性能
+    return streamingMdCache.render(content);
   }, [content]);
 
   if (!html) return null;

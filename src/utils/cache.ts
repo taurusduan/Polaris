@@ -261,12 +261,16 @@ interface MarkdownCacheEntry {
 /**
  * 计算内容的简单哈希指纹
  * 用于快速比较内容是否变化
+ *
+ * 优化：使用更长的前缀和后缀来提高命中率准确性
  */
 function getContentFingerprint(content: string): string {
-  // 使用前 100 字符 + 长度作为简单指纹
-  // 这对增量更新的内容很有效
+  // 使用前 100 字符 + 后 50 字符 + 长度作为指纹
+  // 这对增量更新的内容更有效，能更好地区分不同内容
+  const len = content.length;
   const prefix = content.slice(0, 100);
-  return `${prefix.length}:${content.length}:${prefix.slice(-20)}`;
+  const suffix = len > 150 ? content.slice(-50) : '';
+  return `${len}:${prefix.length}:${suffix.length}:${prefix.slice(-20)}${suffix.slice(0, 20)}`;
 }
 
 /**
@@ -399,6 +403,8 @@ export class MarkdownRenderCache {
    *
    * 注意：增量渲染有局限性，对于跨块的内容（如代码块、表格）可能不准确
    * 因此只在满足特定条件时使用
+   *
+   * 优化：提高增量渲染阈值，减少完整渲染次数
    */
   private renderIncremental(
     newContent: string,
@@ -407,8 +413,9 @@ export class MarkdownRenderCache {
   ): string | null {
     const newPart = newContent.slice(oldContent.length);
 
-    // 如果新增部分太长，直接完整渲染（避免增量渲染不准确）
-    if (newPart.length > 2000) {
+    // 提高增量渲染阈值到 3000 字符（原来是 2000）
+    // 流式输出时通常每次增量较小，这个阈值足够覆盖大多数情况
+    if (newPart.length > 3000) {
       return null;
     }
 
@@ -416,6 +423,12 @@ export class MarkdownRenderCache {
     const codeBlockCount = (oldContent.match(/```/g) || []).length;
     if (codeBlockCount % 2 !== 0) {
       // 有未闭合的代码块，不能增量渲染
+      return null;
+    }
+
+    // 检查新增部分是否包含块级元素开始标记（可能跨块）
+    if (/^(#{1,6}|[-*+]\s|>\s|```)/.test(newPart.trim())) {
+      // 新增部分以块级元素开始，可能导致解析问题，完整渲染
       return null;
     }
 
