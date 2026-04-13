@@ -191,6 +191,13 @@ export class OpenAISession extends EventEmitter implements AISession {
     } finally {
       reader.releaseLock()
     }
+
+    // 流结束后发出 session_end 事件
+    this.status = 'idle'
+    this.emit({
+      type: 'session_end',
+      sessionId: this.id,
+    })
   }
 
   /**
