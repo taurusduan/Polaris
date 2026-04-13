@@ -5,6 +5,7 @@ import { SessionTab } from './SessionTab'
 import { cn } from '../../utils'
 import { ResizeHandle } from '../../components/Common'
 import type { ClaudeCodeExecutionEvent, ClaudeCodeSessionState } from '../types'
+import { formatToolDisplay } from '../utils/toolInfoExtractor'
 
 /**
  * 格式化执行用时
@@ -440,49 +441,70 @@ function EventItem({ event }: { event: ClaudeCodeExecutionEvent }) {
         return <CheckCircle className="w-3 h-3 text-success" />
       case 'error':
         return <XCircle className="w-3 h-3 text-danger" />
+      case 'complete':
+        return <CheckCircle className="w-3 h-3 text-success" />
       default:
         return <Code className="w-3 h-3 text-text-muted" />
     }
   }
 
   const getContent = () => {
+    // 错误优先
     if (event.data.error) {
-      return <span className="text-danger">{event.data.error}</span>
-    }
-    if (event.data.tool) {
       return (
         <span>
-          <span className="text-primary">{event.data.tool}</span>
-          {event.data.message && (
-            <span className="text-text-muted ml-1">- {event.data.message}</span>
-          )}
+          <span className="text-danger">错误: </span>
+          <span className="text-text-secondary">{event.data.error}</span>
         </span>
       )
     }
+
+    // 工具调用 - 使用简洁格式 [工具名] 简短描述
+    if (event.data.tool) {
+      const { toolPart, briefPart } = formatToolDisplay(event.data)
+
+      // 判断是否完成
+      const isComplete = event.type === 'complete'
+
+      if (toolPart) {
+        return (
+          <span>
+            <span className="text-primary font-mono">{toolPart}</span>
+            {briefPart && <span className="text-text-secondary ml-1">{briefPart}</span>}
+            {isComplete && <span className="text-success ml-1">✓</span>}
+          </span>
+        )
+      }
+    }
+
+    // AI 消息 - 显示预览
     if (event.data.content) {
       const content = event.data.content
-      const truncated = content.length > 100 ? content.slice(0, 100) + '...' : content
+      const truncated = content.length > 80 ? content.slice(0, 80) + '...' : content
       return <span className="text-text-primary whitespace-pre-wrap">{truncated}</span>
     }
+
+    // 普通消息
     if (event.data.message) {
-      return <span className="text-text-muted">{event.data.message}</span>
+      return <span className="text-text-secondary">{event.data.message}</span>
     }
+
     return null
   }
 
-  const hasLongContent = (event.data.content?.length || 0) > 100
+  const hasLongContent = (event.data.content?.length || 0) > 80
   const fullContent = event.data.content || ''
 
   return (
     <div className="text-xs">
       <div
         className={cn(
-          'flex items-start gap-2 py-1 hover:bg-background-hover px-1 rounded',
+          'flex items-start gap-2 py-0.5 hover:bg-background-hover px-1 rounded',
           hasLongContent && 'cursor-pointer'
         )}
         onClick={() => hasLongContent && setIsExpanded(!isExpanded)}
       >
-        <span className="text-text-tertiary shrink-0 w-16">{time}</span>
+        <span className="text-text-tertiary shrink-0 w-14 font-mono">{time}</span>
         <span className="shrink-0 mt-0.5">{getIcon()}</span>
         <span className="flex-1 min-w-0">{getContent()}</span>
         {hasLongContent && (
@@ -497,7 +519,7 @@ function EventItem({ event }: { event: ClaudeCodeExecutionEvent }) {
       </div>
       {/* 展开的完整内容 */}
       {isExpanded && hasLongContent && (
-        <div className="ml-[88px] mt-1 p-2 bg-background-base rounded border border-border-subtle">
+        <div className="ml-[72px] mt-1 p-2 bg-background-base rounded border border-border-subtle">
           <pre className="text-xs text-text-primary whitespace-pre-wrap break-all font-mono">
             {fullContent}
           </pre>
