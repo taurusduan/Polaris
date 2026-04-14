@@ -13,10 +13,11 @@ import {
   IconMic,
   IconMessageSquareText,
 } from '../Common/Icons';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Shield } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 export type SettingsTabId =
+  | 'auto-mode'
   | 'general'
   | 'system-prompt'
   | 'prompt-snippet'
@@ -44,6 +45,7 @@ interface SettingsSidebarProps {
 }
 
 const NAV_ITEMS: SettingsNavItem[] = [
+  { id: 'auto-mode', icon: <Shield size={16} />, labelKey: 'nav.autoMode' },
   { id: 'general', icon: <IconGeneral size={16} />, labelKey: 'nav.general' },
   { id: 'system-prompt', icon: <IconMessageSquareText size={16} />, labelKey: 'nav.systemPrompt' },
   { id: 'prompt-snippet', icon: <IconMessageSquareText size={16} />, labelKey: 'nav.promptSnippet' },

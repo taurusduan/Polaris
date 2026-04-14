@@ -24,6 +24,7 @@ import { FeishuTab } from './tabs/FeishuTab';
 import { SpeechTab } from './tabs/SpeechTab';
 import { AdvancedTab } from './tabs/AdvancedTab';
 import { AssistantTab } from './tabs/AssistantTab';
+import { AutoModeTab } from './tabs/AutoModeTab';
 import { createLogger } from '../../utils/logger';
 import type { Config } from '../../types';
 
@@ -38,6 +39,7 @@ interface SettingsModalProps {
 // Tab 标题映射 - 使用 i18n key
 const TAB_TITLE_KEYS: Record<SettingsTabId, string> = {
   'general': 'nav.general',
+  'auto-mode': 'nav.autoMode',
   'system-prompt': 'nav.systemPrompt',
   'prompt-snippet': 'nav.promptSnippet',
   'window': 'nav.window',
@@ -161,6 +163,10 @@ export function SettingsModal({ onClose, initialTab }: SettingsModalProps) {
               <h3 className="text-base font-medium text-text-primary mb-4">
                 {t(TAB_TITLE_KEYS[activeTab])}
               </h3>
+
+              {activeTab === 'auto-mode' && (
+                <AutoModeTab />
+              )}
 
               {activeTab === 'ai-engine' && (
                 <AIEngineTab
