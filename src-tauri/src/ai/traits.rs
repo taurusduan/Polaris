@@ -77,6 +77,8 @@ pub struct SessionOptions {
     pub effort: Option<String>,
     /// 权限模式（--permission-mode 参数）
     pub permission_mode: Option<String>,
+    /// 允许的工具列表（通过 --allowedTools 传递）
+    pub allowed_tools: Vec<String>,
 }
 
 /// 历史消息条目
@@ -107,6 +109,7 @@ impl SessionOptions {
             model: None,
             effort: None,
             permission_mode: None,
+            allowed_tools: Vec::new(),
         }
     }
 
@@ -188,6 +191,12 @@ impl SessionOptions {
     /// 设置权限模式
     pub fn with_permission_mode(mut self, mode: impl Into<String>) -> Self {
         self.permission_mode = Some(mode.into());
+        self
+    }
+
+    /// 设置允许的工具列表
+    pub fn with_allowed_tools(mut self, tools: Vec<String>) -> Self {
+        self.allowed_tools = tools;
         self
     }
 }

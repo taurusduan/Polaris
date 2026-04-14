@@ -236,6 +236,7 @@ impl ClaudeEngine {
         model: Option<&str>,
         effort: Option<&str>,
         permission_mode: Option<&str>,
+        allowed_tools: &[String],
     ) -> Result<Command> {
         #[cfg(windows)]
         {
@@ -317,6 +318,11 @@ impl ClaudeEngine {
                 cmd.arg("--permission-mode").arg("bypassPermissions");
             }
 
+            // 添加允许的工具列表（权限重试时使用）
+            if !allowed_tools.is_empty() {
+                cmd.arg("--allowedTools").arg(allowed_tools.join(","));
+            }
+
             cmd.arg("--print")
                 .arg("--verbose")
                 .arg("--output-format")
@@ -393,6 +399,11 @@ impl ClaudeEngine {
             } else {
                 // 默认使用 bypassPermissions 以支持前端权限交互
                 cmd.arg("--permission-mode").arg("bypassPermissions");
+            }
+
+            // 添加允许的工具列表（权限重试时使用）
+            if !allowed_tools.is_empty() {
+                cmd.arg("--allowedTools").arg(allowed_tools.join(","));
             }
 
             cmd.arg("--print")
@@ -674,6 +685,7 @@ impl AIEngine for ClaudeEngine {
             options.model.as_deref(),
             options.effort.as_deref(),
             options.permission_mode.as_deref(),
+            &options.allowed_tools,
         )?;
         self.configure_command(&mut cmd, options.work_dir.as_deref());
 
@@ -749,6 +761,7 @@ impl AIEngine for ClaudeEngine {
             options.model.as_deref(),
             options.effort.as_deref(),
             options.permission_mode.as_deref(),
+            &options.allowed_tools,
         )?;
         self.configure_command(&mut cmd, work_dir.as_deref());
 

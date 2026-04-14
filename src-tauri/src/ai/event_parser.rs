@@ -436,10 +436,62 @@ impl EventParser {
         subtype: String,
         extra: HashMap<String, serde_json::Value>,
     ) -> Vec<AIEvent> {
-        // success 类型不发送 Progress 事件，避免显示 "任务完成"
+        // 检查是否有 permission_denials（CLI --print 模式下权限拒绝信息）
+        if let Some(denials_val) = extra.get("permission_denials") {
+            if let Some(denial_arr) = denials_val.as_array() {
+                if !denial_arr.is_empty() {
+                    let parsed_denials: Vec<PermissionDenial> = denial_arr.iter()
+                        .filter_map(|d| {
+                            // 从 JSON 中提取 tool_name 和 reason
+                            let tool_name = d.get("tool_name")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("unknown")
+                                .to_string();
+                            let reason = d.get("reason")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("权限被拒绝")
+                                .to_string();
+
+                            let mut denial = PermissionDenial::new(tool_name, reason);
+                            // 将剩余字段存入 extra
+                            if let Some(obj) = d.as_object() {
+                                let mut extra_map = HashMap::new();
+                                for (k, v) in obj {
+                                    if k != "tool_name" && k != "reason" {
+                                        extra_map.insert(k.clone(), v.clone());
+                                    }
+                                }
+                                if !extra_map.is_empty() {
+                                    denial = denial.with_extra(extra_map);
+                                }
+                            }
+                            Some(denial)
+                        })
+                        .collect();
+
+                    if !parsed_denials.is_empty() {
+                        tracing::info!(
+                            "[EventParser] 检测到 permission_denials: {} 项",
+                            parsed_denials.len()
+                        );
+                        let mut events = vec![AIEvent::PermissionRequest(
+                            PermissionRequestEvent::new(&self.session_id, parsed_denials)
+                        )];
+                        // 仍然发送 result 事件（如果有 output）
+                        if let Some(output) = extra.get("output") {
+                            events.push(AIEvent::Result(
+                                crate::models::ResultEvent::new(&self.session_id, output.clone())
+                            ));
+                        }
+                        return events;
+                    }
+                }
+            }
+        }
+
+        // 原有逻辑
         match subtype.as_str() {
             "success" => {
-                // 任务成功完成，只发送 Result 事件（如果有输出）
                 if let Some(output) = extra.get("output") {
                     vec![AIEvent::Result(crate::models::ResultEvent::new(&self.session_id, output.clone()))]
                 } else {
@@ -447,11 +499,9 @@ impl EventParser {
                 }
             }
             "canceled" => {
-                // 任务取消，发送提示
                 vec![AIEvent::Progress(ProgressEvent::new(&self.session_id, "⚠️ 任务已取消"))]
             }
             _ => {
-                // 其他类型
                 if let Some(output) = extra.get("output") {
                     vec![
                         AIEvent::Progress(ProgressEvent::new(&self.session_id, &subtype)),

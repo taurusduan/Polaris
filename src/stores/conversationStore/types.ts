@@ -201,8 +201,8 @@ export interface ConversationActions {
 
   // ===== 主动操作 =====
   sendMessage: (content: string, workspaceDir?: string, attachments?: import('../../types/attachment').Attachment[]) => Promise<void>
-  /** 继续会话（用于回答问题/审批计划后） */
-  continueChat: (prompt?: string) => Promise<void>
+  /** 继续会话（用于回答问题/审批计划/权限重试后） */
+  continueChat: (prompt?: string, allowedTools?: string[]) => Promise<void>
   interrupt: () => Promise<void>
   regenerateResponse: (assistantMessageId: string) => Promise<void>
   editAndResend: (userMessageId: string, newContent: string) => Promise<void>

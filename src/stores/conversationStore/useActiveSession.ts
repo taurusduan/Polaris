@@ -287,12 +287,12 @@ export function useActiveSessionActions() {
         if (!store) return
         return store.interrupt()
       },
-      continueChat: async (prompt?: string) => {
+      continueChat: async (prompt?: string, allowedTools?: string[]) => {
         const sessionId = sessionStoreManager.getState().activeSessionId
         if (!sessionId) return
         const store = sessionStoreManager.getState().stores.get(sessionId)?.getState()
         if (!store) return
-        return store.continueChat(prompt)
+        return store.continueChat(prompt, allowedTools)
       },
       deleteMessage: (messageId: string) => {
         const sessionId = sessionStoreManager.getState().activeSessionId

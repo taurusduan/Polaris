@@ -1008,7 +1008,7 @@ export function createConversationStore(
         }
       },
 
-      continueChat: async (prompt = '') => {
+      continueChat: async (prompt = '', allowedTools?: string[]) => {
         const { conversationId } = get()
         if (!conversationId) {
           set({ error: '没有活动会话', isStreaming: false })
@@ -1093,6 +1093,7 @@ export function createConversationStore(
               model: sessionConfig.model || undefined,
               effort: sessionConfig.effort || undefined,
               permissionMode: sessionConfig.permissionMode || undefined,
+              allowedTools: allowedTools && allowedTools.length > 0 ? allowedTools : undefined,
             },
           })
         } catch (e) {

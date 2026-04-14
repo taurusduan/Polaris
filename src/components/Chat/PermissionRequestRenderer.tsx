@@ -38,12 +38,11 @@ export const PermissionRequestRenderer = memo(function PermissionRequestRenderer
 
     setIsProcessing(true);
     try {
-      // 构建决策 prompt
-      const decisionPrompt = `[权限确认] 用户批准了操作\n工具: ${block.denials.map(d => d.toolName).join(', ')}`;
+      // 提取被拒绝的工具名列表，通过 --allowedTools 重试
+      const deniedToolNames = block.denials.map(d => d.toolName);
 
-      // 调用 continueChat 发送决策
       if (conversationId) {
-        await continueChat(decisionPrompt);
+        await continueChat('继续执行', deniedToolNames);
       }
     } catch (error) {
       console.error('[PermissionRequest] 批准操作失败:', error);

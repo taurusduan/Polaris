@@ -59,6 +59,7 @@ export type EffortLevel = 'low' | 'medium' | 'high'
  * - bypassPermissions: 跳过所有检查
  */
 export type PermissionMode =
+  | ''
   | 'default'
   | 'auto'
   | 'plan'
@@ -89,7 +90,7 @@ export const DEFAULT_SESSION_CONFIG: Required<SessionRuntimeConfig> = {
   agent: '',
   model: 'sonnet',
   effort: 'medium',
-  permissionMode: 'default',
+  permissionMode: '',
 }
 
 /**
@@ -134,7 +135,7 @@ export const PRESET_AGENTS: CLIAgent[] = [
 export const PRESET_MODELS: CLIModel[] = [
   {
     id: 'sonnet',
-    name: 'Claude Sonnet 4',
+    name: 'Sonnet',
     description: '平衡性能和速度，适合大多数任务',
     isDefault: true,
     supportsStreaming: true,
@@ -142,14 +143,14 @@ export const PRESET_MODELS: CLIModel[] = [
   },
   {
     id: 'opus',
-    name: 'Claude Opus 4',
+    name: 'Opus',
     description: '最强性能，适合复杂推理任务',
     supportsStreaming: true,
     contextWindow: 200000,
   },
   {
     id: 'haiku',
-    name: 'Claude Haiku 3.5',
+    name: 'Haiku',
     description: '快速响应，适合简单任务',
     supportsStreaming: true,
     contextWindow: 200000,
@@ -180,21 +181,11 @@ export const EFFORT_OPTIONS: Array<{ value: EffortLevel; label: string; descript
 /**
  * 权限模式选项
  */
-export const PERMISSION_MODE_OPTIONS: Array<{ value: PermissionMode; label: string; description: string }> = [
+export const PERMISSION_MODE_OPTIONS: Array<{ value: PermissionMode | ''; label: string; description: string }> = [
   {
-    value: 'default',
-    label: '默认',
-    description: '敏感操作需要确认',
-  },
-  {
-    value: 'auto',
-    label: '自动',
-    description: '安全操作自动批准',
-  },
-  {
-    value: 'plan',
-    label: '规划',
-    description: '仅规划不执行',
+    value: '',
+    label: '无限制',
+    description: '跳过所有权限检查（默认）',
   },
   {
     value: 'acceptEdits',
@@ -202,8 +193,8 @@ export const PERMISSION_MODE_OPTIONS: Array<{ value: PermissionMode; label: stri
     description: '自动接受文件编辑',
   },
   {
-    value: 'dontAsk',
-    label: '拒绝危险',
-    description: '拒绝危险操作',
+    value: 'plan',
+    label: '规划',
+    description: '仅规划不执行',
   },
 ]

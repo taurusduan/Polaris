@@ -76,6 +76,9 @@ pub struct ChatRequestOptions {
     /// 权限模式
     #[serde(default)]
     pub permission_mode: Option<String>,
+    /// 允许的工具列表（权限重试时使用）
+    #[serde(default)]
+    pub allowed_tools: Option<Vec<String>>,
 }
 
 // ============================================================================
@@ -301,6 +304,12 @@ pub async fn start_chat(
         session_opts = session_opts.with_permission_mode(permission_mode.clone());
     }
 
+    if let Some(ref tools) = options.allowed_tools {
+        if !tools.is_empty() {
+            session_opts = session_opts.with_allowed_tools(tools.clone());
+        }
+    }
+
     let mut registry = state.engine_registry.lock().await;
     registry.start_session(Some(engine), &final_message, session_opts)
 }
@@ -427,6 +436,12 @@ pub async fn continue_chat(
 
     if let Some(ref permission_mode) = options.permission_mode {
         session_opts = session_opts.with_permission_mode(permission_mode.clone());
+    }
+
+    if let Some(ref tools) = options.allowed_tools {
+        if !tools.is_empty() {
+            session_opts = session_opts.with_allowed_tools(tools.clone());
+        }
     }
 
     let mut registry = state.engine_registry.lock().await;
