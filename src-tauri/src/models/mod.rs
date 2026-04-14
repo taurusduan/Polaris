@@ -22,3 +22,5 @@ pub use ai_event::{
     // PermissionRequest 类型
     PermissionDenial, PermissionRequestEvent,
 };
+pub mod auto_mode;
+pub use auto_mode::{AutoModeConfig, AutoModeDefaults};
