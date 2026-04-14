@@ -11,7 +11,7 @@ import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { Shield, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
-import { useActiveSessionConversationId, useActiveSessionActions } from '../../stores/conversationStore/useActiveSession';
+import { sessionStoreManager } from '../../stores/conversationStore/sessionStoreManager';
 import { Button } from '../Common/Button';
 import type { PermissionRequestBlock } from '../../types';
 
@@ -28,8 +28,8 @@ export const PermissionRequestRenderer = memo(function PermissionRequestRenderer
   // 本地决策状态，用户操作后立即生效
   const [localStatus, setLocalStatus] = useState<'pending' | 'approved' | 'denied'>('pending');
 
-  const conversationId = useActiveSessionConversationId();
-  const { continueChat } = useActiveSessionActions();
+  // 通过 block 绑定的 sessionId 直接定位 store，避免多窗口时 activeSessionId 错乱
+  const targetSessionId = block.sessionId;
 
   const isHandled = localStatus !== 'pending';
 
@@ -43,15 +43,16 @@ export const PermissionRequestRenderer = memo(function PermissionRequestRenderer
       // 提取被拒绝的工具名列表（去重），通过 --allowedTools 重试
       const deniedToolNames = [...new Set(block.denials.map(d => d.toolName))];
 
-      if (conversationId) {
-        await continueChat(`[已授权] ${deniedToolNames.join(', ')}`, deniedToolNames);
+      const store = sessionStoreManager.getState().stores.get(targetSessionId)?.getState();
+      if (store) {
+        await store.continueChat(`[已授权] ${deniedToolNames.join(', ')}`, deniedToolNames);
       }
     } catch (error) {
       console.error('[PermissionRequest] 批准操作失败:', error);
     } finally {
       setIsProcessing(false);
     }
-  }, [isHandled, isProcessing, block.denials, conversationId, continueChat]);
+  }, [isHandled, isProcessing, block.denials, targetSessionId]);
 
   // 处理拒绝
   const handleDeny = useCallback(async () => {
@@ -62,15 +63,16 @@ export const PermissionRequestRenderer = memo(function PermissionRequestRenderer
     try {
       const decisionPrompt = `[权限确认] 用户拒绝了操作\n工具: ${block.denials.map(d => d.toolName).join(', ')}`;
 
-      if (conversationId) {
-        await continueChat(decisionPrompt);
+      const store = sessionStoreManager.getState().stores.get(targetSessionId)?.getState();
+      if (store) {
+        await store.continueChat(decisionPrompt);
       }
     } catch (error) {
       console.error('[PermissionRequest] 拒绝操作失败:', error);
     } finally {
       setIsProcessing(false);
     }
-  }, [isHandled, isProcessing, block.denials, conversationId, continueChat]);
+  }, [isHandled, isProcessing, block.denials, targetSessionId]);
 
   // 键盘导航处理
   const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
