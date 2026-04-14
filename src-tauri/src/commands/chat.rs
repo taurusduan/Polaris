@@ -64,6 +64,18 @@ pub struct ChatRequestOptions {
     /// 关联工作区路径列表（通过 --add-dir 传递给 Claude CLI）
     #[serde(default)]
     pub additional_dirs: Option<Vec<String>>,
+    /// CLI Agent 选择
+    #[serde(default)]
+    pub agent: Option<String>,
+    /// 模型选择
+    #[serde(default)]
+    pub model: Option<String>,
+    /// 努力级别
+    #[serde(default)]
+    pub effort: Option<String>,
+    /// 权限模式
+    #[serde(default)]
+    pub permission_mode: Option<String>,
 }
 
 // ============================================================================
@@ -272,6 +284,23 @@ pub async fn start_chat(
         session_opts.additional_dirs = dirs.clone();
     }
 
+    // 添加会话配置参数
+    if let Some(ref agent) = options.agent {
+        session_opts = session_opts.with_agent(agent.clone());
+    }
+
+    if let Some(ref model) = options.model {
+        session_opts = session_opts.with_model(model.clone());
+    }
+
+    if let Some(ref effort) = options.effort {
+        session_opts = session_opts.with_effort(effort.clone());
+    }
+
+    if let Some(ref permission_mode) = options.permission_mode {
+        session_opts = session_opts.with_permission_mode(permission_mode.clone());
+    }
+
     let mut registry = state.engine_registry.lock().await;
     registry.start_session(Some(engine), &final_message, session_opts)
 }
@@ -381,6 +410,23 @@ pub async fn continue_chat(
 
     if let Some(ref dirs) = options.additional_dirs {
         session_opts.additional_dirs = dirs.clone();
+    }
+
+    // 添加会话配置参数
+    if let Some(ref agent) = options.agent {
+        session_opts = session_opts.with_agent(agent.clone());
+    }
+
+    if let Some(ref model) = options.model {
+        session_opts = session_opts.with_model(model.clone());
+    }
+
+    if let Some(ref effort) = options.effort {
+        session_opts = session_opts.with_effort(effort.clone());
+    }
+
+    if let Some(ref permission_mode) = options.permission_mode {
+        session_opts = session_opts.with_permission_mode(permission_mode.clone());
     }
 
     let mut registry = state.engine_registry.lock().await;

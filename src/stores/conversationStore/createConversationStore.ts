@@ -15,6 +15,7 @@ import { sessionStoreManager } from './sessionStoreManager'
 import { parseWorkspaceReferences, buildWorkspaceSystemPrompt, getUserSystemPrompt } from '../../services/workspaceReference'
 import { MessageCompactor, isCompacted } from '../../utils/messageCompactor'
 import { isEditTool, extractEditDiff } from '../../utils/diffExtractor'
+import { getSessionConfig } from '../sessionConfigStore'
 
 // ============================================================================
 // 历史消息降级恢复
@@ -922,6 +923,9 @@ export function createConversationStore(
             .trim()
 
           // 调用后端 API
+          // 获取会话配置
+          const sessionConfig = getSessionConfig()
+
           if (conversationId) {
             // 继续会话
             await invoke('continue_chat', {
@@ -936,6 +940,10 @@ export function createConversationStore(
                 enableMcpTools: engine === 'claude-code',
                 attachments: attachmentsForBackend,
                 additionalDirs: contextWorkspaces.map(w => w.path).filter(Boolean),
+                agent: sessionConfig.agent || undefined,
+                model: sessionConfig.model || undefined,
+                effort: sessionConfig.effort || undefined,
+                permissionMode: sessionConfig.permissionMode || undefined,
               },
             })
           } else {
@@ -951,6 +959,10 @@ export function createConversationStore(
                 enableMcpTools: engine === 'claude-code',
                 attachments: attachmentsForBackend,
                 additionalDirs: contextWorkspaces.map(w => w.path).filter(Boolean),
+                agent: sessionConfig.agent || undefined,
+                model: sessionConfig.model || undefined,
+                effort: sessionConfig.effort || undefined,
+                permissionMode: sessionConfig.permissionMode || undefined,
               },
             })
             // 注意：这里设置的是临时 sessionId，真实的会话 ID 通过 session_start 事件设置
@@ -1063,6 +1075,9 @@ export function createConversationStore(
 
         set({ isStreaming: true, error: null })
 
+        // 获取会话配置
+        const sessionConfig = getSessionConfig()
+
         try {
           await invoke('continue_chat', {
             sessionId: conversationId,
@@ -1074,6 +1089,10 @@ export function createConversationStore(
               contextId: deps.contextId,
               engineId: currentEngine,
               additionalDirs: contextWorkspaces.map(w => w.path).filter(Boolean),
+              agent: sessionConfig.agent || undefined,
+              model: sessionConfig.model || undefined,
+              effort: sessionConfig.effort || undefined,
+              permissionMode: sessionConfig.permissionMode || undefined,
             },
           })
         } catch (e) {

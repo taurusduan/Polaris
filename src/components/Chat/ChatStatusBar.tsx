@@ -2,6 +2,7 @@
  * 聊天状态栏组件
  *
  * 显示当前对话的状态信息：
+ * - 会话配置选择器 (Agent/Model/Effort/Permission)
  * - 引擎版本
  * - 语音识别按钮
  * - TTS 播放控制
@@ -14,6 +15,7 @@ import { useEffect, useCallback, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useConfigStore, useChatInputStore } from '../../stores';
 import { useActiveSessionActions, useActiveSessionStreaming } from '../../stores/conversationStore/useActiveSession';
+import { useSessionConfig } from '../../stores/sessionConfigStore';
 import { Paperclip, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { IconMic, IconVolume, IconVolumeX } from '../Common/Icons';
@@ -21,6 +23,7 @@ import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import { useTTS } from '../../hooks/useTTS';
 import type { SpeechConfig, VoiceCommand, TTSConfig } from '../../types/speech';
 import { DEFAULT_TTS_CONFIG } from '../../types/speech';
+import { SessionConfigSelector } from './SessionConfigSelector';
 
 interface ChatStatusBarProps {
   children?: ReactNode;
@@ -45,6 +48,9 @@ export function ChatStatusBar({ children }: ChatStatusBarProps) {
     speechCommand,
     undoSpeechTranscript,
   } = useChatInputStore();
+
+  // 会话配置
+  const { config: sessionConfig, setConfig: setSessionConfig } = useSessionConfig();
 
   // 语音识别配置
   const speechConfig = config?.speech as SpeechConfig | undefined;
@@ -149,7 +155,7 @@ export function ChatStatusBar({ children }: ChatStatusBarProps) {
       'flex items-center justify-between gap-4 px-4 py-1.5 text-xs text-text-tertiary',
       'bg-background-surface/50 border-t border-border-subtle'
     )}>
-      {/* 左侧：版本 + children（多会话切换按钮等） */}
+      {/* 左侧：版本 + 会话配置选择器 + children（多会话切换按钮等） */}
       <div className="flex items-center gap-2">
         {children}
         {config?.defaultEngine === 'claude-code' && healthStatus?.claudeVersion && (
@@ -157,6 +163,12 @@ export function ChatStatusBar({ children }: ChatStatusBarProps) {
             v{healthStatus.claudeVersion}
           </span>
         )}
+        {/* 会话配置选择器 */}
+        <SessionConfigSelector
+          config={sessionConfig}
+          onChange={setSessionConfig}
+          disabled={isStreaming}
+        />
       </div>
 
       {/* 右侧：语音、状态提示和字数 */}

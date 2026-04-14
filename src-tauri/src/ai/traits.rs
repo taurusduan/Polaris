@@ -69,6 +69,14 @@ pub struct SessionOptions {
     pub message_history: Vec<HistoryEntry>,
     /// 额外目录列表（通过 --add-dir 传递给 Claude CLI）
     pub additional_dirs: Vec<String>,
+    /// CLI Agent 选择（--agent 参数）
+    pub agent: Option<String>,
+    /// 模型选择（--model 参数）
+    pub model: Option<String>,
+    /// 努力级别（--effort 参数）
+    pub effort: Option<String>,
+    /// 权限模式（--permission-mode 参数）
+    pub permission_mode: Option<String>,
 }
 
 /// 历史消息条目
@@ -95,6 +103,10 @@ impl SessionOptions {
             on_session_id_update: None,
             message_history: Vec::new(),
             additional_dirs: Vec::new(),
+            agent: None,
+            model: None,
+            effort: None,
+            permission_mode: None,
         }
     }
 
@@ -152,6 +164,30 @@ impl SessionOptions {
     /// 设置消息历史
     pub fn with_message_history(mut self, history: Vec<HistoryEntry>) -> Self {
         self.message_history = history;
+        self
+    }
+
+    /// 设置 Agent
+    pub fn with_agent(mut self, agent: impl Into<String>) -> Self {
+        self.agent = Some(agent.into());
+        self
+    }
+
+    /// 设置模型
+    pub fn with_model(mut self, model: impl Into<String>) -> Self {
+        self.model = Some(model.into());
+        self
+    }
+
+    /// 设置努力级别
+    pub fn with_effort(mut self, effort: impl Into<String>) -> Self {
+        self.effort = Some(effort.into());
+        self
+    }
+
+    /// 设置权限模式
+    pub fn with_permission_mode(mut self, mode: impl Into<String>) -> Self {
+        self.permission_mode = Some(mode.into());
         self
     }
 }
