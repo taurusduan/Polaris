@@ -257,7 +257,7 @@
   "plugins": {
     "installed": "Installed",
     "available": "Available",
-    "search": "Search plugins...",
+    "search": "Search...",
     "install": "Install",
     "enable": "Enable",
     "disable": "Disable",
@@ -271,7 +271,10 @@
     "description": "Description",
     "version": "Version",
     "market": "Marketplace",
+    "marketplaces": "Marketplaces",
     "installCount": "Install Count",
+    "installs": "installs",
+    "items": "items",
     "mcpServers": "MCP Servers",
     "mcpType": "Type",
     "mcpUrl": "URL",
@@ -290,6 +293,28 @@
     "confirmInstallDesc": "Are you sure you want to install {{name}}?",
     "confirmUninstallDesc": "Are you sure you want to uninstall {{name}}?",
     "installScope": "Install Scope",
+    "addMarket": "Add Marketplace",
+    "addMarketHint": "Enter GitHub repo (e.g. owner/repo) or URL",
+    "addMarketSuccess": "Marketplace added successfully",
+    "removeMarket": "Remove Marketplace",
+    "removeMarketSuccess": "Marketplace removed",
+    "refreshMarket": "Refresh Marketplace",
+    "refreshMarketSuccess": "Marketplace refreshed",
+    "refreshAll": "Refresh",
+    "refreshSuccess": "Refreshed successfully",
+    "noMarketplaces": "No marketplaces",
+    "category": {
+      "all": "All",
+      "installed": "Installed",
+      "mcp": "MCP Integration",
+      "developer": "Developer Tools",
+      "git": "Git Related",
+      "other": "Other"
+    },
+    "sort": {
+      "popular": "Popular",
+      "name": "Name"
+    },
     "scope": {
       "user": "User Level",
       "project": "Project Level",
