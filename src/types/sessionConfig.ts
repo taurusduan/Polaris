@@ -183,11 +183,6 @@ export const EFFORT_OPTIONS: Array<{ value: EffortLevel; label: string; descript
  */
 export const PERMISSION_MODE_OPTIONS: Array<{ value: PermissionMode | ''; label: string; description: string }> = [
   {
-    value: '',
-    label: '无限制',
-    description: '跳过所有权限检查（默认）',
-  },
-  {
     value: 'default',
     label: '默认',
     description: '敏感操作需要确认',
