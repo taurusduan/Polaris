@@ -31,3 +31,6 @@ pub use workspace::get_home_dir;
 // 集成命令
 
 // 终端命令
+
+pub mod auto_mode;
+pub use auto_mode::{auto_mode_config, auto_mode_defaults};

@@ -494,6 +494,9 @@ pub fn run() {
             commands::plugin::marketplace_add,
             commands::plugin::marketplace_remove,
             commands::plugin::marketplace_update,
+            // Auto-Mode 相关
+            commands::auto_mode::auto_mode_config,
+            commands::auto_mode::auto_mode_defaults,
 
         ])
         .run(tauri::generate_context!())
