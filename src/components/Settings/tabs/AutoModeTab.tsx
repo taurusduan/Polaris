@@ -40,12 +40,12 @@ export function AutoModeTab() {
   }, [config?.allow, searchQuery]);
 
   const filteredDenyRules = useMemo(() => {
-    if (!config?.softDeny) return [];
-    if (!searchQuery) return config.softDeny;
-    return config.softDeny.filter(rule =>
+    if (!config?.soft_deny) return [];
+    if (!searchQuery) return config.soft_deny;
+    return config.soft_deny.filter(rule =>
       rule.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [config?.softDeny, searchQuery]);
+  }, [config?.soft_deny, searchQuery]);
 
   if (loading && !config) {
     return (

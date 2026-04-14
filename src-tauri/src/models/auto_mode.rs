@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 /// 自动模式配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct AutoModeConfig {
     /// 允许规则列表
     pub allow: Vec<String>,
@@ -18,7 +17,6 @@ pub struct AutoModeConfig {
 
 /// 自动模式默认配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct AutoModeDefaults {
     /// 默认允许规则
     pub allow: Vec<String>,

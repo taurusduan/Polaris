@@ -11,7 +11,7 @@ export interface AutoModeConfig {
   /** 允许规则列表 */
   allow: string[];
   /** 拒绝规则列表（软拒绝，需确认） */
-  softDeny: string[];
+  soft_deny: string[];
   /** 环境配置 */
   environment: string[];
 }
@@ -23,7 +23,7 @@ export interface AutoModeDefaults {
   /** 默认允许规则 */
   allow: string[];
   /** 默认拒绝规则 */
-  softDeny: string[];
+  soft_deny: string[];
   /** 默认环境配置 */
   environment: string[];
 }
