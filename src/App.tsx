@@ -34,6 +34,7 @@ import { bootstrapEngines } from './core/engine-bootstrap';
 import { bootstrapAgents } from './core/agent-bootstrap';
 import { bootstrapTools } from './core/tool-bootstrap';
 import { listen } from '@tauri-apps/api/event';
+import { useCliInfoStore } from './stores/cliInfoStore';
 import './index.css';
 import type { EngineId } from './types';
 import { createLogger } from './utils/logger';
@@ -219,10 +220,14 @@ function App() {
 
     initializeApp();
 
+    // 初始化 CLI 信息事件监听
+    const cleanupCliListeners = useCliInfoStore.getState().initEventListeners();
+
     // 组件卸载时清理 IntegrationStore 资源
     return () => {
       const { cleanup } = useIntegrationStore.getState();
       cleanup();
+      cleanupCliListeners();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

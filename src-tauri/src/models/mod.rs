@@ -21,6 +21,8 @@ pub use ai_event::{
     PlanApprovalRequestEvent, PlanApprovalResultEvent, PlanEndEvent,
     // PermissionRequest 类型
     PermissionDenial, PermissionRequestEvent,
+    // CliInit 类型
+    CliInitEvent, McpServerStatus,
 };
 pub mod auto_mode;
 pub use auto_mode::{AutoModeConfig, AutoModeDefaults};

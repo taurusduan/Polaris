@@ -1056,15 +1056,98 @@ impl QuestionAnsweredEvent {
     }
 }
 
+/// CLI Init 事件 - 包含会话初始化的动态数据
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliInitEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// 会话 ID
+    pub session_id: String,
+    /// 可用工具列表
+    #[serde(default)]
+    pub tools: Vec<String>,
+    /// MCP 服务器状态
+    #[serde(default)]
+    pub mcp_servers: Vec<McpServerStatus>,
+    /// 可用 Agent 列表
+    #[serde(default)]
+    pub agents: Vec<String>,
+    /// 可用技能列表
+    #[serde(default)]
+    pub skills: Vec<String>,
+    /// 当前模型
+    #[serde(default)]
+    pub model: Option<String>,
+    /// CLI 版本
+    #[serde(default)]
+    pub claude_code_version: Option<String>,
+}
+
+/// MCP 服务器状态
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpServerStatus {
+    /// 服务器名称
+    pub name: String,
+    /// 连接状态
+    pub status: String,
+}
+
+impl CliInitEvent {
+    pub fn new(session_id: impl Into<String>) -> Self {
+        Self {
+            event_type: "cli_init".to_string(),
+            session_id: session_id.into(),
+            tools: Vec::new(),
+            mcp_servers: Vec::new(),
+            agents: Vec::new(),
+            skills: Vec::new(),
+            model: None,
+            claude_code_version: None,
+        }
+    }
+
+    pub fn with_tools(mut self, tools: Vec<String>) -> Self {
+        self.tools = tools;
+        self
+    }
+
+    pub fn with_mcp_servers(mut self, mcp_servers: Vec<McpServerStatus>) -> Self {
+        self.mcp_servers = mcp_servers;
+        self
+    }
+
+    pub fn with_agents(mut self, agents: Vec<String>) -> Self {
+        self.agents = agents;
+        self
+    }
+
+    pub fn with_skills(mut self, skills: Vec<String>) -> Self {
+        self.skills = skills;
+        self
+    }
+
+    pub fn with_model(mut self, model: String) -> Self {
+        self.model = Some(model);
+        self
+    }
+
+    pub fn with_version(mut self, version: String) -> Self {
+        self.claude_code_version = Some(version);
+        self
+    }
+}
+
 // ============================================================================
-// 统一 AIEvent 枚举
+// AI Event 枚举
 // ============================================================================
 
 /// 统一 AI 事件类型
 ///
 /// 与前端 AIEvent 完全对齐，后端直接发送此类型给前端。
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum AIEvent {
     Token(TokenEvent),
     Thinking(ThinkingEvent),
@@ -1095,6 +1178,8 @@ pub enum AIEvent {
     // Question 事件
     Question(QuestionEvent),
     QuestionAnswered(QuestionAnsweredEvent),
+    // CLI Init 事件
+    CliInit(CliInitEvent),
 }
 
 impl AIEvent {
@@ -1126,6 +1211,7 @@ impl AIEvent {
             AIEvent::AgentRunEnd(e) => &e.event_type,
             AIEvent::Question(e) => &e.event_type,
             AIEvent::QuestionAnswered(e) => &e.event_type,
+            AIEvent::CliInit(e) => &e.event_type,
         }
     }
 
@@ -1211,6 +1297,7 @@ impl AIEvent {
             AIEvent::AgentRunEnd(e) => &e.session_id,
             AIEvent::Question(e) => &e.session_id,
             AIEvent::QuestionAnswered(e) => &e.session_id,
+            AIEvent::CliInit(e) => &e.session_id,
         }
     }
 

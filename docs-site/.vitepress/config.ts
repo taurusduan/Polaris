@@ -22,6 +22,7 @@ export default defineConfig({
           text: '快速开始',
           items: [
             { text: '安装与启动', link: '/guide/getting-started' },
+            { text: '五分钟快速体验', link: '/guide/quick-tour' },
             { text: '界面总览', link: '/guide/overview' },
           ],
         },
@@ -41,16 +42,35 @@ export default defineConfig({
             { text: '定时任务', link: '/guide/scheduler' },
             { text: '需求管理', link: '/guide/requirement' },
             { text: '终端', link: '/guide/terminal' },
-            { text: '开发者工具', link: '/guide/developer' },
+            { text: '开发者面板', link: '/guide/developer' },
             { text: '平台集成', link: '/guide/integration' },
             { text: '语音', link: '/guide/speech' },
             { text: '快捷片段', link: '/guide/prompt-snippet' },
           ],
         },
         {
-          text: '配置',
+          text: '设置',
           items: [
-            { text: '设置', link: '/guide/settings' },
+            { text: '设置总览', link: '/guide/settings' },
+          ],
+        },
+        {
+          text: '实战教程',
+          items: [
+            { text: '修复一个 Bug', link: '/guide/workflows/bug-fix' },
+            { text: '代码审查工作流', link: '/guide/workflows/code-review' },
+            { text: '定时任务生成日报', link: '/guide/workflows/daily-report' },
+            { text: '多会话协作', link: '/guide/workflows/multi-session' },
+          ],
+        },
+        {
+          text: '进阶',
+          items: [
+            { text: '会话配置', link: '/guide/advanced/session-config' },
+            { text: '自动模式', link: '/guide/advanced/auto-mode' },
+            { text: '插件系统', link: '/guide/advanced/plugins' },
+            { text: '独立助手', link: '/guide/advanced/assistant' },
+            { text: '快捷键参考', link: '/guide/advanced/keyboard' },
           ],
         },
       ],

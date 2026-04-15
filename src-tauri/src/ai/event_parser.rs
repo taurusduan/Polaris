@@ -10,6 +10,7 @@ use crate::models::{
     SessionEndEvent, SessionEndReason, ThinkingEvent,
     ToolCallEndEvent, ToolCallInfo, ToolCallStartEvent, ToolCallStatus, UserMessageEvent,
     PermissionDenial, PermissionRequestEvent,
+    CliInitEvent, McpServerStatus,
 };
 use std::collections::HashMap;
 
@@ -170,9 +171,13 @@ impl EventParser {
             None => return vec![],
         };
 
+        // 特殊处理 init 事件
+        if subtype == "init" {
+            return self.parse_init_event(extra);
+        }
+
         // 已知的有意义子类型映射
         let message_map = HashMap::from([
-            ("init", "💬"),        // 初始化会话
             ("reading", "📖"),     // 读取文件
             ("writing", "✏️"),     // 写入文件
             ("thinking", "🤔"),    // 思考中
@@ -190,6 +195,73 @@ impl EventParser {
         };
 
         vec![AIEvent::Progress(ProgressEvent::new(&self.session_id, message))]
+    }
+
+    /// 解析 init 事件 - 提取 CLI 动态数据
+    fn parse_init_event(
+        &self,
+        extra: HashMap<String, serde_json::Value>,
+    ) -> Vec<AIEvent> {
+        let mut init_event = CliInitEvent::new(&self.session_id);
+
+        // 提取 tools
+        if let Some(tools) = extra.get("tools").and_then(|v| v.as_array()) {
+            let tools: Vec<String> = tools
+                .iter()
+                .filter_map(|t| t.as_str().map(String::from))
+                .collect();
+            init_event = init_event.with_tools(tools);
+        }
+
+        // 提取 mcp_servers
+        if let Some(mcp_servers) = extra.get("mcp_servers").and_then(|v| v.as_array()) {
+            let servers: Vec<McpServerStatus> = mcp_servers
+                .iter()
+                .filter_map(|s| {
+                    let name = s.get("name")?.as_str()?.to_string();
+                    let status = s.get("status")?.as_str()?.to_string();
+                    Some(McpServerStatus { name, status })
+                })
+                .collect();
+            init_event = init_event.with_mcp_servers(servers);
+        }
+
+        // 提取 agents
+        if let Some(agents) = extra.get("agents").and_then(|v| v.as_array()) {
+            let agents: Vec<String> = agents
+                .iter()
+                .filter_map(|a| a.as_str().map(String::from))
+                .collect();
+            init_event = init_event.with_agents(agents);
+        }
+
+        // 提取 skills
+        if let Some(skills) = extra.get("skills").and_then(|v| v.as_array()) {
+            let skills: Vec<String> = skills
+                .iter()
+                .filter_map(|s| s.as_str().map(String::from))
+                .collect();
+            init_event = init_event.with_skills(skills);
+        }
+
+        // 提取 model
+        if let Some(model) = extra.get("model").and_then(|v| v.as_str()) {
+            init_event = init_event.with_model(model.to_string());
+        }
+
+        // 提取 version
+        if let Some(version) = extra.get("claude_code_version").and_then(|v| v.as_str()) {
+            init_event = init_event.with_version(version.to_string());
+        }
+
+        tracing::info!(
+            "[EventParser] init 事件解析完成: agents={}, tools={}, mcp_servers={}",
+            init_event.agents.len(),
+            init_event.tools.len(),
+            init_event.mcp_servers.len()
+        );
+
+        vec![AIEvent::CliInit(init_event)]
     }
 
     /// 解析助手消息事件
