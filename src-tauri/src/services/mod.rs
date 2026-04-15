@@ -22,3 +22,6 @@ pub use auto_mode_service::AutoModeService;
 
 pub mod cli_info_service;
 pub use cli_info_service::CliInfoService;
+
+pub mod mcp_manager_service;
+pub use mcp_manager_service::McpManagerService;

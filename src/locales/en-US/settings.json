@@ -18,7 +18,8 @@
     "speech": "Speech Input",
     "assistant": "AI Assistant",
     "advanced": "Advanced",
-    "autoMode": "Auto Mode"
+    "autoMode": "Auto Mode",
+    "mcp": "MCP Servers"
   },
   "messages": {
     "saved": "Saved",

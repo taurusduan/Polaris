@@ -501,6 +501,14 @@ pub fn run() {
             commands::cli_info::cli_get_agents,
             commands::cli_info::cli_get_auth_status,
             commands::cli_info::cli_get_version,
+            // MCP 管理器相关
+            commands::mcp_manager::mcp_list_servers,
+            commands::mcp_manager::mcp_get_server,
+            commands::mcp_manager::mcp_health_check,
+            commands::mcp_manager::mcp_health_check_one,
+            commands::mcp_manager::mcp_add_server,
+            commands::mcp_manager::mcp_remove_server,
+            commands::mcp_manager::mcp_start_auth,
             // Claude Settings 相关
             commands::claude_settings::read_claude_settings,
             commands::claude_settings::write_claude_settings,

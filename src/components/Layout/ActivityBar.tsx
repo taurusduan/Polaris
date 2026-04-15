@@ -6,7 +6,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, ClipboardList, Terminal, Code2, PanelRight, Bot, Sparkles } from 'lucide-react'
+import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, ClipboardList, Terminal, Code2, PanelRight, Bot, Sparkles, Cpu } from 'lucide-react'
 import { useViewStore } from '@/stores/viewStore'
 import { ActivityBarIcon } from './ActivityBarIcon'
 import { RadialMenu, RadialMenuTrigger } from './RadialMenu'
@@ -123,6 +123,11 @@ export function ActivityBar({ className, onOpenSettings, onToggleRightPanel, rig
       id: 'assistant' as const,
       icon: Sparkles,
       label: t('labels.assistantPanel'),
+    },
+    {
+      id: 'mcp' as const,
+      icon: Cpu,
+      label: t('labels.mcpPanel'),
     },
   ]
 

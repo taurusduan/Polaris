@@ -20,6 +20,7 @@ import { AssistantPanel } from './assistant';
 const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then(m => ({ default: m.SettingsModal })));
 const DeveloperPanel = lazy(() => import('./components/Developer/DeveloperPanel').then(m => ({ default: m.DeveloperPanel })));
 const IntegrationPanel = lazy(() => import('./components/Integration/IntegrationPanel').then(m => ({ default: m.IntegrationPanel })));
+const McpPanel = lazy(() => import('./components/Mcp/McpPanel').then(m => ({ default: m.McpPanel })));
 const CreateWorkspaceModal = lazy(() => import('./components/Workspace/CreateWorkspaceModal').then(m => ({ default: m.CreateWorkspaceModal })));
 const FileSearchModal = lazy(() => import('./components/Editor/FileSearchModal').then(m => ({ default: m.FileSearchModal })));
 import { useConfigStore, useViewStore, useWorkspaceStore, useTabStore, useIntegrationStore, usePluginStore } from './stores';
@@ -475,6 +476,11 @@ function App() {
                 </Suspense>
               }
               assistantContent={<AssistantPanel />}
+              mcpContent={
+                <Suspense fallback={<div className="flex items-center justify-center h-full text-text-muted">{t('status.loading')}</div>}>
+                  <McpPanel />
+                </Suspense>
+              }
             />
           </LeftPanel>
         )}

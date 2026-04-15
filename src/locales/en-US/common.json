@@ -50,6 +50,7 @@
     "terminalPanel": "Terminal",
     "toolPanel": "Tool Panel",
     "developerPanel": "Developer Panel",
+    "mcpPanel": "MCP Servers",
     "showAIPanel": "Show AI Panel",
     "hideAIPanel": "Hide AI Panel",
     "showActivityBar": "Show Activity Bar",

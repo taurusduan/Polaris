@@ -72,6 +72,7 @@ export function LeftPanelContent({
   developerContent,
   integrationContent,
   assistantContent,
+  mcpContent,
   currentType,
 }: {
   filesContent: ReactNode
@@ -85,6 +86,7 @@ export function LeftPanelContent({
   developerContent?: ReactNode
   integrationContent?: ReactNode
   assistantContent?: ReactNode
+  mcpContent?: ReactNode
   currentType?: LeftPanelType
 }) {
   // Hook 必须在条件之外调用
@@ -113,6 +115,8 @@ export function LeftPanelContent({
     return <>{integrationContent}</>
   } else if (type === 'assistant') {
     return <>{assistantContent}</>
+  } else if (type === 'mcp') {
+    return <>{mcpContent}</>
   }
 
   return null

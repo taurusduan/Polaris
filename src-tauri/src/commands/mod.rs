@@ -38,5 +38,8 @@ pub use auto_mode::{auto_mode_config, auto_mode_defaults};
 pub mod cli_info;
 pub use cli_info::{cli_get_agents, cli_get_auth_status, cli_get_version};
 
+pub mod mcp_manager;
+pub use mcp_manager::{mcp_list_servers, mcp_get_server, mcp_health_check, mcp_health_check_one, mcp_add_server, mcp_remove_server, mcp_start_auth};
+
 pub mod claude_settings;
 pub use claude_settings::{read_claude_settings, write_claude_settings, get_claude_settings_path};

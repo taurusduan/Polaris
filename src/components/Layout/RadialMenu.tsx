@@ -6,7 +6,7 @@
  */
 
 import { useRef, useEffect } from 'react'
-import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, ClipboardList, Terminal, Code2, PanelRight, Bot } from 'lucide-react'
+import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, ClipboardList, Terminal, Code2, PanelRight, Bot, Cpu } from 'lucide-react'
 import { useViewStore, LeftPanelType } from '@/stores/viewStore'
 import { useTranslation } from 'react-i18next'
 
@@ -125,6 +125,15 @@ export function RadialMenu({
       label: t('labels.integrationPanel'),
       onClick: () => {
         toggleLeftPanel('integration')
+        onClose()
+      }
+    },
+    {
+      id: 'mcp' as LeftPanelType,
+      icon: Cpu,
+      label: t('labels.mcpPanel'),
+      onClick: () => {
+        toggleLeftPanel('mcp')
         onClose()
       }
     },
