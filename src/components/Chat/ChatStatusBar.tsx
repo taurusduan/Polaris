@@ -25,7 +25,6 @@ import { useContainerWidth } from '../../hooks/useContainerWidth';
 import type { SpeechConfig, VoiceCommand, TTSConfig } from '../../types/speech';
 import { DEFAULT_TTS_CONFIG } from '../../types/speech';
 import { SessionConfigSelector } from './SessionConfigSelector';
-import { PersonaSelector } from '../Persona/PersonaSelector';
 
 /** 宽度分级阈值 */
 const BREAKPOINTS = {
@@ -277,10 +276,9 @@ export function ChatStatusBar({ children }: ChatStatusBarProps) {
     >
       {/* 主行 */}
       <div className="flex items-center justify-between gap-2 py-1.5 min-w-0">
-        {/* 左侧：children + 角色选择器 + 按宽度显示的选择器 */}
+        {/* 左侧：children + 按宽度显示的选择器 */}
         <div className="flex items-center gap-2 min-w-0">
           {children}
-          <PersonaSelector disabled={isStreaming} />
           {isWide && versionBadge}
           {visibleTypes.length > 0 && (
             <SessionConfigSelector

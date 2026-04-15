@@ -25,7 +25,6 @@ import { SpeechTab } from './tabs/SpeechTab';
 import { AdvancedTab } from './tabs/AdvancedTab';
 import { AssistantTab } from './tabs/AssistantTab';
 import { AutoModeTab } from './tabs/AutoModeTab';
-import { PersonaTab } from './tabs/PersonaTab';
 import { createLogger } from '../../utils/logger';
 import type { Config } from '../../types';
 
@@ -51,7 +50,6 @@ const TAB_TITLE_KEYS: Record<SettingsTabId, string> = {
   'feishu': 'nav.feishu',
   'speech': 'nav.speech',
   'assistant': 'nav.assistant',
-  'personas': 'nav.personas',
   'advanced': 'nav.advanced',
 };
 
@@ -240,10 +238,6 @@ export function SettingsModal({ onClose, initialTab }: SettingsModalProps) {
                   onConfigChange={setLocalConfig}
                   loading={loading}
                 />
-              )}
-
-              {activeTab === 'personas' && (
-                <PersonaTab />
               )}
 
               {activeTab === 'advanced' && (
