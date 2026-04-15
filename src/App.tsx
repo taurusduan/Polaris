@@ -22,7 +22,9 @@ const DeveloperPanel = lazy(() => import('./components/Developer/DeveloperPanel'
 const IntegrationPanel = lazy(() => import('./components/Integration/IntegrationPanel').then(m => ({ default: m.IntegrationPanel })));
 const CreateWorkspaceModal = lazy(() => import('./components/Workspace/CreateWorkspaceModal').then(m => ({ default: m.CreateWorkspaceModal })));
 const FileSearchModal = lazy(() => import('./components/Editor/FileSearchModal').then(m => ({ default: m.FileSearchModal })));
-import { useConfigStore, useViewStore, useWorkspaceStore, useTabStore, useIntegrationStore } from './stores';
+import { useConfigStore, useViewStore, useWorkspaceStore, useTabStore, useIntegrationStore, usePluginStore } from './stores';
+import { useSnippetStore } from './stores/snippetStore';
+import { useAutoModeStore } from './stores/autoModeStore';
 import { initEditorFileChangeListener } from './stores/fileEditorStore';
 import { sessionStoreManager } from './stores/conversationStore';
 import { useActiveSessionActions, useActiveSessionStreaming, useActiveSessionError } from './stores/conversationStore/useActiveSession';
@@ -210,6 +212,19 @@ function App() {
           } catch (error) {
             log.error('集成管理器初始化失败', error as Error);
           }
+        }
+
+        // 预加载设置相关数据（片段、机器人实例、插件、自动模式配置）
+        // 这些数据原本仅在设置页面 Tab 挂载时加载，导致未打开设置前数据为空
+        try {
+          await Promise.all([
+            useSnippetStore.getState().loadSnippets(),
+            useIntegrationStore.getState().loadInstances(),
+            usePluginStore.getState().fetchInstalled(),
+            useAutoModeStore.getState().fetchConfig(),
+          ]);
+        } catch (error) {
+          log.warn('设置数据预加载部分失败', { error: String(error) });
         }
       } catch (error) {
         log.error('初始化失败', error as Error);
