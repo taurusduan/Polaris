@@ -661,6 +661,13 @@ impl ClaudeEngine {
             let mut parser = EventParser::new(&current_session_id);
             let sender_for_update = input_sender.clone();
 
+            // 判断是否为 fork 模式：
+            // - fork 模式：非 init 事件报告新 fork ID（正确），init 事件报告旧源 ID（应跳过）
+            // - 非 fork 模式：init 事件报告真实文件系统 session ID（正确），
+            //   非 init 事件可能报告中间/临时 ID（不应覆盖 init 的值）
+            // 因此：仅在 fork 模式下跳过 init 事件的 session_id 更新
+            let skip_init_session_id = options.fork_session_id.is_some();
+
             // 读取 stdout
             let reader = BufReader::new(stdout);
             let mut received_session_end = false;
@@ -678,19 +685,18 @@ impl ClaudeEngine {
 
                 if let Some(raw_event) = StreamEvent::parse_line(trimmed) {
                     // 更新 session_id 映射
-                    // 注意：跳过 init 事件的 session_id 更新。
-                    // --resume 时 CLI 会先发带新 fork ID 的 system 事件，
-                    // 然后发 init 事件带原始 session_id（旧 ID），
-                    // 如果不跳过 init，会把已经更新的新 ID 覆盖回去。
                     if let StreamEvent::System { subtype, extra } = &raw_event {
                         let is_init = subtype.as_deref() == Some("init");
-                        if !is_init {
+                        // fork 模式：跳过 init（init 报告旧 ID，非 init 报告新 fork ID）
+                        // 非 fork 模式：不跳过 init（init 报告真实文件系统 ID）
+                        let should_skip = is_init && skip_init_session_id;
+                        if !should_skip {
                             if let Some(serde_json::Value::String(real_id)) = extra.get("session_id") {
                                 parser.set_session_id(real_id);
                                 SessionManager::update_session_id_shared(
                                     &sessions, &temp_id, real_id, pid, "claude", Some(sender_for_update.clone())
                                 );
-                                tracing::info!("[ClaudeEngine] session_id 更新: {} -> {}", temp_id, real_id);
+                                tracing::info!("[ClaudeEngine] session_id 更新: {} -> {} (init={}, fork={})", temp_id, real_id, is_init, skip_init_session_id);
 
                                 // 通知外部 session_id 已更新
                                 if let Some(ref cb) = on_session_id_update {
