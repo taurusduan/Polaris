@@ -11,9 +11,12 @@ import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { Shield, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { createLogger } from '../../utils/logger';
 import { sessionStoreManager } from '../../stores/conversationStore/sessionStoreManager';
 import { Button } from '../Common/Button';
 import type { PermissionRequestBlock } from '../../types';
+
+const log = createLogger('PermissionRequest');
 
 export interface PermissionRequestRendererProps {
   block: PermissionRequestBlock;
@@ -56,7 +59,7 @@ export const PermissionRequestRenderer = memo(function PermissionRequestRenderer
         await store.continueChat(`[已授权] ${deniedToolNames.join(', ')}`, deniedToolNames);
       }
     } catch (error) {
-      console.error('[PermissionRequest] 批准操作失败:', error);
+      log.error('批准操作失败:', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setIsProcessing(false);
     }
@@ -75,7 +78,7 @@ export const PermissionRequestRenderer = memo(function PermissionRequestRenderer
         await store.continueChat(decisionPrompt);
       }
     } catch (error) {
-      console.error('[PermissionRequest] 拒绝操作失败:', error);
+      log.error('拒绝操作失败:', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setIsProcessing(false);
     }

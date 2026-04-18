@@ -91,7 +91,7 @@ export class ClaudeCodeSession extends BaseSession {
     // 调用 Tauri 后端中断 CLI 进程
     invoke('interrupt_chat', { sessionId: this.id })
       .catch((error) => {
-        console.error('[ClaudeCodeSession] Failed to abort:', error)
+        log.error('Failed to abort:', error instanceof Error ? error : new Error(String(error)))
       })
       .finally(() => {
         this.currentTaskId = null
@@ -130,7 +130,7 @@ export class ClaudeCodeSession extends BaseSession {
         }
       )
     } catch (error) {
-      console.error('[ClaudeCodeSession] Failed to setup event listeners:', error instanceof Error ? error : new Error(String(error)))
+      log.error('Failed to setup event listeners:', error instanceof Error ? error : new Error(String(error)))
       throw error
     }
   }
@@ -228,7 +228,7 @@ export class ClaudeCodeSession extends BaseSession {
       })
       this._status = 'running'
     } catch (error) {
-      console.error('[ClaudeCodeSession] Failed to continue chat:', error)
+      log.error('Failed to continue chat:', error instanceof Error ? error : new Error(String(error)))
       throw error
     }
   }

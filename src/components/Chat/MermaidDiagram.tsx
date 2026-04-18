@@ -16,6 +16,7 @@ import { memo, useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getMermaidConfig } from '../../utils/mermaid-config';
 import { modKey } from '../../utils/path';
+import { createLogger } from '../../utils/logger';
 import {
   type ViewMode,
   type DiagramState,
@@ -24,6 +25,8 @@ import {
   saveDiagramState,
   removeDiagramState,
 } from './diagramState';
+
+const log = createLogger('MermaidDiagram');
 
 interface MermaidDiagramProps {
   /** Mermaid 图表代码 */
@@ -145,7 +148,7 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, id }: Mermaid
         }
       } catch (err) {
         if (mounted) {
-          console.error('Mermaid render error:', err);
+          log.error('Mermaid render error', err instanceof Error ? err : new Error(String(err)));
           setRenderState('error');
           setSvg('');
         }

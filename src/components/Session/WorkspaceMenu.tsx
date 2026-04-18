@@ -13,12 +13,15 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { createLogger } from '../../utils/logger'
 import { cn } from '@/utils/cn'
 import { Check, Plus, X, Link, Lock } from 'lucide-react'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useSessionMetadataList, useSessionManagerActions } from '@/stores/conversationStore/sessionStoreManager'
 import { CreateWorkspaceModal } from '@/components/Workspace/CreateWorkspaceModal'
 import { WorkspaceSearchInput, useWorkspaceFilter } from '@/components/Workspace/WorkspaceSearchInput'
+
+const log = createLogger('WorkspaceMenu')
 
 interface WorkspaceMenuProps {
   sessionId: string
@@ -88,14 +91,14 @@ export function WorkspaceMenu({ sessionId, anchorEl, onClose }: WorkspaceMenuPro
   // 点击主工作区项（不关闭面板）
   const handleWorkspaceClick = (workspaceId: string) => {
     if (isLocked) return // 锁定时不允许切换
-    console.log('[WorkspaceMenu] 切换工作区:', sessionId, workspaceId)
+    log.debug('Switch workspace', { sessionId, workspaceId })
     updateSessionWorkspace(sessionId, workspaceId)
     // 不关闭面板，用户可能还要操作关联工作区
   }
 
   // 切换关联工作区
   const handleToggleContext = (workspaceId: string) => {
-    console.log('[WorkspaceMenu] 切换关联工作区:', sessionId, workspaceId)
+    log.debug('Toggle context workspace', { sessionId, workspaceId })
     if (contextWorkspaceIds.includes(workspaceId)) {
       removeContextWorkspace(sessionId, workspaceId)
     } else {

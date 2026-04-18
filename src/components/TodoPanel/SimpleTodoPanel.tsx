@@ -141,7 +141,7 @@ export function SimpleTodoPanel() {
       setShowCreateDialog(false)
       await refreshTodos()
     } catch (error) {
-      console.error(t('errors.createFailed'), error)
+      log.error(t('errors.createFailed'), error instanceof Error ? error : new Error(String(error)))
       alert(t('errors.createFailed') + ': ' + (error as Error).message)
     }
   }
@@ -172,7 +172,7 @@ export function SimpleTodoPanel() {
       })
       refreshTodos()
     } catch (error) {
-      console.error(t('errors.updateFailed'), error)
+      log.error(t('errors.updateFailed'), error instanceof Error ? error : new Error(String(error)))
     }
   }
 

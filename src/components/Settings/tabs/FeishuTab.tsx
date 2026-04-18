@@ -123,7 +123,7 @@ export function FeishuTab({ loading }: FeishuTabProps) {
       }
       setHasChanges(false);
     } catch (error) {
-      console.error('Failed to save instance:', error);
+      log.error('Failed to save instance:', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setSaving(false);
     }
@@ -159,7 +159,7 @@ export function FeishuTab({ loading }: FeishuTabProps) {
       await switchInstance(instanceId);
       setHasChanges(false);
     } catch (error) {
-      console.error('Failed to switch instance:', error);
+      log.error('Failed to switch instance:', error instanceof Error ? error : new Error(String(error)));
     }
   };
 
@@ -204,7 +204,7 @@ export function FeishuTab({ loading }: FeishuTabProps) {
         await switchInstance(editingInstance.id);
       }
     } catch (error) {
-      console.error('Failed to connect Feishu Bot:', error);
+      log.error('Failed to connect Feishu Bot:', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setSaving(false);
     }
@@ -214,7 +214,7 @@ export function FeishuTab({ loading }: FeishuTabProps) {
     try {
       await stopPlatform('feishu');
     } catch (error) {
-      console.error('Failed to disconnect Feishu Bot:', error);
+      log.error('Failed to disconnect Feishu Bot:', error instanceof Error ? error : new Error(String(error)));
     }
   };
 

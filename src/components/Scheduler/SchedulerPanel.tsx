@@ -9,6 +9,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Clock, MoreVertical, Search, Plus, FileText, ScrollText, Activity } from 'lucide-react';
 import { useSchedulerStore, useToastStore } from '../../stores';
 import type { ScheduledTask, CreateTaskParams, TaskDueEvent, TriggerType } from '../../types/scheduler';
+import { createLogger } from '../../utils/logger';
 import { TaskCard } from './TaskCard';
 import { TaskEditor } from './TaskEditor';
 import { ExecutionLogDrawer } from './ExecutionLogDrawer';
@@ -16,6 +17,8 @@ import { TemplateManager } from './TemplateManager';
 import { ProtocolTemplateManager } from './ProtocolTemplateManager';
 import { ProtocolDocumentViewer } from './ProtocolDocumentViewer';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
+
+const log = createLogger('SchedulerPanel');
 
 /** 筛选条件 */
 interface TaskFilter {
@@ -55,7 +58,7 @@ function loadFilterFromStorage(): TaskFilter {
       return { ...DEFAULT_FILTER, ...parsed };
     }
   } catch (e) {
-    console.warn('加载筛选条件失败:', e);
+    log.warn('加载筛选条件失败', { error: e instanceof Error ? e.message : String(e) });
   }
   return DEFAULT_FILTER;
 }
@@ -65,7 +68,7 @@ function saveFilterToStorage(filter: TaskFilter): void {
   try {
     localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filter));
   } catch (e) {
-    console.warn('保存筛选条件失败:', e);
+    log.warn('保存筛选条件失败', { error: e instanceof Error ? e.message : String(e) });
   }
 }
 
@@ -78,7 +81,7 @@ function loadSortFromStorage(): TaskSort {
       return { ...DEFAULT_SORT, ...parsed };
     }
   } catch (e) {
-    console.warn('加载排序条件失败:', e);
+    log.warn('加载排序条件失败', { error: e instanceof Error ? e.message : String(e) });
   }
   return DEFAULT_SORT;
 }
@@ -88,7 +91,7 @@ function saveSortToStorage(sort: TaskSort): void {
   try {
     localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(sort));
   } catch (e) {
-    console.warn('保存排序条件失败:', e);
+    log.warn('保存排序条件失败', { error: e instanceof Error ? e.message : String(e) });
   }
 }
 
@@ -239,7 +242,7 @@ export function SchedulerPanel() {
           toast.info(t('toast.taskDue'), t('toast.executing', { name: event.payload.taskName }));
           await handleTaskDue(event.payload);
         } catch (e) {
-          console.error('[Scheduler] 任务执行失败:', e);
+          log.error('任务执行失败', e instanceof Error ? e : new Error(String(e)));
           toast.error(t('toast.executeFailed'), e instanceof Error ? e.message : String(e));
         }
       });
@@ -335,7 +338,7 @@ export function SchedulerPanel() {
       let finalPrompt = task.prompt;
 
       // 调试日志
-      console.log('[Scheduler] 手动执行任务:', {
+      log.info('手动执行任务:', {
         taskId: task.id,
         taskName: task.name,
         mode: task.mode,
@@ -351,28 +354,28 @@ export function SchedulerPanel() {
           try {
             const { schedulerBuildProtocolPrompt } = await import('../../services/tauri');
             finalPrompt = await schedulerBuildProtocolPrompt(task.taskPath, task.workDir);
-            console.log('[Scheduler] 协议模式，构建的 prompt 长度:', finalPrompt?.length ?? 0);
+            log.debug('Protocol prompt built', { promptLength: finalPrompt?.length ?? 0 });
           } catch (e) {
-            console.error('[Scheduler] 构建 protocol prompt 失败:', e);
+            log.error('Failed to build protocol prompt', e instanceof Error ? e : new Error(String(e)));
             finalPrompt = task.mission || task.prompt || '';
           }
         } else {
-          console.error('[Scheduler] 协议模式缺少 taskPath 或 workDir');
+          log.error('协议模式缺少 taskPath 或 workDir');
           finalPrompt = task.mission || task.prompt || '';
         }
       } else if (task.templateId) {
         // 简单模式 + 模板
         try {
           finalPrompt = await buildPrompt(task.templateId, task.name, task.prompt);
-          console.log('[Scheduler] 已应用模板，最终提示词长度:', finalPrompt?.length ?? 0);
+          log.debug('Template applied', { promptLength: finalPrompt?.length ?? 0 });
         } catch (e) {
-          console.error('[Scheduler] 应用模板失败，使用原始提示词:', e);
+          log.error('Failed to apply template', e instanceof Error ? e : new Error(String(e)));
         }
       }
 
       // 检查 prompt 是否为空
       if (!finalPrompt || finalPrompt.trim().length === 0) {
-        console.error('[Scheduler] 提示词为空，无法执行任务');
+        log.error('提示词为空，无法执行任务');
         toast.error(t('toast.runFailed'), '提示词为空，无法执行任务');
         await updateRunStatus(task.id, 'failed');
         return;
@@ -390,10 +393,10 @@ export function SchedulerPanel() {
         },
       });
 
-      console.log('[Scheduler] 任务执行会话 ID:', sessionId);
+      log.info('Task execution session started', { sessionId });
       toast.success(t('toast.runTriggered'));
     } catch (e) {
-      console.error('[Scheduler] 任务执行失败:', e);
+      log.error('Task execution failed', e instanceof Error ? e : new Error(String(e)));
       toast.error(t('toast.runFailed'), e instanceof Error ? e.message : '');
     }
   };
@@ -413,7 +416,7 @@ export function SchedulerPanel() {
       await subscribeToEvents(task.id);
       toast.success(t('toast.subscribeSuccess'));
     } catch (e) {
-      console.error('[Scheduler] 订阅日志失败:', e);
+      log.error('Failed to subscribe to logs', e instanceof Error ? e : new Error(String(e)));
       toast.error(t('toast.subscribeFailed'), e instanceof Error ? e.message : '');
     }
   };

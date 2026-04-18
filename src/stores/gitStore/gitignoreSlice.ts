@@ -8,10 +8,13 @@ import { invoke } from '@tauri-apps/api/core'
 import type { GitignoreSlice } from './types'
 import { parseGitError } from './types'
 import type { GitIgnoreResult, GitIgnoreTemplate } from '@/types/git'
+import { createLogger } from '@/utils/logger'
 
 /**
  * 创建 Gitignore 操作 Slice
  */
+const log = createLogger('GitGitignoreSlice')
+
 export const createGitignoreSlice: GitignoreSlice = (set, get) => ({
   // ===== 方法（无状态） =====
 
@@ -73,7 +76,7 @@ export const createGitignoreSlice: GitignoreSlice = (set, get) => ({
       const templates = await invoke<GitIgnoreTemplate[]>('git_get_gitignore_templates')
       return templates
     } catch (err) {
-      console.error('[GitStore] getGitignoreTemplates failed:', err)
+      log.error('getGitignoreTemplates failed:', err instanceof Error ? err : new Error(String(err)))
       return []
     }
   },

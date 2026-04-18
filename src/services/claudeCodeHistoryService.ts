@@ -154,7 +154,7 @@ export class ClaudeCodeHistoryService {
       })
       return messages
     } catch (e) {
-      console.error('[ClaudeCodeHistoryService] 获取会话历史失败:', e)
+      log.error('获取会话历史失败:', e instanceof Error ? e : new Error(String(e)))
       return []
     }
   }

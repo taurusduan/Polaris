@@ -209,19 +209,19 @@ export function TerminalPanel() {
   useEffect(() => {
     if (!initialized && sessions.length === 0) {
       setInitialized(true);
-      createSession(undefined, cwd || undefined).catch(console.error);
+      createSession(undefined, cwd || undefined).catch((e) => log.error('Failed to create session', e instanceof Error ? e : new Error(String(e))));
     }
   }, [initialized, sessions.length, createSession, cwd]);
 
   // 创建新终端
   const handleCreate = useCallback(() => {
-    createSession(undefined, cwd || undefined).catch(console.error);
+    createSession(undefined, cwd || undefined).catch((e) => log.error('Failed to create session', e instanceof Error ? e : new Error(String(e))));
   }, [createSession, cwd]);
 
   // 关闭终端
   const handleClose = useCallback((sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    closeSession(sessionId).catch(console.error);
+    closeSession(sessionId).catch((e) => log.error('Failed to close session', e instanceof Error ? e : new Error(String(e))));
   }, [closeSession]);
 
   return (

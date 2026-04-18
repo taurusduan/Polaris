@@ -26,6 +26,7 @@ import { resolveTemplateVariables } from '../../services/workspaceReference'
 import type { FileMatch } from '../../services/fileSearch'
 import type { Workspace } from '../../types'
 import type { Attachment } from '../../types/attachment'
+import { createLogger } from '../../utils/logger'
 import type { PromptSnippet } from '../../types/promptSnippet'
 import {
   createAttachment,
@@ -34,6 +35,8 @@ import {
   isImageType,
   ATTACHMENT_LIMITS,
 } from '../../types/attachment'
+
+const log = createLogger('ChatInput')
 
 interface ChatInputProps {
   onSend: (message: string, workspaceDir?: string, attachments?: Attachment[]) => void
@@ -188,7 +191,7 @@ export function ChatInput({
     // 验证
     const validation = validateAttachment(file)
     if (!validation.valid) {
-      console.warn('[ChatInput] 附件验证失败:', validation.error)
+      log.warn('Attachment validation failed', { error: validation.error })
       return
     }
 
@@ -197,7 +200,7 @@ export function ChatInput({
     const newAttachments = [...attachments, attachment]
     const totalValidation = validateAttachments(newAttachments)
     if (!totalValidation.valid) {
-      console.warn('[ChatInput] 总附件验证失败:', totalValidation.error)
+      log.warn('Total attachment validation failed', { error: totalValidation.error })
       return
     }
     // 立即更新本地 state

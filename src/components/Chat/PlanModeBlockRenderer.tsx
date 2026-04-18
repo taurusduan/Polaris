@@ -11,6 +11,7 @@ import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
+import { createLogger } from '../../utils/logger';
 import {
   Check,
   XCircle,
@@ -28,6 +29,8 @@ import {
 import { useActiveSessionConversationId, useActiveSessionActions } from '../../stores/conversationStore/useActiveSession';
 import { Button } from '../Common/Button';
 import type { PlanModeBlock, PlanStageBlock } from '../../types';
+
+const log = createLogger('PlanModeBlock');
 
 export interface PlanModeBlockRendererProps {
   block: PlanModeBlock;
@@ -321,7 +324,7 @@ export const PlanModeBlockRenderer = memo(function PlanModeBlockRenderer({
         await continueChat(approvalPrompt);
       }
     } catch (error) {
-      console.error('[PlanModeBlock] 批准计划失败:', error);
+      log.error('批准计划失败:', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setIsSubmitting(false);
     }
@@ -352,7 +355,7 @@ export const PlanModeBlockRenderer = memo(function PlanModeBlockRenderer({
       setRejectFeedback('');
       setShowFeedbackInput(false);
     } catch (error) {
-      console.error('[PlanModeBlock] 拒绝计划失败:', error);
+      log.error('拒绝计划失败:', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setIsSubmitting(false);
     }

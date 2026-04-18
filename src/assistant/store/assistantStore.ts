@@ -7,6 +7,9 @@ import type {
   ClaudeCodeExecutionEvent,
 } from '../types'
 import { getClaudeCodeSessionManager } from '../core/ClaudeCodeSessionManager'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('AssistantStore')
 
 /** 持久化版本号，用于迁移 */
 const PERSIST_VERSION = 1
@@ -328,7 +331,7 @@ export const useAssistantStore = create<AssistantStore>()(
 
         // 版本迁移
         if (version < PERSIST_VERSION) {
-          console.log('[AssistantStore] 迁移到版本', PERSIST_VERSION)
+          log.info('Migrating to version', { version: PERSIST_VERSION })
         }
 
         return {

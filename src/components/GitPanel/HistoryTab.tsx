@@ -11,6 +11,9 @@ import { GitCommit, User, Clock, RefreshCw, ChevronRight, Loader2, ChevronDown }
 import { useGitStore } from '@/stores/gitStore/index'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import type { GitCommit as GitCommitType } from '@/types/git'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('HistoryTab')
 
 const PAGE_SIZE = 20
 
@@ -49,9 +52,9 @@ export function HistoryTab({ targetCommitSha, onCommitSelected }: HistoryTabProp
     setHasMore(true)
 
     try {
-      console.log('[HistoryTab] Loading commits from:', currentWorkspace.path)
+      log.debug('Loading commits', { path: currentWorkspace.path })
       const result = await getLog(currentWorkspace.path, PAGE_SIZE, 0)
-      console.log('[HistoryTab] Loaded commits:', result.length)
+      log.debug('Loaded commits', { count: result.length })
 
       if (result.length === 0) {
         setCommits([])
@@ -66,7 +69,7 @@ export function HistoryTab({ targetCommitSha, onCommitSelected }: HistoryTabProp
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
       setError(errorMsg)
-      console.error('[HistoryTab] Failed to load commits:', errorMsg)
+      log.error('Failed to load commits', err instanceof Error ? err : new Error(String(err)))
     } finally {
       setIsLoading(false)
     }
@@ -91,7 +94,7 @@ export function HistoryTab({ targetCommitSha, onCommitSelected }: HistoryTabProp
         setHasMore(result.length === PAGE_SIZE)
       }
     } catch (err) {
-      console.error('[HistoryTab] Failed to load more commits:', err)
+      log.error('Failed to load more commits', err instanceof Error ? err : new Error(String(err)))
     } finally {
       setIsLoadingMore(false)
     }

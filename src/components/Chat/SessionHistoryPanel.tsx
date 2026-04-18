@@ -13,10 +13,13 @@ import type { UnifiedHistoryItem, HistoryScope } from '../../services/historySer
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { sessionStoreManager } from '../../stores/conversationStore/sessionStoreManager'
 import { useViewStore } from '../../stores/index'
+import { createLogger } from '../../utils/logger'
 import { Clock, MessageSquare, Trash2, RotateCcw, HardDrive, Loader2, X, ChevronDown, Globe, FolderOpen, List, GitBranch } from 'lucide-react'
 import { ForkIndicator } from './ForkIndicator'
 import { SessionTree } from './SessionTree'
 import { ForkSessionDialog } from './ForkSessionDialog'
+
+const log = createLogger('SessionHistoryPanel')
 
 const PAGE_SIZE = 20
 
@@ -80,7 +83,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
       setTotalCount(result.total)
       setHasMore(result.hasMore)
     } catch (e) {
-      console.error('[SessionHistoryPanel] 加载历史失败:', e)
+      log.error('Failed to load history', e instanceof Error ? e : new Error(String(e)))
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -101,7 +104,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
       setTotalCount(result.total)
       setHasMore(result.hasMore)
     } catch (e) {
-      console.error('[SessionHistoryPanel] 加载更多失败:', e)
+      log.error('Failed to load more history', e instanceof Error ? e : new Error(String(e)))
     } finally {
       setLoadingMore(false)
     }
@@ -126,13 +129,13 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
         item.claudeProjectName
       )
       if (success) {
-        console.log('[SessionHistoryPanel] 会话已恢复:', item.id)
+        log.info('Session restored', { itemId: item.id })
         onClose?.()
       } else {
-        console.error('[SessionHistoryPanel] 恢复会话失败')
+        log.error('Failed to restore session')
       }
     } catch (e) {
-      console.error('[SessionHistoryPanel] 恢复会话出错:', e)
+      log.error('Failed to restore session', e instanceof Error ? e : new Error(String(e)))
     } finally {
       setRestoring(null)
     }
@@ -167,7 +170,8 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
         },
       )
 
-      console.log('[SessionHistoryPanel] Fork 创建成功:', newSessionId, {
+      log.info('Fork created', {
+        newSessionId,
         sourceId: item.id,
         branchName,
         isClaudeNative,
@@ -181,7 +185,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
       // 4. 关闭对话框
       setForkTarget(null)
     } catch (e) {
-      console.error('[SessionHistoryPanel] Fork 失败:', e)
+      log.error('Fork failed', e instanceof Error ? e : new Error(String(e)))
     }
   }
 

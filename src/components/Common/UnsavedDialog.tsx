@@ -7,6 +7,9 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Save, FileText } from 'lucide-react';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('UnsavedDialog');
 
 interface UnsavedDialogProps {
   /** 文件名 */
@@ -50,7 +53,7 @@ export function UnsavedDialog({
       await onSave();
     } catch (error) {
       // 保存失败时保持对话框打开，由调用方处理错误
-      console.error('Save failed:', error);
+      log.error('Save failed:', error instanceof Error ? error : new Error(String(error)));
     }
   };
 

@@ -72,7 +72,7 @@ export class AIEngineRegistry {
 
     // 检查是否已注册
     if (this.engines.has(engineId)) {
-      console.warn(`[AIEngineRegistry] Engine "${engineId}" already registered`)
+      log.warn(`Engine "${engineId}" already registered`)
       return
     }
 

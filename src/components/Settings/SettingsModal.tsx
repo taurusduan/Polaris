@@ -83,7 +83,7 @@ export function SettingsModal({ onClose, initialTab }: SettingsModalProps) {
       await updateConfig(localConfig);
       success(t('messages.saved'), t('messages.configSavedDesc'));
     } catch (err) {
-      console.error('Failed to save config:', err);
+      log.error('Failed to save config:', err instanceof Error ? err : new Error(String(err)));
       toastError(t('messages.saveFailed'), err instanceof Error ? err.message : String(err));
     } finally {
       setSaving(false);

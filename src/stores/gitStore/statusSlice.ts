@@ -8,6 +8,9 @@ import { invoke } from '@tauri-apps/api/core'
 import type { StatusSlice } from './types'
 import { parseGitError } from './types'
 import type { GitDiffEntry } from '@/types/git'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('GitStore')
 
 /**
  * 创建状态数据 Slice
@@ -29,23 +32,21 @@ export const createStatusSlice: StatusSlice = (set, get) => ({
 
   // 刷新仓库状态
   async refreshStatus(workspacePath: string) {
-    console.log('[GitStore] refreshStatus 开始', { workspacePath })
+    log.debug('refreshStatus start', { workspacePath })
     set({ isLoading: true, error: null })
 
     try {
-      console.log('[GitStore] 调用 git_get_status', { workspacePath })
+      log.debug('Calling git_get_status', { workspacePath })
       const status = await invoke<import('@/types/git').GitRepositoryStatus>('git_get_status', {
         workspacePath,
       })
 
-      console.log('[GitStore] git_get_status 成功', { status })
+      log.debug('git_get_status success', { status })
       set({ status, isLoading: false })
     } catch (err) {
       const message = parseGitError(err)
-      console.error('[GitStore] git_get_status 失败', {
+      log.error('git_get_status failed', err instanceof Error ? err : new Error(String(err)), {
         workspacePath,
-        error: message,
-        rawError: err,
       })
       set({
         error: message,

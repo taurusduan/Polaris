@@ -13,9 +13,12 @@ import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
 import { Check, HelpCircle, CheckCircle } from 'lucide-react';
+import { createLogger } from '../../utils/logger';
 import { useActiveSessionConversationId, useActiveSessionActions } from '../../stores/conversationStore/useActiveSession';
 import { Button } from '../Common/Button';
 import type { QuestionBlock } from '../../types';
+
+const log = createLogger('QuestionBlock');
 
 export interface QuestionBlockRendererProps {
   block: QuestionBlock;
@@ -107,7 +110,7 @@ export const QuestionBlockRenderer = memo(function QuestionBlockRenderer({ block
         await continueChat(answerPrompt);
       }
     } catch (error) {
-      console.error('[QuestionBlock] 提交答案失败:', error);
+      log.error('提交答案失败:', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setIsSubmitting(false);
     }

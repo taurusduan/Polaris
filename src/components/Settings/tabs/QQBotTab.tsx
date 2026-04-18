@@ -135,7 +135,7 @@ export function QQBotTab({ loading }: QQBotTabProps) {
       }
       setHasChanges(false);
     } catch (error) {
-      console.error('Failed to save instance:', error);
+      log.error('Failed to save instance:', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setSaving(false);
     }
@@ -176,7 +176,7 @@ export function QQBotTab({ loading }: QQBotTabProps) {
       await switchInstance(instanceId);
       setHasChanges(false);
     } catch (error) {
-      console.error('Failed to switch instance:', error);
+      log.error('Failed to switch instance:', error instanceof Error ? error : new Error(String(error)));
     }
   };
 
@@ -221,7 +221,7 @@ export function QQBotTab({ loading }: QQBotTabProps) {
       };
       await startPlatform('qqbot', qqbotConfig);
     } catch (error) {
-      console.error('Failed to connect QQ Bot:', error);
+      log.error('Failed to connect QQ Bot:', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setSaving(false);
     }
@@ -232,7 +232,7 @@ export function QQBotTab({ loading }: QQBotTabProps) {
     try {
       await stopPlatform('qqbot');
     } catch (error) {
-      console.error('Failed to disconnect QQ Bot:', error);
+      log.error('Failed to disconnect QQ Bot:', error instanceof Error ? error : new Error(String(error)));
     }
   };
 

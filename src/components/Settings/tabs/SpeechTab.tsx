@@ -15,6 +15,9 @@ import {
   TTS_RATE_OPTIONS,
 } from '../../../types/speech';
 import { ttsService } from '../../../services/ttsService';
+import { createLogger } from '../../../utils/logger';
+
+const log = createLogger('SpeechTab');
 
 interface SpeechTabProps {
   config: Config;
@@ -69,7 +72,7 @@ export function SpeechTab({ config, onConfigChange, loading }: SpeechTabProps) {
       // 播放测试文本
       await ttsService.speak('你好，这是语音测试。');
     } catch (error) {
-      console.error('Voice test failed:', error);
+      log.error('Voice test failed:', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setIsTestingVoice(false);
     }

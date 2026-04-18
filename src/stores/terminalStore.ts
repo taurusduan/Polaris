@@ -88,7 +88,7 @@ export const useTerminalStore = create<TerminalStore>((set) => ({
     try {
       await invoke('terminal_write', { sessionId, data });
     } catch (e) {
-      console.error('[Terminal] 写入失败:', e);
+      log.error('写入失败:', e instanceof Error ? e : new Error(String(e)));
     }
   },
 
@@ -96,7 +96,7 @@ export const useTerminalStore = create<TerminalStore>((set) => ({
     try {
       await invoke('terminal_resize', { sessionId, cols, rows });
     } catch (e) {
-      console.error('[Terminal] 调整大小失败:', e);
+      log.error('调整大小失败:', e instanceof Error ? e : new Error(String(e)));
     }
   },
 

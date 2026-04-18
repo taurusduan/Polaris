@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Layout, FileExplorer, ConnectingOverlay, ErrorBoundary, ToastContainer } from './components/Common';
+import { createLogger } from './utils/logger';
+
+const log = createLogger('App');
 import { ConfirmDialog } from './components/Common/ConfirmDialog';
 
 import { TopMenuBar as TopMenuBarComponent } from './components/TopMenuBar';
@@ -86,7 +89,7 @@ function App() {
 
   // === 诊断日志 ===
   useEffect(() => {
-    console.log('[App] 工作区状态更新', {
+    log.info('Workspace state updated', {
       workspacesCount: workspaces.length,
       currentWorkspaceId: useWorkspaceStore.getState().currentWorkspaceId,
       currentWorkspace: currentWorkspace ? {
@@ -114,7 +117,7 @@ function App() {
       try {
         await interruptChat();
       } catch (e) {
-        console.warn('[App] 中断失败，继续切换引擎:', e);
+        log.warn('Interrupt failed, continuing engine switch', { error: e instanceof Error ? e.message : String(e) });
       }
     }
 

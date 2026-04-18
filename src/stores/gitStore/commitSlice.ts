@@ -8,6 +8,9 @@ import { invoke } from '@tauri-apps/api/core'
 import type { CommitSlice } from './types'
 import { parseGitError } from './types'
 import type { GitCommit, BatchStageResult } from '@/types/git'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('GitStore')
 
 /**
  * 创建 Commit 操作 Slice
@@ -54,7 +57,7 @@ export const createCommitSlice: CommitSlice = (set, get) => ({
 
   // 暂存文件
   async stageFile(workspacePath: string, filePath: string) {
-    console.log('[GitStore] stageFile 开始', { workspacePath, filePath })
+    log.debug('stageFile start', { workspacePath, filePath })
     set({ isLoading: true, error: null })
 
     try {
@@ -62,7 +65,7 @@ export const createCommitSlice: CommitSlice = (set, get) => ({
         workspacePath,
         filePath,
       }
-      console.log('[GitStore] 调用 git_stage_file，参数:', params)
+      log.debug('Calling git_stage_file', params)
       await invoke('git_stage_file', params)
 
       // 刷新状态

@@ -1,5 +1,8 @@
 import { sessionStoreManager } from '../../stores/conversationStore'
 import type { ClaudeCodeSessionType, ClaudeCodeSessionState } from '../types'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('ClaudeCodeSessionManager')
 
 /**
  * Claude Code 会话管理器
@@ -41,7 +44,7 @@ export class ClaudeCodeSessionManager {
 
     this.sessions.set(sessionId, sessionState)
 
-    console.log(`[ClaudeCodeSessionManager] 创建会话: ${sessionId} (${type})`)
+    log.info('Session created', { sessionId, type })
 
     return sessionId
   }
@@ -143,7 +146,7 @@ export class ClaudeCodeSessionManager {
     sessionStoreManager.getState().deleteSession(sessionId)
     this.sessions.delete(sessionId)
 
-    console.log(`[ClaudeCodeSessionManager] 删除会话: ${sessionId}`)
+    log.info('Session deleted', { sessionId })
   }
 
   /**

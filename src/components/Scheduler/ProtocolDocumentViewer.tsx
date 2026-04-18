@@ -8,6 +8,9 @@ import { useTranslation } from 'react-i18next';
 import type { ScheduledTask, ProtocolDocuments } from '../../types/scheduler';
 import * as tauri from '../../services/tauri';
 import { useToastStore } from '../../stores';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('ProtocolDocViewer');
 
 export interface ProtocolDocumentViewerProps {
   /** 任务数据 */
@@ -45,7 +48,7 @@ export function ProtocolDocumentViewer({ task, onClose }: ProtocolDocumentViewer
         );
         setDocuments(docs);
       } catch (e) {
-        console.error('加载协议文档失败:', e);
+        log.error('Failed to load protocol documents', e instanceof Error ? e : new Error(String(e)));
         toast.error(t('protocolDoc.loadFailed', '加载协议文档失败'), e instanceof Error ? e.message : '');
       } finally {
         setLoading(false);
@@ -126,7 +129,7 @@ export function ProtocolDocumentViewer({ task, onClose }: ProtocolDocumentViewer
       setEditing(false);
       setEditContent('');
     } catch (e) {
-      console.error('保存文档失败:', e);
+      log.error('Failed to save document', e instanceof Error ? e : new Error(String(e)));
       toast.error(t('protocolDoc.saveFailed', '保存失败'), e instanceof Error ? e.message : '');
     } finally {
       setSaving(false);
@@ -147,7 +150,7 @@ export function ProtocolDocumentViewer({ task, onClose }: ProtocolDocumentViewer
       setDocuments(docs);
       toast.success(t('protocolDoc.clearSuccess', '已清空用户补充'));
     } catch (e) {
-      console.error('清空用户补充失败:', e);
+      log.error('Failed to clear user supplements', e instanceof Error ? e : new Error(String(e)));
       toast.error(t('protocolDoc.clearFailed', '清空失败'), e instanceof Error ? e.message : '');
     } finally {
       setSaving(false);
@@ -170,7 +173,7 @@ export function ProtocolDocumentViewer({ task, onClose }: ProtocolDocumentViewer
       );
       toast.success(t('protocolDoc.backupSuccess', '备份成功'));
     } catch (e) {
-      console.error('备份文档失败:', e);
+      log.error('Failed to backup document', e instanceof Error ? e : new Error(String(e)));
       toast.error(t('protocolDoc.backupFailed', '备份失败'), e instanceof Error ? e.message : '');
     } finally {
       setSaving(false);

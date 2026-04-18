@@ -11,6 +11,9 @@ import { EnhancedChatMessages, ChatInput } from '../Chat'
 import { useConfigStore, useWorkspaceStore } from '../../stores'
 import { useActiveSessionStreaming, useActiveSessionError, useActiveSessionActions } from '../../stores/conversationStore/useActiveSession'
 import type { EngineId } from '../../types'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('AIPopover')
 
 interface AIPopoverProps {
   isOpen: boolean
@@ -49,7 +52,7 @@ export function AIPopover({ isOpen, onClose }: AIPopoverProps) {
       try {
         await interruptChat()
       } catch (e) {
-        console.warn('[AIPopover] 中断失败，继续切换引擎:', e)
+        log.warn('Interrupt failed, continuing engine switch', { error: e instanceof Error ? e.message : String(e) })
       }
     }
 
