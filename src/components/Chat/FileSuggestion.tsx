@@ -201,6 +201,3 @@ export function UnifiedSuggestion({
     </div>
   );
 }
-
-// 保留旧组件用于向后兼容（如有其他地方使用）
-export { WorkspaceSuggestion } from './WorkspaceSuggestionLegacy';

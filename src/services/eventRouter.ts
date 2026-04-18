@@ -68,7 +68,7 @@ export class EventRouter {
     this.unlisten = await listen<string>('chat-event', (event) => {
       try {
         const rawPayload = event.payload
-        console.log('[EventRouter] 收到原始事件类型:', typeof rawPayload, '内容:', typeof rawPayload === 'string' ? rawPayload.slice(0, 200) : JSON.stringify(rawPayload).slice(0, 200))
+        log.info('收到原始事件', { type: typeof rawPayload, preview: typeof rawPayload === 'string' ? rawPayload.slice(0, 200) : JSON.stringify(rawPayload).slice(0, 200) })
 
         // 处理不同类型的 payload
         let rawData: unknown
@@ -132,10 +132,10 @@ export class EventRouter {
         }
 
         // 回退到 contextId 路由（旧架构兼容）
-        console.log('[EventRouter] 回退到 contextId 路由:', routedEvent.contextId, 'payload类型:', typeof routedEvent.payload)
+        log.info('回退到 contextId 路由', { contextId: routedEvent.contextId, payloadType: typeof routedEvent.payload })
         this.dispatch(routedEvent)
       } catch (e) {
-        console.error('[EventRouter] Failed to parse event:', e)
+        log.error('Failed to parse event', e instanceof Error ? e : new Error(String(e)))
       }
     })
 
@@ -168,7 +168,7 @@ export class EventRouter {
     if (this.handlers.has(contextId)) {
       const existingHandlers = this.handlers.get(contextId)!
       if (existingHandlers.size > 0) {
-        console.log('[EventRouter] contextId', contextId, '已存在 handler，清除旧 handler')
+        log.info('contextId 已存在 handler，清除旧 handler', { contextId })
         existingHandlers.clear()
       }
     } else {
@@ -176,7 +176,7 @@ export class EventRouter {
     }
 
     this.handlers.get(contextId)!.add(handler)
-    console.log('[EventRouter] 注册 handler for', contextId)
+    log.info('注册 handler', { contextId })
 
     return () => {
       this.handlers.get(contextId)?.delete(handler)
@@ -249,7 +249,7 @@ let routerInstance: EventRouter | null = null
 export function getEventRouter(): EventRouter {
   // 如果实例存在但已销毁，创建新实例
   if (routerInstance && routerInstance.isDestroyed()) {
-    console.log('[EventRouter] 检测到已销毁实例，创建新实例')
+    log.info('检测到已销毁实例，创建新实例')
     routerInstance = new EventRouter()
   } else if (!routerInstance) {
     routerInstance = new EventRouter()

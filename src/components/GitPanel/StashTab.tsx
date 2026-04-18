@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Archive, Check, RefreshCw, Loader2, Inbox } from 'lucide-react'
-import { useGitStore } from '@/stores/gitStore'
+import { useGitStore } from '@/stores/gitStore/index'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { formatGitTimestamp } from '@/utils/gitFormat'
 import type { GitStashEntry } from '@/types/git'

@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw, Loader2, Inbox, Save, Plus, X, FilePlus } from 'lucide-react'
-import { useGitStore } from '@/stores/gitStore'
+import { useGitStore } from '@/stores/gitStore/index'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useToastStore } from '@/stores/toastStore'
 import { logger } from '@/utils/logger'

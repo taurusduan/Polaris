@@ -24,6 +24,9 @@ import { useConfigStore } from '../configStore'
 import { getEventBus } from '../../ai-runtime'
 import { useWorkspaceStore } from '../workspaceStore'
 import { useViewStore } from '../index'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('SessionStoreManager')
 
 // ============================================================================
 // LRU 驱逐配置
@@ -88,7 +91,7 @@ function evictIdleSessions(
       store.getState().dispose()
       newStores.delete(id)
       newMetadata.delete(id)
-      console.log('[SessionStoreManager] LRU 驱逐会话:', id)
+      log.info('LRU 驱逐会话', { id })
     }
   }
 
@@ -142,16 +145,11 @@ function createSessionManagerStore() {
       const sessionId = options.id || crypto.randomUUID()
       const timestamp = new Date().toISOString()
 
-      console.log('[SessionStoreManager] createSession 调用:', {
-        sessionId,
-        optionsWorkspaceId: options.workspaceId,
-        optionsType: options.type,
-        optionsTitle: options.title,
-      })
+      log.info('createSession 调用', { sessionId, optionsWorkspaceId: options.workspaceId, optionsType: options.type, optionsTitle: options.title })
 
       // 检查会话是否已存在
       if (get().stores.has(sessionId)) {
-        console.log('[SessionStoreManager] 会话已存在:', sessionId)
+        log.info('会话已存在', { sessionId })
         return sessionId
       }
 
@@ -171,11 +169,7 @@ function createSessionManagerStore() {
         forkFromId: options.forkFromId,
       }
 
-      console.log('[SessionStoreManager] 创建会话元数据:', {
-        sessionId,
-        metadataWorkspaceId: metadata.workspaceId,
-        metadataType: metadata.type,
-      })
+      log.info('创建会话元数据', { sessionId, metadataWorkspaceId: metadata.workspaceId, metadataType: metadata.type })
 
       // 构建依赖注入
       const contextId = `session-${sessionId}`
@@ -240,7 +234,7 @@ function createSessionManagerStore() {
         }
       })
 
-      console.log('[SessionStoreManager] 创建会话:', sessionId)
+      log.info('创建会话', { sessionId })
 
       // LRU 驱逐：非保护会话超过上限时清理最旧的
       const currentState = get()
@@ -276,11 +270,7 @@ function createSessionManagerStore() {
       if (store) {
         store.getState().setMessagesFromHistory(messages, conversationId)
 
-        console.log('[SessionStoreManager] 从历史创建会话:', sessionId, {
-          messageCount: messages.length,
-          conversationId,
-          forkFromId: metadata?.forkFromId,
-        })
+        log.info('从历史创建会话', { sessionId, messageCount: messages.length, conversationId, forkFromId: metadata?.forkFromId })
       }
 
       return sessionId
@@ -291,7 +281,7 @@ function createSessionManagerStore() {
       const store = state.stores.get(sessionId)
 
       if (!store) {
-        console.warn('[SessionStoreManager] 会话不存在:', sessionId)
+        log.warn('会话不存在', { sessionId })
         return
       }
 
@@ -332,7 +322,7 @@ function createSessionManagerStore() {
       // 同步从多窗口视图移除
       useViewStore.getState().removeFromMultiView(sessionId)
 
-      console.log('[SessionStoreManager] 删除会话:', sessionId)
+      log.info('删除会话', { sessionId })
     },
 
     switchSession: (sessionId: string) => {
@@ -340,7 +330,7 @@ function createSessionManagerStore() {
       const store = state.stores.get(sessionId)
 
       if (!store) {
-        console.warn('[SessionStoreManager] 会话不存在:', sessionId)
+        log.warn('会话不存在', { sessionId })
         return
       }
 
@@ -371,13 +361,13 @@ function createSessionManagerStore() {
         viewState.requestScrollToSession(sessionId)
       }
 
-      console.log('[SessionStoreManager] 切换会话:', sessionId)
+      log.info('切换会话', { sessionId })
     },
 
     updateSessionTitle: (sessionId: string, title: string) => {
       const metadata = get().sessionMetadata.get(sessionId)
       if (!metadata) {
-        console.warn('[SessionStoreManager] 会话不存在:', sessionId)
+        log.warn('会话不存在', { sessionId })
         return
       }
 
@@ -392,13 +382,13 @@ function createSessionManagerStore() {
         return { sessionMetadata: newMetadata }
       })
 
-      console.log('[SessionStoreManager] 更新会话标题:', sessionId, title)
+      log.info('更新会话标题', { sessionId, title })
     },
 
     makeSessionVisible: (sessionId: string) => {
       const metadata = get().sessionMetadata.get(sessionId)
       if (!metadata) {
-        console.warn('[SessionStoreManager] 会话不存在:', sessionId)
+        log.warn('会话不存在', { sessionId })
         return
       }
 
@@ -422,7 +412,7 @@ function createSessionManagerStore() {
       // 切换到该会话
       get().switchSession(sessionId)
 
-      console.log('[SessionStoreManager] 会话已转为可见:', sessionId)
+      log.info('会话已转为可见', { sessionId })
     },
 
     // ===== Store 访问 =====
@@ -448,7 +438,7 @@ function createSessionManagerStore() {
       // 如果都没有，使用当前活跃会话 ID
       const routeSessionId = event._routeSessionId || event.sessionId || get().activeSessionId
       if (!routeSessionId) {
-        console.warn('[SessionStoreManager] 无法确定路由目标，缺少 sessionId 和 activeSessionId')
+        log.warn('无法确定路由目标，缺少 sessionId 和 activeSessionId')
         return
       }
       let store = get().stores.get(routeSessionId)
@@ -458,8 +448,7 @@ function createSessionManagerStore() {
         // 检测是否为 scheduler 任务（静默模式）
         const isSchedulerTask = routeSessionId.startsWith('scheduler-')
         
-        console.log('[SessionStoreManager] 事件路由时自动创建会话:', routeSessionId, 
-                    isSchedulerTask ? '(静默模式)' : '')
+        log.info('事件路由时自动创建会话', { routeSessionId, silentMode: isSchedulerTask })
         
         get().createSession({
           id: routeSessionId,
@@ -470,7 +459,7 @@ function createSessionManagerStore() {
         store = get().stores.get(routeSessionId)
 
         if (!store) {
-          console.error('[SessionStoreManager] 自动创建会话失败:', routeSessionId)
+          log.error('自动创建会话失败', undefined, { routeSessionId })
           return
         }
       }
@@ -490,7 +479,7 @@ function createSessionManagerStore() {
       try {
         getEventBus().emit(event)
       } catch (e) {
-        console.warn('[SessionStoreManager] EventBus emit 失败:', e)
+        log.warn('EventBus emit 失败', { error: String(e) })
       }
 
       // 更新元数据状态（仅在 status 实际变化时创建新 Map，避免高频事件下无谓重建）
@@ -557,7 +546,7 @@ function createSessionManagerStore() {
         })
       }
 
-      console.log('[SessionStoreManager] 会话进入后台:', sessionId)
+      log.info('会话进入后台', { sessionId })
     },
 
     removeFromBackground: (sessionId: string) => {
@@ -601,21 +590,17 @@ function createSessionManagerStore() {
     interruptSession: async (sessionId: string) => {
       const store = get().stores.get(sessionId)
       if (!store) {
-        console.warn('[SessionStoreManager] interruptSession: 会话不存在:', sessionId)
+        log.warn('interruptSession: 会话不存在', { sessionId })
         return
       }
 
       const state = store.getState()
-      console.log('[SessionStoreManager] interruptSession:', {
-        frontendSessionId: sessionId,
-        backendConversationId: state.conversationId,
-        isStreaming: state.isStreaming
-      })
+      log.info('interruptSession', { frontendSessionId: sessionId, backendConversationId: state.conversationId, isStreaming: state.isStreaming })
 
       try {
         await state.interrupt()
       } catch (e) {
-        console.error('[SessionStoreManager] 打断会话失败:', sessionId, e)
+        log.error('打断会话失败', e instanceof Error ? e : new Error(String(e)), { sessionId })
       }
     },
 
@@ -631,26 +616,18 @@ function createSessionManagerStore() {
     updateSessionWorkspace: (sessionId: string, workspaceId: string | null) => {
       const metadata = get().sessionMetadata.get(sessionId)
       if (!metadata) {
-        console.warn('[SessionStoreManager] 会话不存在:', sessionId)
+        log.warn('会话不存在', { sessionId })
         return
       }
 
-      console.log('[SessionStoreManager] updateSessionWorkspace 调用:', {
-        sessionId,
-        newWorkspaceId: workspaceId,
-        oldWorkspaceId: metadata.workspaceId,
-      })
+      log.info('updateSessionWorkspace 调用', { sessionId, newWorkspaceId: workspaceId, oldWorkspaceId: metadata.workspaceId })
 
       // 获取工作区名称
       let workspaceName: string | undefined
       if (workspaceId) {
         const workspace = useWorkspaceStore.getState().workspaces.find(w => w.id === workspaceId)
         workspaceName = workspace?.name
-        console.log('[SessionStoreManager] 找到工作区:', {
-          workspaceId,
-          workspaceName,
-          workspacePath: workspace?.path,
-        })
+        log.info('找到工作区', { workspaceId, workspaceName, workspacePath: workspace?.path })
       }
 
       // 更新 SessionMetadata
@@ -674,13 +651,13 @@ function createSessionManagerStore() {
         store.setState({ workspaceId })
       }
 
-      console.log('[SessionStoreManager] 更新会话工作区完成:', sessionId, workspaceId)
+      log.info('更新会话工作区完成', { sessionId, workspaceId })
     },
 
     addContextWorkspace: (sessionId: string, workspaceId: string) => {
       const metadata = get().sessionMetadata.get(sessionId)
       if (!metadata) {
-        console.warn('[SessionStoreManager] 会话不存在:', sessionId)
+        log.warn('会话不存在', { sessionId })
         return
       }
 
@@ -702,13 +679,13 @@ function createSessionManagerStore() {
         return { sessionMetadata: newMetadata }
       })
 
-      console.log('[SessionStoreManager] 添加关联工作区:', sessionId, workspaceId)
+      log.info('添加关联工作区', { sessionId, workspaceId })
     },
 
     removeContextWorkspace: (sessionId: string, workspaceId: string) => {
       const metadata = get().sessionMetadata.get(sessionId)
       if (!metadata) {
-        console.warn('[SessionStoreManager] 会话不存在:', sessionId)
+        log.warn('会话不存在', { sessionId })
         return
       }
 
@@ -725,7 +702,7 @@ function createSessionManagerStore() {
         return { sessionMetadata: newMetadata }
       })
 
-      console.log('[SessionStoreManager] 移除关联工作区:', sessionId, workspaceId)
+      log.info('移除关联工作区', { sessionId, workspaceId })
     },
 
     // ===== 初始化 =====
@@ -739,11 +716,11 @@ function createSessionManagerStore() {
           type: 'free',
           title: '新对话',
         })
-        console.log('[SessionStoreManager] 已创建默认会话')
+        log.info('已创建默认会话')
       }
 
       set({ isInitialized: true })
-      console.log('[SessionStoreManager] 初始化完成')
+      log.info('初始化完成')
     },
   }))
 }

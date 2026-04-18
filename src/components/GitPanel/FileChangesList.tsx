@@ -6,7 +6,7 @@
 
 import { useTranslation } from 'react-i18next'
 import { File, Check, X, Plus, Minus, GitCommit } from 'lucide-react'
-import { useGitStore } from '@/stores/gitStore'
+import { useGitStore } from '@/stores/gitStore/index'
 import type { GitFileChange } from '@/types'
 
 interface FileChangesListProps {

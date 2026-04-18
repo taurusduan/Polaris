@@ -10,6 +10,8 @@ import i18n from 'i18next';
 import type { Workspace, WorkspaceReference, ParsedWorkspaceMessage } from '../types';
 import { joinPath } from '../utils/path';
 import { getSystemPromptConfigDirect } from './systemPromptStore';
+import { createLogger } from '../utils/logger'
+const log = createLogger('WorkspaceReference')
 
 /**
  * 匹配 @workspace:path 和 @path 格式
@@ -357,14 +359,11 @@ export function getUserSystemPrompt(
   // 直接从 localStorage 读取配置，绕过 Zustand 的异步水合问题
   const config = getSystemPromptConfigDirect();
 
-  console.log('[getUserSystemPrompt] 系统提示词配置:', {
-    enabled: config?.enabled,
-    hasCustomPrompt: !!config?.customPrompt?.trim(),
-  })
+  log.info('系统提示词配置', { enabled: config?.enabled, hasCustomPrompt: !!config?.customPrompt?.trim() })
 
   // 未启用或无自定义内容，返回 null
   if (!config?.enabled || !config.customPrompt?.trim()) {
-    console.log('[getUserSystemPrompt] 未启用或无内容，返回 null')
+    log.info('未启用或无内容，返回 null')
     return null;
   }
 
@@ -375,7 +374,7 @@ export function getUserSystemPrompt(
     contextWorkspaces,
   });
 
-  console.log('[getUserSystemPrompt] 用户自定义提示词长度:', resolvedPrompt.length)
+  log.info('用户自定义提示词已生成', { length: resolvedPrompt.length })
   return resolvedPrompt;
 }
 

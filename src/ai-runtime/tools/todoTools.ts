@@ -120,7 +120,7 @@ export const createTodoTool: AITool = {
         subtasks: input.subtasks as Array<{ title: string }> | undefined,
       })
 
-      console.log('[createTodoTool] 创建待办成功:', todo.id, todo.content)
+      log.info('创建待办成功', { id: todo.id, content: todo.content })
 
       return {
         success: true,
@@ -134,7 +134,7 @@ export const createTodoTool: AITool = {
         },
       }
     } catch (error) {
-      console.error('[createTodoTool] 创建失败:', error)
+      log.error('创建失败', error instanceof Error ? error : new Error(String(error)))
       return {
         success: false,
         error: `创建待办失败: ${error instanceof Error ? error.message : String(error)}`,
@@ -166,7 +166,7 @@ export const listTodosTool: AITool = {
       const status = (input.status as 'all' | 'pending' | 'in_progress' | 'completed') || 'all'
       const todos = simpleTodoService.getTodosByStatus(status)
 
-      console.log(`[listTodosTool] 查询待办: workspace=${workspacePath}, status=${status}, count=${todos.length}`)
+      log.info('查询待办', { workspacePath, status, count: todos.length })
 
       // 构建更友好的返回格式
       if (todos.length === 0) {
@@ -224,7 +224,7 @@ export const listTodosTool: AITool = {
         },
       }
     } catch (error) {
-      console.error('[listTodosTool] 查询失败:', error)
+      log.error('查询失败', error instanceof Error ? error : new Error(String(error)))
       return {
         success: false,
         error: `查询待办失败: ${error instanceof Error ? error.message : String(error)}`,
@@ -379,7 +379,7 @@ export const deleteTodoTool: AITool = {
       // 执行删除
       await simpleTodoService.deleteTodo(todoId)
 
-      console.log('[deleteTodoTool] 删除待办成功:', todoId)
+      log.info('删除待办成功', { todoId })
 
       return {
         success: true,
@@ -389,7 +389,7 @@ export const deleteTodoTool: AITool = {
         },
       }
     } catch (error) {
-      console.error('[deleteTodoTool] 删除失败:', error)
+      log.error('删除失败', error instanceof Error ? error : new Error(String(error)))
       return {
         success: false,
         error: `删除待办失败: ${error instanceof Error ? error.message : String(error)}`,
@@ -448,7 +448,7 @@ export const toggleTodoStatusTool: AITool = {
       const newStatus = input.newStatus as TodoStatus
       await simpleTodoService.updateTodo(todoId, { status: newStatus })
 
-      console.log('[toggleTodoStatusTool] 切换状态成功:', todoId, newStatus)
+      log.info('切换状态成功', { todoId, newStatus })
 
       return {
         success: true,
@@ -459,7 +459,7 @@ export const toggleTodoStatusTool: AITool = {
         },
       }
     } catch (error) {
-      console.error('[toggleTodoStatusTool] 切换状态失败:', error)
+      log.error('切换状态失败', error instanceof Error ? error : new Error(String(error)))
       return {
         success: false,
         error: `切换状态失败: ${error instanceof Error ? error.message : String(error)}`,
@@ -576,7 +576,7 @@ export const startTodoTool: AITool = {
       // 标记为进行中
       await simpleTodoService.updateTodo(todoId, { status: 'in_progress' })
 
-      console.log('[startTodoTool] 开始待办成功:', todoId)
+      log.info('开始待办成功', { todoId })
 
       return {
         success: true,
@@ -587,7 +587,7 @@ export const startTodoTool: AITool = {
         },
       }
     } catch (error) {
-      console.error('[startTodoTool] 开始待办失败:', error)
+      log.error('开始待办失败', error instanceof Error ? error : new Error(String(error)))
       return {
         success: false,
         error: `开始待办失败: ${error instanceof Error ? error.message : String(error)}`,

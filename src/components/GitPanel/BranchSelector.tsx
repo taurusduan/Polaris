@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GitBranch as GitBranchIcon, Check, ChevronDown, Plus, Loader2, AlertTriangle, Archive } from 'lucide-react'
-import { useGitStore } from '@/stores/gitStore'
+import { useGitStore } from '@/stores/gitStore/index'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 
 type SwitchState = 

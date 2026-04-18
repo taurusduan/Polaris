@@ -20,7 +20,7 @@ import {
   ArrowDown,
   ArrowUp,
 } from 'lucide-react'
-import { useGitStore } from '@/stores/gitStore'
+import { useGitStore } from '@/stores/gitStore/index'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useToastStore } from '@/stores/toastStore'
 import { PushDialog } from './PushDialog'

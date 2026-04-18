@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tag, RefreshCw, Loader2, Inbox, Copy, GitCommit, Plus, Trash2, X, MessageSquare } from 'lucide-react'
-import { useGitStore } from '@/stores/gitStore'
+import { useGitStore } from '@/stores/gitStore/index'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useToastStore } from '@/stores/toastStore'
 import { formatGitTimestamp } from '@/utils/gitFormat'

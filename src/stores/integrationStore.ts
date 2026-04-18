@@ -36,6 +36,7 @@ import {
   disconnectIntegrationInstance,
   updateIntegrationInstance,
 } from '../services/tauri';
+import { createLogger } from '../utils/logger'
 
 interface IntegrationState {
   // 状态
@@ -81,6 +82,7 @@ interface IntegrationState {
   getActiveInstance: (platform: Platform) => PlatformInstance | null;
   setActiveInstance: (platform: Platform, instanceId: InstanceId | null) => void;
 }
+const log = createLogger('IntegrationStore')
 
 export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   // 初始状态
@@ -105,14 +107,14 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
 
     // 如果已初始化，不需要重复初始化
     if (get().initialized) {
-      console.log('[IntegrationStore] Already initialized, skipping');
+      log.info('Already initialized, skipping');
       return;
     }
 
     // 如果初始化正在进行中，等待现有初始化完成
     const existingPromise = get()._initPromise;
     if (existingPromise) {
-      console.log('[IntegrationStore] Initialization in progress, waiting');
+      log.info('Initialization in progress, waiting');
       return existingPromise;
     }
 
@@ -144,14 +146,14 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
           _initPromise: null,
         });
 
-        console.log('[IntegrationStore] Initialized with config:', qqbotConfig ? 'provided' : 'null');
+        log.info('Initialized with config', { hasConfig: !!qqbotConfig });
       } catch (error) {
         set({
           error: error instanceof Error ? error.message : '初始化失败',
           loading: false,
           _initPromise: null,
         });
-        console.error('[IntegrationStore] Initialize error:', error);
+        log.error('Initialize error', error instanceof Error ? error : new Error(String(error)));
       }
     })();
 
@@ -177,7 +179,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
 
       if (!get().initialized) {
         // 首次初始化：注册适配器 + 设置消息监听
-        console.log('[IntegrationStore] Not initialized, initializing first...');
+        log.info('Not initialized, initializing first');
         await initIntegration(qConfig, fConfig);
         set({ initialized: true });
 
@@ -188,7 +190,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         set({ _unlisten: unlisten });
       } else if (qqbotConfig || feishuConfig) {
         // 已初始化但有新配置：重新注册适配器（不重复设置消息监听）
-        console.log('[IntegrationStore] Already initialized, re-registering adapters with new config...');
+        log.info('Already initialized, re-registering adapters with new config');
         await initIntegration(qConfig, fConfig);
       }
 
@@ -233,7 +235,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       set({
         error: error instanceof Error ? error.message : '发送失败',
       });
-      console.error(`[IntegrationStore] Send message error:`, error);
+      log.error('Send message error', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   },

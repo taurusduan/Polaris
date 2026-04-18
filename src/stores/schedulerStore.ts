@@ -23,6 +23,9 @@ import type { AIEvent } from '../ai-runtime';
 import * as tauri from '../services/tauri';
 import { getEventRouter } from '../services/eventRouter';
 import { extractErrorMessage } from '../utils/errorMapping';
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('Scheduler')
 
 /** 日志数量限制 */
 const MAX_LOG_ENTRIES = 20;
@@ -299,7 +302,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       }));
     } catch (e) {
       const error = extractErrorMessage(e);
-      console.error('切换任务状态失败:', error);
+      log.error('切换任务状态失败', undefined, { error });
       throw new Error(error);
     }
   },
@@ -308,7 +311,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
     try {
       return await tauri.schedulerValidateTrigger(type, value);
     } catch (e) {
-      console.error('验证触发表达式失败:', e);
+      log.error('验证触发表达式失败', e instanceof Error ? e : new Error(String(e)));
       return null;
     }
   },
@@ -320,7 +323,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       const schedulerStatus = await tauri.schedulerGetStatus();
       set({ schedulerStatus });
     } catch (e) {
-      console.error('获取调度器状态失败:', e);
+      log.error('获取调度器状态失败', e instanceof Error ? e : new Error(String(e)));
     }
   },
 
@@ -331,7 +334,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       set({ schedulerStatus, statusLoading: false });
       return schedulerStatus.isRunning;
     } catch (e) {
-      console.error('启动调度器失败:', e);
+      log.error('启动调度器失败', e instanceof Error ? e : new Error(String(e)));
       set({ statusLoading: false });
       return false;
     }
@@ -344,7 +347,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       set({ schedulerStatus, statusLoading: false });
       return true;
     } catch (e) {
-      console.error('停止调度器失败:', e);
+      log.error('停止调度器失败', e instanceof Error ? e : new Error(String(e)));
       set({ statusLoading: false });
       return false;
     }
@@ -478,7 +481,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
         };
       });
     } catch (e) {
-      console.error('更新任务执行状态失败:', e);
+      log.error('更新任务执行状态失败', e instanceof Error ? e : new Error(String(e)));
     }
   },
 
@@ -490,22 +493,12 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
     const { taskId, engineId, workDir, prompt, taskName, templateId, mode, taskPath } = event;
 
     // 调试日志：记录事件详情
-    console.log('[Scheduler] TaskDue Event:', {
-      taskId,
-      taskName,
-      mode,
-      taskPath,
-      workDir,
-      promptLength: prompt?.length ?? 0,
-      missionLength: event.mission?.length ?? 0,
-      templateId,
-      engineId,
-    });
+    log.info('TaskDue Event', { taskId, taskName, mode, taskPath, workDir, promptLength: prompt?.length ?? 0, missionLength: event.mission?.length ?? 0, templateId, engineId });
 
     const store = get();
 
     if (store.runningTaskIds.has(taskId)) {
-      console.log('[Scheduler] 任务已在执行中，跳过:', taskId);
+      log.info('任务已在执行中，跳过', { taskId });
       return;
     }
 
@@ -518,50 +511,39 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
 
       // 协议模式：从文档构建 prompt
       if (mode === 'protocol') {
-        console.log('[Scheduler] 协议模式，检查路径:', { taskPath, workDir });
+        log.info('协议模式，检查路径', { taskPath, workDir });
 
         if (taskPath && workDir) {
           try {
             finalPrompt = await tauri.schedulerBuildProtocolPrompt(taskPath, workDir);
-            console.log('[Scheduler] 协议模式，构建的 prompt 长度:', finalPrompt?.length ?? 0);
+            log.info('协议模式，构建的 prompt', { promptLength: finalPrompt?.length ?? 0 });
           } catch (e) {
-            console.error('[Scheduler] 构建协议 prompt 失败:', e);
+            log.error('构建协议 prompt 失败', e instanceof Error ? e : new Error(String(e)));
             // 使用 mission 作为备用
             finalPrompt = event.mission || prompt || '';
-            console.log('[Scheduler] 使用备用 prompt，长度:', finalPrompt?.length ?? 0);
+            log.info('使用备用 prompt', { promptLength: finalPrompt?.length ?? 0 });
           }
         } else {
-          console.error('[Scheduler] 协议模式缺少 taskPath 或 workDir，使用备用 prompt');
+          log.error('协议模式缺少 taskPath 或 workDir，使用备用 prompt');
           finalPrompt = event.mission || prompt || '';
-          console.log('[Scheduler] 备用 prompt 来源:', {
-            hasMission: !!event.mission,
-            hasPrompt: !!prompt,
-            finalLength: finalPrompt?.length ?? 0,
-          });
+          log.info('备用 prompt 来源', { hasMission: !!event.mission, hasPrompt: !!prompt, finalLength: finalPrompt?.length ?? 0 });
         }
       } else if (templateId) {
         // 简单模式 + 模板
         try {
           finalPrompt = await store.buildPrompt(templateId, taskName, prompt);
-          console.log('[Scheduler] 已应用模板，最终提示词长度:', finalPrompt?.length ?? 0);
+          log.info('已应用模板', { promptLength: finalPrompt?.length ?? 0 });
         } catch (e) {
-          console.error('[Scheduler] 应用模板失败，使用原始提示词:', e);
+          log.error('应用模板失败，使用原始提示词', e instanceof Error ? e : new Error(String(e)));
         }
       } else {
         // 简单模式无模板
-        console.log('[Scheduler] 简单模式，原始 prompt 长度:', finalPrompt?.length ?? 0);
+        log.info('简单模式，原始 prompt', { promptLength: finalPrompt?.length ?? 0 });
       }
 
       // 检查 prompt 是否为空
       if (!finalPrompt || finalPrompt.trim().length === 0) {
-        console.error('[Scheduler] 提示词为空，无法执行任务', {
-          mode,
-          taskPath,
-          workDir,
-          hasPrompt: !!prompt,
-          hasMission: !!event.mission,
-          hasTemplateId: !!templateId,
-        });
+        log.error('提示词为空，无法执行任务', undefined, { mode, taskPath, workDir, hasPrompt: !!prompt, hasMission: !!event.mission, hasTemplateId: !!templateId });
         get().addLog(taskId, {
           type: 'error',
           content: '提示词为空，无法执行任务',
@@ -582,9 +564,9 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
         },
       });
 
-      console.log('[Scheduler] 任务执行会话 ID:', sessionId);
+      log.info('任务执行会话已创建', { taskId, sessionId });
     } catch (e) {
-      console.error('[Scheduler] 任务执行失败:', e);
+      log.error('任务执行失败', e instanceof Error ? e : new Error(String(e)), { taskId });
       await get().updateRunStatus(taskId, 'failed');
     }
   },
@@ -596,7 +578,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
 
     // 如果已经订阅，不重复订阅
     if (store.subscribedTaskIds.has(taskId)) {
-      console.log('[Scheduler] 任务已订阅，跳过:', taskId);
+      log.info('任务已订阅，跳过', { taskId });
       return;
     }
 
@@ -778,7 +760,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       set({ templates, templatesLoading: false });
     } catch (e) {
       const error = extractErrorMessage(e);
-      console.error('加载模板失败:', error);
+      log.error('加载模板失败', undefined, { error });
       set({ templatesLoading: false });
     }
   },
@@ -842,7 +824,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       set({ protocolTemplates, protocolTemplatesLoading: false });
     } catch (e) {
       const error = extractErrorMessage(e);
-      console.error('加载协议模板失败:', error);
+      log.error('加载协议模板失败', undefined, { error });
       set({ protocolTemplatesLoading: false });
     }
   },
@@ -854,7 +836,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       set({ protocolTemplates, protocolTemplatesLoading: false });
     } catch (e) {
       const error = extractErrorMessage(e);
-      console.error('加载协议模板失败:', error);
+      log.error('加载协议模板失败', undefined, { error });
       set({ protocolTemplatesLoading: false });
     }
   },

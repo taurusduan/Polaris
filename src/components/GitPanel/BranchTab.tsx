@@ -27,7 +27,7 @@ import {
   Play,
   ChevronRight,
 } from 'lucide-react'
-import { useGitStore } from '@/stores/gitStore'
+import { useGitStore } from '@/stores/gitStore/index'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useToastStore } from '@/stores/toastStore'
 import { formatGitTimestamp } from '@/utils/gitFormat'

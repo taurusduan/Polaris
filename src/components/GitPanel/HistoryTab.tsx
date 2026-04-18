@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GitCommit, User, Clock, RefreshCw, ChevronRight, Loader2, ChevronDown } from 'lucide-react'
-import { useGitStore } from '@/stores/gitStore'
+import { useGitStore } from '@/stores/gitStore/index'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import type { GitCommit as GitCommitType } from '@/types/git'
 

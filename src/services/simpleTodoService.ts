@@ -39,7 +39,7 @@ export class SimpleTodoService {
   async setWorkspace(workspacePath: string, forceReload: boolean = false): Promise<number> {
     // 如果工作区未切换且不强制重新加载，跳过
     if (!forceReload && this.workspacePath === workspacePath) {
-      console.log('[SimpleTodoService] 工作区未切换，跳过重新加载')
+      log.info('工作区未切换，跳过重新加载')
       return this.todos.length
     }
 
@@ -78,7 +78,7 @@ export class SimpleTodoService {
       })
       this.notifyListeners()
     } catch (error) {
-      console.error('[SimpleTodoService] 加载失败:', error)
+      log.error('加载失败', error instanceof Error ? error : new Error(String(error)))
       this.todos = []
     }
   }

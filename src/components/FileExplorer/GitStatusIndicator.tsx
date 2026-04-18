@@ -5,7 +5,7 @@
  */
 
 import { GitBranch } from 'lucide-react'
-import { useGitStore } from '@/stores/gitStore'
+import { useGitStore } from '@/stores/gitStore/index'
 import { useViewStore } from '@/stores'
 
 export function GitStatusIndicator() {

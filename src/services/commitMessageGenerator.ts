@@ -70,7 +70,7 @@ export async function generateCommitMessage(
       diffContent = formatDiffs(diffs, maxDiffLength)
     }
   } catch (err) {
-    console.error('[generateCommitMessage] Failed to get diff:', err)
+    log.error('Failed to get diff', err instanceof Error ? err : new Error(String(err)))
     throw new Error('Failed to get staged changes')
   }
 
@@ -90,7 +90,7 @@ Generate a commit message (respond with ONLY the message):`
     const result = await callAIForCommitMessage(workspacePath, SYSTEM_PROMPT, userPrompt, contextId)
     return result
   } catch (err) {
-    console.error('[generateCommitMessage] AI generation failed:', err)
+    log.error('AI generation failed', err instanceof Error ? err : new Error(String(err)))
     return generateFallbackMessage(diffContent)
   }
 }
