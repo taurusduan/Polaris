@@ -200,7 +200,7 @@ export abstract class BaseCLISession extends BaseSession {
   protected async startCLIProcess(task: AITask): Promise<CLIProcess> {
     const args = this.buildCLIArgs(task)
 
-    console.log(`[${this.engineId}Session] 启动命令:`, this.cliConfig.executablePath || this.getDefaultExecutable(), args)
+    log.info(`CLI session started: ${this.cliConfig.executablePath || this.getDefaultExecutable()}`, { args })
 
     // 返回模拟的进程对象（实际实现需调用 Tauri 后端）
     return {
@@ -393,14 +393,14 @@ export abstract class BaseCLIEngine implements AIEngine {
     try {
       const available = await this.isAvailable()
       if (!available) {
-        console.warn(`[${this.id}Engine] ${this.name} CLI 不可用，请先安装`)
+        log.warn(`CLI not available, please install: ${this.name}`)
         return false
       }
 
       this.isInitialized = true
       return true
     } catch (error) {
-      console.error(`[${this.id}Engine] 初始化失败:`, error)
+      log.error(`Engine initialization failed: ${this.id}`, error instanceof Error ? error : new Error(String(error)))
       return false
     }
   }
@@ -432,7 +432,7 @@ export abstract class BaseCLIEngine implements AIEngine {
    * 子类可覆盖此方法实现特定的检查逻辑
    */
   protected async checkCLIInstalled(): Promise<boolean> {
-    // TODO: 调用 Tauri 后端检查 CLI 是否安装
+    // TODO(Sprint4): 调用 Tauri 后端检查 CLI 是否安装
     // invoke('check_cli_installed', { cliName: this.descriptor.defaultExecutable })
     return true
   }
@@ -441,7 +441,7 @@ export abstract class BaseCLIEngine implements AIEngine {
    * 获取 CLI 版本
    */
   async getVersion(): Promise<string | null> {
-    // TODO: 调用 `${this.descriptor.defaultExecutable} --version` 获取版本
+    // TODO(Sprint4): 调用 `${this.descriptor.defaultExecutable} --version` 获取版本
     return null
   }
 }

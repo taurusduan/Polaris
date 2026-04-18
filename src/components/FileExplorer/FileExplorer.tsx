@@ -509,7 +509,7 @@ export function FileExplorer() {
 }
 
 /*
-TODO: 后续优化方案 - 实现文件系统监听自动刷新
+TODO(Sprint5+): 后续优化方案 - 实现文件系统监听自动刷新
 当前实现：手动刷新按钮 + F5快捷键
 目标实现：
 1. 使用 Rust notify crate 监听文件系统变化

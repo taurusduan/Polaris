@@ -197,13 +197,13 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       await startIntegration(platform);
       await get().refreshStatus(platform);
       set({ loading: false });
-      console.log(`[IntegrationStore] Platform ${platform} started`);
+      log.info('Platform started', { platform });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : '启动失败',
         loading: false,
       });
-      console.error(`[IntegrationStore] Start ${platform} error:`, error);
+      log.error('Start platform error', error instanceof Error ? error : new Error(String(error)), { platform });
       throw error; // 重新抛出错误以便调用方处理
     }
   },
@@ -216,13 +216,13 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       await stopIntegration(platform);
       await get().refreshStatus(platform);
       set({ loading: false });
-      console.log(`[IntegrationStore] Platform ${platform} stopped`);
+      log.info('Platform stopped', { platform });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : '停止失败',
         loading: false,
       });
-      console.error(`[IntegrationStore] Stop ${platform} error:`, error);
+      log.error('Stop platform error', error instanceof Error ? error : new Error(String(error)), { platform });
     }
   },
 
@@ -230,7 +230,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   sendMessage: async (platform, target, content) => {
     try {
       await sendIntegrationMessage(platform, target, content);
-      console.log(`[IntegrationStore] Message sent to ${platform}`);
+      log.info('Message sent', { platform });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : '发送失败',
@@ -248,7 +248,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         get()._updateStatus(platform, status);
       }
     } catch (error) {
-      console.error(`[IntegrationStore] Refresh ${platform} status error:`, error);
+      log.error('Refresh status error', error instanceof Error ? error : new Error(String(error)), { platform });
     }
   },
 
@@ -262,7 +262,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       }, {} as Record<Platform, IntegrationStatus>);
       set({ platforms });
     } catch (error) {
-      console.error('[IntegrationStore] Refresh all status error:', error);
+      log.error('Refresh all status error', error instanceof Error ? error : new Error(String(error)));
     }
   },
 
@@ -272,7 +272,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       const sessions = await getIntegrationSessions();
       set({ sessions });
     } catch (error) {
-      console.error('[IntegrationStore] Refresh sessions error:', error);
+      log.error('Refresh sessions error', error instanceof Error ? error : new Error(String(error)));
     }
   },
 
@@ -287,7 +287,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
     if (_unlisten) {
       _unlisten();
       set({ _unlisten: null, initialized: false, _initPromise: null });
-      console.log('[IntegrationStore] Cleaned up unlisten');
+      log.info('Cleaned up unlisten');
     }
   },
 
@@ -315,9 +315,9 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
     try {
       const instances = await listIntegrationInstances();
       set({ instances });
-      console.log('[IntegrationStore] Loaded instances:', instances.length);
+      log.info('Loaded instances', { count: instances.length });
     } catch (error) {
-      console.error('[IntegrationStore] Load instances error:', error);
+      log.error('Load instances error', error instanceof Error ? error : new Error(String(error)));
     }
   },
 
@@ -331,9 +331,9 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
           ...instances,
         ],
       }));
-      console.log(`[IntegrationStore] Loaded ${platform} instances:`, instances.length);
+      log.info('Loaded platform instances', { platform, count: instances.length });
     } catch (error) {
-      console.error(`[IntegrationStore] Load ${platform} instances error:`, error);
+      log.error('Load platform instances error', error instanceof Error ? error : new Error(String(error)), { platform });
     }
   },
 
@@ -344,11 +344,11 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       set((state) => ({
         instances: [...state.instances, { ...instance, id }],
       }));
-      console.log('[IntegrationStore] Added instance:', id);
+      log.info('Added instance', { id });
       return id;
     } catch (error) {
       set({ error: error instanceof Error ? error.message : '添加实例失败' });
-      console.error('[IntegrationStore] Add instance error:', error);
+      log.error('Add instance error', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   },
@@ -362,10 +362,10 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
           i.id === instance.id ? instance : i
         ),
       }));
-      console.log('[IntegrationStore] Updated instance:', instance.id);
+      log.info('Updated instance', { id: instance.id });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : '更新实例失败' });
-      console.error('[IntegrationStore] Update instance error:', error);
+      log.error('Update instance error', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   },
@@ -386,7 +386,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
           activeInstances: newActiveInstances,
         };
       });
-      console.log('[IntegrationStore] Removed instance:', instanceId);
+      log.info('Removed instance', { instanceId });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : '移除实例失败' });
       console.error('[IntegrationStore] Remove instance error:', error);

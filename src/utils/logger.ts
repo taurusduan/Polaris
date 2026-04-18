@@ -516,23 +516,32 @@ export function parseLogLevel(level: string): LogLevel {
 // 默认导出
 // ============================================================================
 
-// 保留旧 API 兼容性
+/**
+ * @deprecated 使用 createLogger() 创建模块日志器，不要直接使用此对象
+ *
+ * 此对象保留仅为向后兼容，内部已委托给 ModuleLogger。
+ * 新代码应使用：
+ *   import { createLogger } from '@/utils/logger'
+ *   const log = createLogger('ModuleName')
+ *   log.info('message', { key: 'value' })
+ */
 export const logger = {
-  debug: (message: string, ...args: unknown[]) => {
-    if (import.meta.env.DEV) {
-      console.log(`[DEBUG] ${message}`, ...args);
-    }
+  debug: (message: string, ..._args: unknown[]) => {
+    // 旧 API 兼容：委托给临时 ModuleLogger
+    const tempLogger = createLogger('Legacy');
+    tempLogger.debug(message);
   },
-  info: (message: string, ...args: unknown[]) => {
-    if (import.meta.env.DEV) {
-      console.info(`[INFO] ${message}`, ...args);
-    }
+  info: (message: string, ..._args: unknown[]) => {
+    const tempLogger = createLogger('Legacy');
+    tempLogger.info(message);
   },
-  warn: (message: string, ...args: unknown[]) => {
-    console.warn(`[WARN] ${message}`, ...args);
+  warn: (message: string, ..._args: unknown[]) => {
+    const tempLogger = createLogger('Legacy');
+    tempLogger.warn(message);
   },
-  error: (message: string, ...args: unknown[]) => {
-    console.error(`[ERROR] ${message}`, ...args);
+  error: (message: string, ..._args: unknown[]) => {
+    const tempLogger = createLogger('Legacy');
+    tempLogger.error(message);
   },
 };
 

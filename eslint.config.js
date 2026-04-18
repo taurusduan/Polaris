@@ -65,6 +65,9 @@ export default tseslint.config(
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-non-null-assertion': 'warn',
+
+      // 结构化日志：禁止 console.log/info/debug，保留 console.warn/error（ErrorBoundary 等）
+      'no-console': ['error', { allow: ['warn', 'error'] }],
     },
   },
   // 测试文件特殊配置
@@ -73,6 +76,14 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
+      'no-console': 'off',
+    },
+  },
+  // Logger 内部允许 console（Transport 层直接调用 console 是正确行为）
+  {
+    files: ['src/utils/logger.ts'],
+    rules: {
+      'no-console': 'off',
     },
   }
 );

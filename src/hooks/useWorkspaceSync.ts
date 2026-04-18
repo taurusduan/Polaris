@@ -7,6 +7,9 @@
 import { useEffect } from 'react';
 import { useWorkspaceStore } from '../stores/workspaceStore';
 import * as tauri from '../services/tauri';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('WorkspaceSync');
 
 export function useWorkspaceSync(isAppInitialized: boolean) {
   const currentWorkspacePath = useWorkspaceStore(state => state.getCurrentWorkspace()?.path);
@@ -17,9 +20,9 @@ export function useWorkspaceSync(isAppInitialized: boolean) {
     const syncWorkspace = async () => {
       try {
         await tauri.setWorkDir(currentWorkspacePath);
-        console.log('[App] 工作区路径已同步:', currentWorkspacePath);
+        log.info('Workspace path synced', { path: currentWorkspacePath });
       } catch (error) {
-        console.error('[App] 同步工作区路径失败:', error);
+        log.error('Failed to sync workspace path', error instanceof Error ? error : new Error(String(error)));
       }
     };
 

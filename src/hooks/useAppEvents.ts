@@ -16,6 +16,9 @@ import { initEditorFileChangeListener } from '../stores/fileEditorStore';
 import { sessionStoreManager } from '../stores/conversationStore';
 import { getEventRouter } from '../services/eventRouter';
 import { isAIEvent } from '../ai-runtime';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('AppEvents');
 
 export function useAppEvents() {
   const eventListenerCleanupRef = useRef<(() => void) | null>(null);
@@ -26,7 +29,7 @@ export function useAppEvents() {
 
     sessionStoreManager.getState().initialize().then(() => {
       if (mounted) {
-        console.log('[App] SessionStoreManager 初始化完成');
+        log.info('SessionStoreManager initialized');
       }
     });
 
@@ -51,7 +54,7 @@ export function useAppEvents() {
   useEffect(() => {
     const unlistenPromise = listen<{ path: string; name: string }>('file:opened', (event) => {
       const { path, name } = event.payload;
-      console.log('[App] 收到 file:opened 事件:', { path, name });
+      log.info('file:opened event', { path, name });
       useTabStore.getState().openEditorTab(path, name);
     });
 
@@ -64,7 +67,7 @@ export function useAppEvents() {
   useEffect(() => {
     const unlistenPromise = listen<{ path: string; name: string; kind?: string }>('file:preview', (event) => {
       const { path, name, kind } = event.payload;
-      console.log('[App] 收到 file:preview 事件:', { path, name, kind });
+      log.info('file:preview event', { path, name, kind });
       useTabStore.getState().openPreviewTab(path, name, { kind });
     });
 
@@ -76,7 +79,7 @@ export function useAppEvents() {
   // editor:closed → 隐藏编辑器视图
   useEffect(() => {
     const unlistenPromise = listen('editor:closed', () => {
-      console.log('[App] 收到 editor:closed 事件，隐藏编辑器视图');
+      log.info('editor:closed event, hiding editor view');
       useViewStore.getState().setShowEditor(false);
     });
 

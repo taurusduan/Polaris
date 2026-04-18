@@ -133,7 +133,7 @@ export function useAppInit({ onNoWorkspaces }: UseAppInitOptions) {
     if (hasCheckedWorkspaces.current) return;
 
     if (workspaces.length === 0 && isInitialized.current) {
-      console.log('[App] 无工作区，显示创建工作区模态框');
+      log.info('No workspaces, showing creation modal');
       onNoWorkspaces();
       hasCheckedWorkspaces.current = true;
     } else if (workspaces.length > 0) {

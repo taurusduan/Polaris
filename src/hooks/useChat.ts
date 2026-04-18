@@ -5,6 +5,9 @@
 import { useEffect } from 'react';
 import type { AIEvent } from '../ai-runtime';
 import { getEventRouter } from '../services/eventRouter';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('ChatHook');
 
 /** 监听聊天流式事件（后端已转换为 AIEvent） */
 export function useChatEvent(
@@ -22,7 +25,7 @@ export function useChatEvent(
           const aiEvent = payload as AIEvent;
           onEvent(aiEvent);
         } catch (e) {
-          console.error('Failed to process AIEvent:', e);
+          log.error('Failed to process AIEvent', e instanceof Error ? e : new Error(String(e)));
           onError?.(e instanceof Error ? e.message : '处理事件失败');
         }
       });

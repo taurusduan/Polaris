@@ -160,7 +160,8 @@ export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
   closeFile: async () => {
     const { currentFile } = get();
     if (currentFile?.isModified) {
-      // TODO: 显示未保存提示
+      // 未保存确认由 UI 层（EditorHeader.tsx）的 showCloseConfirm 对话框处理
+      // Store 层仅负责执行关闭，不处理 UI 交互
     }
     set({
       isOpen: false,

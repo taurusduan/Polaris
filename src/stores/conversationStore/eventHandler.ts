@@ -7,6 +7,9 @@
 import type { AIEvent } from '../../ai-runtime'
 import { isEditTool, extractEditDiff } from '../../utils/diffExtractor'
 import type { ConversationStore } from './types'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('EventHandler')
 
 /**
  * 处理单个会话的 AI 事件
@@ -25,7 +28,7 @@ export function handleAIEvent(
         isStreaming: true,
         error: null,
       })
-      console.log('[ConversationStore] Session started:', event.sessionId)
+      log.info('Session started', { sessionId: event.sessionId })
       break
 
     case 'session_end':
@@ -34,7 +37,7 @@ export function handleAIEvent(
         isStreaming: false,
         progressMessage: null,
       })
-      console.log('[ConversationStore] Session ended:', {
+      log.info('Session ended', {
         sessionId: state.sessionId,
         reason: event.reason,
         isStreaming: false,
@@ -225,7 +228,7 @@ export function handleAIEvent(
     default: {
       // 穷尽性检查：如果所有 AIEvent 类型都已处理，此处应为 never
       const _exhaustive: never = event
-      console.warn('[ConversationStore] 未处理的事件类型:', (_exhaustive as { type: string }).type)
+      log.warn('Unhandled event type', { type: (_exhaustive as { type: string }).type })
     }
   }
 }

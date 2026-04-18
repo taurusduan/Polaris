@@ -74,7 +74,7 @@ export async function getGitCommits(
     });
     return result;
   } catch (error) {
-    console.error('Failed to get git commits:', error);
+    log.error('Failed to get git commits', error instanceof Error ? error : new Error(String(error)));
     // 返回空数组而不是抛出错误，让 UI 可以优雅降级
     return [];
   }
@@ -112,7 +112,7 @@ export async function getGitDiffStats(
     });
     return result;
   } catch (error) {
-    console.error('Failed to get git diff stats:', error);
+    log.error('Failed to get git diff stats', error instanceof Error ? error : new Error(String(error)));
     return null;
   }
 }

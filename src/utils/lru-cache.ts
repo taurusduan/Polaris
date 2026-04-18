@@ -8,6 +8,10 @@
  * @since 2025-02-01
  */
 
+import { createLogger } from './logger'
+
+const log = createLogger('LRUCache')
+
 /**
  * LRU 缓存节点
  */
@@ -71,7 +75,7 @@ export class LRUCache<K, V> {
     this.moveToHead(node)
 
     if (this.verbose) {
-      console.log(`[LRUCache] Hit: ${String(key)}`)
+      log.debug('Cache hit', { key: String(key) })
     }
 
     return node.value
@@ -89,7 +93,7 @@ export class LRUCache<K, V> {
       this.moveToHead(node)
 
       if (this.verbose) {
-        console.log(`[LRUCache] Updated: ${String(key)}`)
+        log.debug('Cache updated', { key: String(key) })
       }
     } else {
       // 创建新节点
@@ -113,7 +117,7 @@ export class LRUCache<K, V> {
       }
 
       if (this.verbose) {
-        console.log(`[LRUCache] Added: ${String(key)} (size: ${this.cache.size}/${this.capacity})`)
+        log.debug('Cache added', { key: String(key), size: this.cache.size, capacity: this.capacity })
       }
     }
   }
@@ -152,7 +156,7 @@ export class LRUCache<K, V> {
     this.cache.delete(key)
 
     if (this.verbose) {
-      console.log(`[LRUCache] Deleted: ${String(key)}`)
+      log.debug('Cache deleted', { key: String(key) })
     }
 
     return true
@@ -167,7 +171,7 @@ export class LRUCache<K, V> {
     this.tail = null
 
     if (this.verbose) {
-      console.log('[LRUCache] Cleared')
+      log.debug('Cache cleared')
     }
   }
 
@@ -301,7 +305,7 @@ export class LRUCache<K, V> {
     this.cache.delete(removedKey)
 
     if (this.verbose) {
-      console.log(`[LRUCache] Evicted: ${String(removedKey)}`)
+      log.debug('Cache evicted', { key: String(removedKey) })
     }
   }
 }

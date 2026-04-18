@@ -10,6 +10,9 @@ import type {
   ToolCallInfo,
   ClaudeCodeExecutionEvent,
 } from '../types'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('AssistantEngine')
 
 /** 将 AIEvent 类型映射为 ClaudeCodeExecutionEvent 类型 */
 function mapEventType(event: AIEvent): ClaudeCodeExecutionEvent['type'] {
@@ -225,7 +228,7 @@ export class AssistantEngine {
     // 订阅事件
     this.subscribeToEvents()
 
-    console.log('[AssistantEngine] 初始化完成')
+    log.info('AssistantEngine initialized')
   }
 
   /**
@@ -345,7 +348,7 @@ export class AssistantEngine {
 
       yield { type: 'message_complete' }
     } catch (error) {
-      console.error('[AssistantEngine] 处理消息失败:', error)
+      log.error('Failed to process message', error instanceof Error ? error : new Error(String(error)))
       useAssistantStore.getState().setStreamingMessageId(null)
       useAssistantStore.getState().setError((error as Error).message)
       throw error
@@ -633,7 +636,7 @@ ${result}
 
     // 异步处理，不阻塞主流程
     this.processAutoReport(reportMessage).catch((error) => {
-      console.error('[AssistantEngine] 自动汇报失败:', error)
+      log.error('Auto-report failed', error instanceof Error ? error : new Error(String(error)))
     })
   }
 
@@ -707,7 +710,7 @@ ${result}
             // 这里作为兜底，确保状态同步（防止事件 ID 不匹配导致的状态卡住）
             if (claudeCodeSession.status === 'running') {
               const status = event.type === 'session_start' ? 'running' : 'completed'
-              console.log(`[AssistantEngine] 兜底状态同步: ${sessionId} -> ${status}`)
+              log.info(`Fallback status sync: ${sessionId} -> ${status}`)
               useAssistantStore.getState().updateSessionStatus(sessionId, status)
             }
             return
@@ -804,5 +807,5 @@ export function clearConversation(): void {
   store.setStreamingMessageId(null)
   store.setLoading(false)
 
-  console.log('[AssistantEngine] 对话已清空')
+  log.info('Conversation cleared')
 }

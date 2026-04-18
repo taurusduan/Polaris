@@ -8,6 +8,9 @@ import type { FileMatch } from '../services/fileSearch';
 import type { Workspace } from '../types';
 import { useWorkspaceStore } from '../stores';
 import { fileSearchCache } from '../utils/cache';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('FileSearch');
 
 export function useFileSearch() {
   const [fileMatches, setFileMatches] = useState<FileMatch[]>([]);
@@ -78,7 +81,7 @@ export function useFileSearch() {
           setFileMatches(results);
         } catch (error) {
           if ((error as Error).name !== 'AbortError') {
-            console.error('File search error:', error);
+            log.error('File search failed', error instanceof Error ? error : new Error(String(error)));
           }
         } finally {
           setIsLoading(false);

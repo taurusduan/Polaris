@@ -81,11 +81,11 @@ export class ToolRegistryImpl implements ToolRegistry {
 
   register(tool: AITool): void {
     if (this.tools.has(tool.name)) {
-      console.warn(`[ToolRegistry] Tool "${tool.name}" is already registered, overwriting...`)
+      log.warn('Tool already registered, overwriting', { toolName: tool.name })
     }
 
     this.tools.set(tool.name, tool)
-    console.log(`[ToolRegistry] Registered tool: ${tool.name}`)
+    log.info("Registered tool", { toolName: tool.name })
   }
 
   registerBatch(tools: AITool[]): void {
@@ -122,12 +122,12 @@ export class ToolRegistryImpl implements ToolRegistry {
     }
 
     try {
-      console.log(`[ToolRegistry] Executing tool: ${name}`, input)
+      log.info("Executing tool", { toolName: name, input })
       const result = await tool.execute(input)
-      console.log(`[ToolRegistry] Tool ${name} completed:`, result)
+      log.info("Tool completed", { toolName: name, success: result.success })
       return result
     } catch (error) {
-      console.error(`[ToolRegistry] Tool ${name} failed:`, error)
+      log.error(`Tool failed: ${name}`, error instanceof Error ? error : new Error(String(error)))
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),

@@ -7,6 +7,9 @@
 
 import { getEngineRegistry, registerEngine } from '../ai-runtime'
 import { ClaudeCodeEngine } from '../engines/claude-code'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('EngineBootstrap')
 
 /**
  * 已注册的 Engine ID 列表（传统引擎）
@@ -37,7 +40,7 @@ export async function bootstrapEngines(
   // 初始化已注册的引擎
   await registry.initializeAll()
 
-  console.log('[EngineBootstrap] Initialized default engine:', defaultEngineId)
+  log.info('Initialized default engine', { engineId: defaultEngineId })
 }
 
 /**
@@ -61,7 +64,7 @@ export async function registerEngineLazy(
     await claudeEngine.initialize()
   }
 
-  console.log('[EngineBootstrap] Lazy registered engine:', engineId)
+  log.info('Lazy registered engine', { engineId })
 }
 
 /**

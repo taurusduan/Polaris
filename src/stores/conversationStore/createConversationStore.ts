@@ -16,6 +16,9 @@ import { parseWorkspaceReferences, buildWorkspaceSystemPrompt, getUserSystemProm
 import { MessageCompactor, isCompacted } from '../../utils/messageCompactor'
 import { isEditTool, extractEditDiff } from '../../utils/diffExtractor'
 import { getSessionConfig } from '../sessionConfigStore'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('ConversationStore')
 
 // ============================================================================
 // 历史消息降级恢复
@@ -843,7 +846,7 @@ export function createConversationStore(
         }
 
         // 调试日志：打印工作区信息
-        console.log('[ConversationStore] sendMessage 调试信息:', {
+        log.info('sendMessage debug', {
           sessionId,
           conversationId,
           providedWorkspaceDir: workspaceDir,
@@ -997,18 +1000,18 @@ export function createConversationStore(
         const config = deps.getConfig()
         const engine = config?.defaultEngine || 'claude-code'
 
-        console.log('[ConversationStore] 尝试中断会话:', { conversationId, engine, isStreaming })
+        log.info('Attempting to interrupt session', { conversationId, engine, isStreaming })
 
         try {
           await invoke('interrupt_chat', {
             sessionId: conversationId,
             engineId: engine,
           })
-          console.log('[ConversationStore] 中断成功:', conversationId)
+          log.info('Session interrupted', { conversationId })
           set({ isStreaming: false })
           get().finishMessage()
         } catch (e) {
-          console.error('[ConversationStore] interrupt failed:', e)
+          log.error('Interrupt failed', e instanceof Error ? e : new Error(String(e)))
           // 即使中断失败，也停止流式状态
           set({ isStreaming: false })
           get().finishMessage()
@@ -1049,7 +1052,7 @@ export function createConversationStore(
         }
 
         // 调试日志：打印工作区信息
-        console.log('[ConversationStore] continueChat 调试信息:', {
+        log.info('continueChat debug', {
           conversationId,
           actualWorkspaceDir,
           currentWorkspace: currentWorkspace ? { id: currentWorkspace.id, name: currentWorkspace.name, path: currentWorkspace.path } : null,
@@ -1119,13 +1122,13 @@ export function createConversationStore(
       },
 
       regenerateResponse: async (_assistantMessageId) => {
-        // TODO: 实现重新生成
-        console.log('[ConversationStore] regenerateResponse not implemented yet')
+        // TODO(Sprint4): 实现重新生成
+        log.info('regenerateResponse not implemented yet')
       },
 
       editAndResend: async (_userMessageId, _newContent) => {
-        // TODO: 实现编辑重发
-        console.log('[ConversationStore] editAndResend not implemented yet')
+        // TODO(Sprint4): 实现编辑重发
+        log.info('editAndResend not implemented yet')
       },
 
       loadMoreArchivedMessages: (count = 20) => {
