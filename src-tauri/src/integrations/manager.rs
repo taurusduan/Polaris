@@ -6,9 +6,10 @@
  */
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex, oneshot};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use super::common::{SessionManager, ConversationStore};
 use super::qqbot::QQBotAdapter;
@@ -18,6 +19,7 @@ use super::types::*;
 use super::commands::{BotCommand, CommandParser, get_help_text, PromptMode};
 use super::instance_registry::{InstanceRegistry, PlatformInstance, InstanceConfig, InstanceId};
 use crate::ai::{EngineRegistry, SessionOptions};
+use crate::services::mcp_config_service::WorkspaceMcpConfigService;
 use crate::error::Result;
 use crate::models::config::{QQBotConfig, QQBotRuntimeConfig, FeishuConfig, FeishuRuntimeConfig};
 use crate::services::prompt_store::PromptStore;
@@ -1017,6 +1019,42 @@ impl IntegrationManager {
             }
         }
 
+        // 准备 MCP 配置（需求库、定时任务、待办工具）
+        let mcp_config_path: Option<String> = match &work_dir {
+            Some(dir) if !dir.trim().is_empty() => {
+                let config_dir = app_handle.path().app_config_dir().ok();
+                let resource_dir = app_handle.path().resource_dir().ok();
+                let app_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .parent()
+                    .map(|p| p.to_path_buf());
+
+                match (config_dir, app_root) {
+                    (Some(cdir), Some(aroot)) => {
+                        match WorkspaceMcpConfigService::from_app_paths(cdir, resource_dir, aroot) {
+                            Ok(service) => {
+                                match service.prepare_workspace_config(dir) {
+                                    Ok(path) => {
+                                        tracing::info!("[IntegrationManager] ✅ MCP 配置已准备: {}", path.display());
+                                        Some(path.to_string_lossy().to_string())
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!("[IntegrationManager] ⚠️ MCP 配置生成失败: {}，继续无 MCP 模式", e.to_message());
+                                        None
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                tracing::warn!("[IntegrationManager] ⚠️ MCP 服务初始化失败: {}，继续无 MCP 模式", e.to_message());
+                                None
+                            }
+                        }
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+
         // 发送即时确认消息
         if is_resuming {
             if let Some(ref sid) = existing_session_id {
@@ -1219,6 +1257,7 @@ impl IntegrationManager {
         // 创建内部任务完成信号，确保 per-conversation 锁覆盖完整 AI 处理周期
         let (inner_done_tx, inner_done_rx) = tokio::sync::oneshot::channel();
 
+        let task_mcp_config_path = mcp_config_path;
         let task = tokio::spawn(async move {
             // 调用 AI 引擎（根据是否已有会话决定创建新会话还是继续会话）
             let session_id_for_response: String;
@@ -1235,6 +1274,9 @@ impl IntegrationManager {
 
                     if let Some(ref dir) = work_dir {
                         options = options.with_work_dir(dir);
+                    }
+                    if let Some(ref mcp_path) = task_mcp_config_path {
+                        options = options.with_mcp_config_path(mcp_path);
                     }
 
                     registry.continue_session(engine_id, existing_id, &message, options)
@@ -1269,6 +1311,9 @@ impl IntegrationManager {
 
                     if let Some(ref dir) = work_dir {
                         options = options.with_work_dir(dir);
+                    }
+                    if let Some(ref mcp_path) = task_mcp_config_path {
+                        options = options.with_mcp_config_path(mcp_path);
                     }
 
                     registry.start_session(Some(engine_id), &message, options)
