@@ -85,6 +85,62 @@ export function checkVoiceCommand(text: string): VoiceCommand | null {
 }
 
 // ========================================
+// 唤醒词类型定义
+// ========================================
+
+/** 唤醒词配置 */
+export interface WakeWordConfig {
+  /** 是否启用唤醒词模式 */
+  enabled: boolean;
+  /** 唤醒词列表（支持多个，如 ["小白", "小百", "小柏"]） */
+  words: string[];
+}
+
+/** 默认唤醒词配置 */
+export const DEFAULT_WAKE_WORD_CONFIG: WakeWordConfig = {
+  enabled: false,
+  words: [],
+};
+
+/** 唤醒词匹配结果 */
+export interface WakeWordMatchResult {
+  /** 匹配到的唤醒词 */
+  wakeWord: string;
+  /** 唤醒词后的有效内容 */
+  content: string;
+}
+
+/**
+ * 检查识别文本是否包含唤醒词
+ *
+ * 匹配规则：
+ * - 文本完全等于唤醒词 → 激活，无附加内容
+ * - 文本以唤醒词开头 → 激活，唤醒词之后的部分作为有效内容
+ * - 其他 → 不匹配
+ */
+export function matchWakeWord(text: string, words: string[]): WakeWordMatchResult | null {
+  const trimmed = text.trim();
+  for (const word of words) {
+    if (!word) continue;
+
+    // 去标点后精确匹配
+    const cleaned = trimmed.replace(/[。！？，、\s]/g, '');
+    if (cleaned === word) {
+      return { wakeWord: word, content: '' };
+    }
+
+    // 去标点后前缀匹配
+    if (cleaned.startsWith(word)) {
+      // 从原文中截取唤醒词之后的内容
+      const idx = trimmed.indexOf(word);
+      const content = idx >= 0 ? trimmed.slice(idx + word.length).replace(/^[。！？，、\s]+/, '') : '';
+      return { wakeWord: word, content };
+    }
+  }
+  return null;
+}
+
+// ========================================
 // TTS 语音合成类型定义
 // ========================================
 

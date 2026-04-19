@@ -109,6 +109,7 @@ export function ChatInput({
     speechCommand,
     clearSpeechTranscript,
     setSpeechCommand,
+    setSpeechWakeActive,
   } = useSessionStore()
 
   // 处理语音识别文字
@@ -507,7 +508,9 @@ export function ChatInput({
     updateInputDraft({ text: '', attachments: [] })
     // 发送后关闭问题浮窗
     setQuestionPanelHidden(false)
-  }, [value, disabled, isStreaming, attachments, onSend, updateInputDraft, cancelPersistDraft, currentWorkspace])
+    // 发送后重置语音唤醒状态（回到待命）
+    setSpeechWakeActive(false)
+  }, [value, disabled, isStreaming, attachments, onSend, updateInputDraft, cancelPersistDraft, currentWorkspace, setSpeechWakeActive])
 
   // 问题浮窗：填入格式化文本并直接发送
   const handleQuestionFillAndSend = useCallback((text: string) => {

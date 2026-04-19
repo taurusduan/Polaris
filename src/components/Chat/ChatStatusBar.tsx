@@ -22,7 +22,7 @@ import { IconMic, IconVolume, IconVolumeX } from '../Common/Icons';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import { useTTS } from '../../hooks/useTTS';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
-import type { SpeechConfig, VoiceCommand, TTSConfig } from '../../types/speech';
+import type { SpeechConfig, VoiceCommand, TTSConfig, WakeWordConfig } from '../../types/speech';
 import { DEFAULT_TTS_CONFIG } from '../../types/speech';
 import { SessionConfigSelector } from './SessionConfigSelector';
 
@@ -79,6 +79,7 @@ export function ChatStatusBar({ children }: ChatStatusBarProps) {
     setSpeechCommand,
     speechCommand,
     undoSpeechTranscript,
+    speechWakeActive,
   } = useSessionStore();
 
   // 直接从 conversationStore 获取状态（消除 chatInputStore 冗余同步）
@@ -135,6 +136,9 @@ export function ChatStatusBar({ children }: ChatStatusBarProps) {
     }
   }, [ttsStatus, stopTTS, ttsEnabled, ttsConfig, config, updateConfig]);
 
+  // 唤醒词配置
+  const wakeWordConfig = config?.wakeWord as WakeWordConfig | undefined;
+
   // 语音识别 Hook
   const {
     interimTranscript,
@@ -149,7 +153,10 @@ export function ChatStatusBar({ children }: ChatStatusBarProps) {
     },
     onCommand: (command: VoiceCommand) => {
       setSpeechCommand(command);
-    }
+    },
+    wakeWordConfig: wakeWordConfig?.enabled ? wakeWordConfig : undefined,
+    getWakeActive: () => useSessionStore.getState().speechWakeActive,
+    setWakeActive: (active: boolean) => useSessionStore.getState().setSpeechWakeActive(active),
   });
 
   // 处理语音命令
@@ -207,22 +214,32 @@ export function ChatStatusBar({ children }: ChatStatusBarProps) {
   // 是否有内容被折叠（需要展开按钮）
   const hasOverflow = !isWide && (hiddenTypes.length > 0 || !!versionBadge);
 
+  // 是否处于唤醒词模式
+  const wakeWordMode = wakeWordConfig?.enabled && isListening;
+
   // 语音识别按钮
   const speechButton = speechEnabled && speechSupported ? (
     <button
       onClick={isListening ? stopSpeech : startSpeech}
       className={clsx(
         'flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors shrink-0',
-        isListening
-          ? 'bg-primary/10 text-primary'
-          : 'text-text-tertiary hover:text-text-primary hover:bg-background-hover'
+        isListening && speechWakeActive
+          ? 'bg-green-500/10 text-green-500'
+          : isListening
+            ? 'bg-primary/10 text-primary'
+            : 'text-text-tertiary hover:text-text-primary hover:bg-background-hover'
       )}
       title={isListening ? t('speech.stop', '停止语音识别') : t('speech.start', '开始语音识别')}
     >
       <IconMic size={14} className={isListening ? 'animate-pulse' : ''} />
       {isListening && (
         <span className="max-w-[200px] truncate">
-          {interimTranscript || t('speech.listening', '正在听...')}
+          {wakeWordMode
+            ? (speechWakeActive
+                ? t('speech.awake', '已唤醒...')
+                : (interimTranscript || t('speech.waitingWake', '等待唤醒...')))
+            : (interimTranscript || t('speech.listening', '正在听...'))
+          }
         </span>
       )}
     </button>

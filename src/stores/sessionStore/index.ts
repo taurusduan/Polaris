@@ -51,6 +51,8 @@ export interface SessionState {
   previousTranscript: string
   /** 待执行的语音命令 */
   speechCommand: VoiceCommand | null
+  /** 语音唤醒状态（唤醒词模式激活后为 true） */
+  speechWakeActive: boolean
 }
 
 export interface SessionActions {
@@ -96,6 +98,8 @@ export interface SessionActions {
   clearSpeechTranscript: () => void
   /** 撤回最后一次语音输入 */
   undoSpeechTranscript: () => void
+  /** 设置语音唤醒状态 */
+  setSpeechWakeActive: (active: boolean) => void
 }
 
 export type SessionStore = SessionState & SessionActions
@@ -141,6 +145,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   speechTranscript: '',
   previousTranscript: '',
   speechCommand: null,
+  speechWakeActive: false,
 
   // ========== 会话操作 ==========
 
@@ -421,6 +426,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         speechTranscript: state.previousTranscript,
         previousTranscript: ''
       })),
+      setSpeechWakeActive: (active: boolean) => set({ speechWakeActive: active }),
     })
 )
 

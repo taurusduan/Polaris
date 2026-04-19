@@ -4,13 +4,14 @@
  */
 
 import { useTranslation } from 'react-i18next';
-import { useState } from 'react';
+import { useState, useCallback, type KeyboardEvent } from 'react';
 import type { Config } from '../../../types';
-import type { SpeechLanguage, TTSVoice } from '../../../types/speech';
+import type { SpeechLanguage, TTSVoice, WakeWordConfig } from '../../../types/speech';
 import {
   SPEECH_LANGUAGE_OPTIONS,
   DEFAULT_SPEECH_CONFIG,
   DEFAULT_TTS_CONFIG,
+  DEFAULT_WAKE_WORD_CONFIG,
   TTS_VOICE_OPTIONS,
   TTS_RATE_OPTIONS,
 } from '../../../types/speech';
@@ -28,10 +29,12 @@ interface SpeechTabProps {
 export function SpeechTab({ config, onConfigChange, loading }: SpeechTabProps) {
   const { t } = useTranslation('settings');
   const [isTestingVoice, setIsTestingVoice] = useState(false);
+  const [newWakeWord, setNewWakeWord] = useState('');
 
   // 获取语音配置（带默认值）
   const speechConfig = config.speech ?? DEFAULT_SPEECH_CONFIG;
   const ttsConfig = config.tts ?? DEFAULT_TTS_CONFIG;
+  const wakeWordConfig = config.wakeWord ?? DEFAULT_WAKE_WORD_CONFIG;
 
   const updateSpeechConfig = (updates: Partial<typeof speechConfig>) => {
     onConfigChange({
@@ -42,6 +45,34 @@ export function SpeechTab({ config, onConfigChange, loading }: SpeechTabProps) {
       },
     });
   };
+
+  const updateWakeWordConfig = (updates: Partial<WakeWordConfig>) => {
+    onConfigChange({
+      ...config,
+      wakeWord: {
+        ...wakeWordConfig,
+        ...updates,
+      },
+    });
+  };
+
+  const addWakeWord = useCallback(() => {
+    const word = newWakeWord.trim();
+    if (!word || wakeWordConfig.words.includes(word)) return;
+    updateWakeWordConfig({ words: [...wakeWordConfig.words, word] });
+    setNewWakeWord('');
+  }, [newWakeWord, wakeWordConfig.words, updateWakeWordConfig]);
+
+  const removeWakeWord = useCallback((word: string) => {
+    updateWakeWordConfig({ words: wakeWordConfig.words.filter(w => w !== word) });
+  }, [wakeWordConfig.words, updateWakeWordConfig]);
+
+  const handleWakeWordKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addWakeWord();
+    }
+  }, [addWakeWord]);
 
   const updateTTSConfig = (updates: Partial<typeof ttsConfig>) => {
     const newConfig = {
@@ -134,6 +165,82 @@ export function SpeechTab({ config, onConfigChange, loading }: SpeechTabProps) {
             ))}
           </select>
         </div>
+
+        {/* 唤醒词设置（仅语音输入启用时显示） */}
+        {speechConfig.enabled && (
+          <div className="p-4 bg-surface rounded-lg border border-border mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-medium text-text-primary">
+                  {t('speech.wakeWord.title', '唤醒词模式')}
+                </h3>
+                <p className="text-xs text-text-secondary mt-1">
+                  {t('speech.wakeWord.desc', '开启后，语音识别将持续运行，但只有说出唤醒词后的内容才会写入输入框')}
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={wakeWordConfig.enabled}
+                  onChange={(e) => updateWakeWordConfig({ enabled: e.target.checked })}
+                  disabled={loading}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-border rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
+
+            {/* 唤醒词列表 */}
+            {wakeWordConfig.enabled && (
+              <div>
+                {wakeWordConfig.words.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {wakeWordConfig.words.map(word => (
+                      <span
+                        key={word}
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded text-xs"
+                      >
+                        {word}
+                        <button
+                          onClick={() => removeWakeWord(word)}
+                          className="text-primary/60 hover:text-primary"
+                          title={t('speech.wakeWord.remove', '删除')}
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-warning mb-3">
+                    {t('speech.wakeWord.empty', '请至少添加一个唤醒词，否则唤醒模式无法生效')}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newWakeWord}
+                    onChange={(e) => setNewWakeWord(e.target.value)}
+                    onKeyDown={handleWakeWordKeyDown}
+                    placeholder={t('speech.wakeWord.placeholder', '输入唤醒词，按回车添加')}
+                    disabled={loading}
+                    className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                  <button
+                    onClick={addWakeWord}
+                    disabled={loading || !newWakeWord.trim()}
+                    className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {t('speech.wakeWord.add', '添加')}
+                  </button>
+                </div>
+                <p className="text-xs text-text-tertiary mt-2">
+                  {t('speech.wakeWord.hint', '说唤醒词后，后续语音内容将写入输入框；发送后自动回到待命状态')}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 语音命令说明 */}
         <div className="p-4 bg-surface rounded-lg border border-border">

@@ -2,6 +2,7 @@
  * 语音识别 Hook
  *
  * 固定配置：连续识别 + 显示临时结果
+ * 支持唤醒词模式：待命状态下仅响应唤醒词，激活后才将语音写入输入框
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -10,9 +11,10 @@ import type {
   SpeechRecognitionStatus,
   SpeechRecognitionError,
   SpeechLanguage,
-  VoiceCommand
+  VoiceCommand,
+  WakeWordConfig,
 } from '../types/speech';
-import { checkVoiceCommand } from '../types/speech';
+import { checkVoiceCommand, matchWakeWord } from '../types/speech';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('useSpeechRecognition');
@@ -26,6 +28,12 @@ export interface UseSpeechRecognitionOptions {
   onError?: (error: SpeechRecognitionError) => void;
   /** 语音命令回调 */
   onCommand?: (command: VoiceCommand) => void;
+  /** 唤醒词配置（启用时生效） */
+  wakeWordConfig?: WakeWordConfig;
+  /** 获取当前唤醒激活状态 */
+  getWakeActive?: () => boolean;
+  /** 设置唤醒激活状态 */
+  setWakeActive?: (active: boolean) => void;
 }
 
 export interface UseSpeechRecognitionReturn {
@@ -50,7 +58,15 @@ export interface UseSpeechRecognitionReturn {
 export function useSpeechRecognition(
   options: UseSpeechRecognitionOptions = {}
 ): UseSpeechRecognitionReturn {
-  const { language = 'zh-CN', onResult, onError, onCommand } = options;
+  const {
+    language = 'zh-CN',
+    onResult,
+    onError,
+    onCommand,
+    wakeWordConfig,
+    getWakeActive,
+    setWakeActive,
+  } = options;
 
   const [status, setStatus] = useState<SpeechRecognitionStatus>('idle');
   const [interimTranscript, setInterimTranscript] = useState('');
@@ -59,16 +75,22 @@ export function useSpeechRecognition(
   const isSupported = speechService.supported;
   const isListening = status === 'listening';
 
-  // 使用 ref 保存回调，避免重复注册
+  // 使用 ref 保存回调和配置，避免闭包问题
   const onResultRef = useRef(onResult);
   const onErrorRef = useRef(onError);
   const onCommandRef = useRef(onCommand);
+  const wakeWordConfigRef = useRef(wakeWordConfig);
+  const getWakeActiveRef = useRef(getWakeActive);
+  const setWakeActiveRef = useRef(setWakeActive);
 
   useEffect(() => {
     onResultRef.current = onResult;
     onErrorRef.current = onError;
     onCommandRef.current = onCommand;
-  }, [onResult, onError, onCommand]);
+    wakeWordConfigRef.current = wakeWordConfig;
+    getWakeActiveRef.current = getWakeActive;
+    setWakeActiveRef.current = setWakeActive;
+  }, [onResult, onError, onCommand, wakeWordConfig, getWakeActive, setWakeActive]);
 
   // 初始化服务
   useEffect(() => {
@@ -84,7 +106,7 @@ export function useSpeechRecognition(
       },
       onResult: (transcript, isFinal) => {
         if (isFinal) {
-          // 检查是否是语音命令（仅最终结果）
+          // 1. 检查是否是语音命令（仅最终结果）
           const command = checkVoiceCommand(transcript);
           if (command) {
             log.info('检测到语音命令:', { command });
@@ -92,7 +114,32 @@ export function useSpeechRecognition(
             return; // 命令不填入输入框
           }
 
-          onResultRef.current?.(transcript);
+          // 2. 唤醒词模式未启用 → 直接写入（保持原有行为）
+          const wakeConfig = wakeWordConfigRef.current;
+          if (!wakeConfig?.enabled) {
+            onResultRef.current?.(transcript);
+            return;
+          }
+
+          // 3. 唤醒词模式启用 → 状态门控
+          const isActive = getWakeActiveRef.current?.() ?? false;
+
+          if (!isActive) {
+            // 待命状态：检查是否匹配唤醒词
+            const match = matchWakeWord(transcript, wakeConfig.words);
+            if (match) {
+              log.info('唤醒词匹配:', { wakeWord: match.wakeWord, content: match.content });
+              setWakeActiveRef.current?.(true);
+              // 唤醒词后紧跟的内容也写入
+              if (match.content) {
+                onResultRef.current?.(match.content);
+              }
+            }
+            // 不匹配 → 丢弃
+          } else {
+            // 激活状态：正常写入
+            onResultRef.current?.(transcript);
+          }
         } else {
           setInterimTranscript(transcript);
         }

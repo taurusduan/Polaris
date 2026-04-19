@@ -476,6 +476,28 @@ pub struct SpeechConfig {
     pub language: String,
 }
 
+/// 唤醒词配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WakeWordConfig {
+    /// 是否启用唤醒词模式
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// 唤醒词列表
+    #[serde(default)]
+    pub words: Vec<String>,
+}
+
+impl Default for WakeWordConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            words: Vec::new(),
+        }
+    }
+}
+
 fn default_speech_enabled() -> bool { true }
 fn default_speech_language() -> String { "zh-CN".to_string() }
 
@@ -723,6 +745,10 @@ pub struct Config {
     #[serde(default)]
     pub tts: TTSConfig,
 
+    /// 唤醒词配置
+    #[serde(default)]
+    pub wake_word: Option<WakeWordConfig>,
+
     /// AI 助手配置
     #[serde(default)]
     pub assistant: AssistantConfig,
@@ -753,6 +779,7 @@ impl Default for Config {
             window: WindowSettings::default(),
             speech: SpeechConfig::default(),
             tts: TTSConfig::default(),
+            wake_word: None,
             assistant: AssistantConfig::default(),
             claude_cmd: None,
         }
