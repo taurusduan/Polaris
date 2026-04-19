@@ -18,6 +18,7 @@ import type {
   IslandExpandMode,
   SessionMessageState
 } from '@/types/session'
+import type { VoiceCommand } from '@/types/speech'
 
 // ============================================================================
 // 类型定义
@@ -36,6 +37,20 @@ export interface SessionState {
   islandExpandMode: IslandExpandMode
   /** 会话消息状态（按 sessionId 隔离） */
   sessionMessages: Map<string, SessionMessageState>
+
+  // ── 输入 UI 状态（从 chatInputStore 合并） ──
+  /** 当前输入字数 */
+  inputLength: number
+  /** 附件数量 */
+  attachmentCount: number
+  /** 当前建议模式 */
+  suggestionMode: 'workspace' | 'file' | null
+  /** 待追加的语音文字 */
+  speechTranscript: string
+  /** 上一次的语音文字（用于撤回） */
+  previousTranscript: string
+  /** 待执行的语音命令 */
+  speechCommand: VoiceCommand | null
 }
 
 export interface SessionActions {
@@ -65,6 +80,22 @@ export interface SessionActions {
   getRecentSessions: (limit: number) => ChatSession[]
   getSessionMessages: (sessionId: string) => SessionMessageState | undefined
   setSessionMessages: (sessionId: string, state: SessionMessageState) => void
+
+  // ── 输入 UI 操作（从 chatInputStore 合并） ──
+  /** 设置输入字数 */
+  setInputLength: (length: number) => void
+  /** 设置附件数量 */
+  setAttachmentCount: (count: number) => void
+  /** 设置建议模式 */
+  setSuggestionMode: (mode: 'workspace' | 'file' | null) => void
+  /** 追加语音文字 */
+  appendSpeechTranscript: (text: string) => void
+  /** 设置语音命令 */
+  setSpeechCommand: (command: VoiceCommand | null) => void
+  /** 清空语音文字 */
+  clearSpeechTranscript: () => void
+  /** 撤回最后一次语音输入 */
+  undoSpeechTranscript: () => void
 }
 
 export type SessionStore = SessionState & SessionActions
@@ -102,6 +133,14 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   isIslandExpanded: false,
   islandExpandMode: null,
   sessionMessages: new Map(),
+
+  // ── 输入 UI 初始状态 ──
+  inputLength: 0,
+  attachmentCount: 0,
+  suggestionMode: null,
+  speechTranscript: '',
+  previousTranscript: '',
+  speechCommand: null,
 
   // ========== 会话操作 ==========
 
@@ -366,6 +405,22 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
           return { sessionMessages: newSessionMessages }
         })
       },
+
+      // ========== 输入 UI 操作（从 chatInputStore 合并） ==========
+
+      setInputLength: (length: number) => set({ inputLength: length }),
+      setAttachmentCount: (count: number) => set({ attachmentCount: count }),
+      setSuggestionMode: (mode: 'workspace' | 'file' | null) => set({ suggestionMode: mode }),
+      appendSpeechTranscript: (text: string) => set((state) => ({
+        previousTranscript: state.speechTranscript,
+        speechTranscript: state.speechTranscript + text
+      })),
+      setSpeechCommand: (command: VoiceCommand | null) => set({ speechCommand: command }),
+      clearSpeechTranscript: () => set({ speechTranscript: '', previousTranscript: '' }),
+      undoSpeechTranscript: () => set((state) => ({
+        speechTranscript: state.previousTranscript,
+        previousTranscript: ''
+      })),
     })
 )
 

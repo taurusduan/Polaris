@@ -7,7 +7,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { GitDiffEntry } from '@/types/git'
-import { useEditorBufferStore } from './editorBufferStore'
+import { useFileEditorStore } from './fileEditorStore'
 
 /** Tab 类型 */
 export type TabType = 'editor' | 'diff' | 'preview'
@@ -182,7 +182,7 @@ export const useTabStore = create<TabStore>()(
 
           // 清理已关闭 Tab 的编辑器缓冲区
           if (closedTab?.filePath) {
-            useEditorBufferStore.getState().removeBuffer(closedTab.filePath)
+            useFileEditorStore.getState().removeBuffer(closedTab.filePath)
           }
 
           return {
@@ -225,7 +225,7 @@ export const useTabStore = create<TabStore>()(
           // 清理被关闭 Tab 的缓冲区
           removed.forEach((tab) => {
             if (tab.filePath) {
-              useEditorBufferStore.getState().removeBuffer(tab.filePath)
+              useFileEditorStore.getState().removeBuffer(tab.filePath)
             }
           })
 
@@ -248,7 +248,7 @@ export const useTabStore = create<TabStore>()(
           // 清理被关闭 Tab 的缓冲区
           removed.forEach((tab) => {
             if (tab.filePath) {
-              useEditorBufferStore.getState().removeBuffer(tab.filePath)
+              useFileEditorStore.getState().removeBuffer(tab.filePath)
             }
           })
 

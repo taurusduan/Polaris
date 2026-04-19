@@ -13,7 +13,7 @@ import type {
 } from '../types/mcp'
 import * as mcpService from '../services/mcpService'
 import { createLogger } from '../utils/logger'
-import { useToastStore } from './toastStore'
+import { storeEventBus } from './storeEventBus'
 
 const log = createLogger('McpStore')
 
@@ -145,55 +145,52 @@ export const useMcpStore = create<McpState>((set, get) => ({
   },
 
   addServer: async (name: string, command: string, args: string[], transport: McpTransport, scope: McpScope, workspacePath: string) => {
-    const toast = useToastStore.getState()
     try {
       set({ operatingServer: name, error: null })
       await mcpService.mcpAddServer(name, command, args, transport, scope)
       await get().refreshAll(workspacePath)
-      toast.success(`MCP 服务器 "${name}" 添加成功`)
+      storeEventBus.emit('TOAST_REQUESTED', { message: `MCP 服务器 "${name}" 添加成功`, type: 'success' })
       set({ operatingServer: null })
       return true
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       log.error('添加 MCP 服务器失败', err instanceof Error ? err : new Error(msg))
-      toast.error(`添加失败: ${msg}`)
+      storeEventBus.emit('TOAST_REQUESTED', { message: `添加失败: ${msg}`, type: 'error' })
       set({ error: msg, operatingServer: null })
       return false
     }
   },
 
   removeServer: async (name: string, scope?: string, workspacePath?: string) => {
-    const toast = useToastStore.getState()
     try {
       set({ operatingServer: name, error: null })
       await mcpService.mcpRemoveServer(name, scope)
       if (workspacePath) {
         await get().refreshAll(workspacePath)
       }
-      toast.success(`MCP 服务器 "${name}" 已移除`)
+      storeEventBus.emit('TOAST_REQUESTED', { message: `MCP 服务器 "${name}" 已移除`, type: 'success' })
       set({ operatingServer: null, expandedServer: null })
       return true
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       log.error('移除 MCP 服务器失败', err instanceof Error ? err : new Error(msg))
-      toast.error(`移除失败: ${msg}`)
+      storeEventBus.emit('TOAST_REQUESTED', { message: `移除失败: ${msg}`, type: 'error' })
       set({ error: msg, operatingServer: null })
       return false
     }
   },
 
   startAuth: async (name: string, url: string, scope: string) => {
-    const toast = useToastStore.getState()
     try {
       set({ operatingServer: name, error: null })
       await mcpService.mcpStartAuth(name, url, scope)
-      toast.success(`认证流程已启动，请在浏览器中完成`)
+      storeEventBus.emit('TOAST_REQUESTED', { message: `认证流程已启动，请在浏览器中完成`, type: 'success' })
       set({ operatingServer: null })
       return true
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       log.error('启动认证失败', err instanceof Error ? err : new Error(msg))
-      toast.error(`认证启动失败: ${msg}`)
+      storeEventBus.emit('TOAST_REQUESTED', { message: `认证启动失败: ${msg}`, type: 'error' })
       set({ error: msg, operatingServer: null })
       return false
     }

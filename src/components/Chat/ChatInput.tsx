@@ -11,9 +11,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconSend, IconStop, IconPaperclip } from '../Common/Icons'
-import { useWorkspaceStore, useChatInputStore } from '../../stores'
+import { useWorkspaceStore, useSessionStore } from '../../stores'
 import { useActiveSessionId } from '../../stores/conversationStore'
-import { useActiveSessionInputDraft, useActiveSessionActions, useActiveSessionWorkspace, useHasPendingQuestion, useHasActivePlan, usePendingQuestions } from '../../stores/conversationStore/useActiveSession'
+import { useActiveSessionInputDraft, useActiveSessionActions, useActiveSessionWorkspace, usePendingQuestions } from '../../stores/conversationStore/useActiveSession'
 import { useDebouncedCallback } from '../../hooks/useDebounce'
 import { UnifiedSuggestion, type SuggestionItem } from './FileSuggestion'
 import { AttachmentPreview } from './AttachmentPreview'
@@ -105,13 +105,11 @@ export function ChatInput({
     setInputLength,
     setAttachmentCount,
     setSuggestionMode,
-    setHasPendingQuestion,
-    setHasActivePlan,
     speechTranscript,
     speechCommand,
     clearSpeechTranscript,
     setSpeechCommand,
-  } = useChatInputStore()
+  } = useSessionStore()
 
   // 处理语音识别文字
   useEffect(() => {
@@ -126,12 +124,6 @@ export function ChatInput({
     }
   }, [speechTranscript, clearSpeechTranscript, localText, attachments, updateInputDraft])
 
-  // 检查是否有待回答的问题
-  const hasPendingQuestion = useHasPendingQuestion()
-
-  // 检查是否有活跃的计划（等待审批）
-  const hasActivePlan = useHasActivePlan()
-
   // 获取待回答问题列表 & 管理浮窗可见性
   const pendingQuestions = usePendingQuestions()
   const [questionPanelHidden, setQuestionPanelHidden] = useState(false)
@@ -145,15 +137,6 @@ export function ChatInput({
       prevPendingIdsRef.current = ids
     }
   }, [pendingQuestions])
-
-  // 同步状态到 store
-  useEffect(() => {
-    setHasPendingQuestion(hasPendingQuestion)
-  }, [hasPendingQuestion, setHasPendingQuestion])
-
-  useEffect(() => {
-    setHasActivePlan(hasActivePlan)
-  }, [hasActivePlan, setHasActivePlan])
 
   // 同步字数到 store
   useEffect(() => {

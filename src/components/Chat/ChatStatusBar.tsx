@@ -13,8 +13,8 @@
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useConfigStore, useChatInputStore } from '../../stores';
-import { useActiveSessionActions, useActiveSessionStreaming } from '../../stores/conversationStore/useActiveSession';
+import { useConfigStore, useSessionStore } from '../../stores';
+import { useActiveSessionActions, useActiveSessionStreaming, useHasPendingQuestion, useHasActivePlan } from '../../stores/conversationStore/useActiveSession';
 import { useSessionConfig } from '../../stores/sessionConfigStore';
 import { Paperclip, Loader2, ChevronDown } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -75,13 +75,15 @@ export function ChatStatusBar({ children }: ChatStatusBarProps) {
     inputLength,
     attachmentCount,
     suggestionMode,
-    hasPendingQuestion,
-    hasActivePlan,
     appendSpeechTranscript,
     setSpeechCommand,
     speechCommand,
     undoSpeechTranscript,
-  } = useChatInputStore();
+  } = useSessionStore();
+
+  // 直接从 conversationStore 获取状态（消除 chatInputStore 冗余同步）
+  const hasPendingQuestion = useHasPendingQuestion();
+  const hasActivePlan = useHasActivePlan();
 
   // 会话配置
   const { config: sessionConfig, setConfig: setSessionConfig } = useSessionConfig();

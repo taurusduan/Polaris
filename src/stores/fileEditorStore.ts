@@ -1,16 +1,20 @@
 /**
  * 文件编辑器状态管理
+ *
+ * 合并了 editorBufferStore — 缓冲区作为编辑器内部实现，
+ * 对外暴露 buffer 操作方法供 tabStore / Editor 组件使用。
  */
 
 import { create } from 'zustand';
-import type { FileEditorStore } from '../types';
+import type { FileEditorStore, BufferEntry } from '../types';
 import * as tauri from '../services/tauri';
 import { emit, listen } from '@tauri-apps/api/event';
 import { createLogger } from '../utils/logger';
 import type { FsChangeEvent } from '../types/fileExplorer';
-import { useEditorBufferStore } from './editorBufferStore';
 
 const log = createLogger('Editor');
+
+const MAX_BUFFERS = 10;
 
 /** 根据文件扩展名获取语言类型 */
 function getLanguageFromPath(path: string): string {
@@ -60,21 +64,8 @@ function isImagePath(path: string): boolean {
   return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext || '');
 }
 
-/** 将当前文件状态保存到缓冲区 */
-function saveCurrentToBuffer() {
-  const { currentFile } = useFileEditorStore.getState();
-  if (!currentFile) return;
-  useEditorBufferStore.getState().saveBuffer(currentFile.path, {
-    name: currentFile.name,
-    language: currentFile.language,
-    content: currentFile.content,
-    originalContent: currentFile.originalContent,
-    isModified: currentFile.isModified,
-  });
-}
-
 export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
-  // 初始状态
+  // ========== 初始状态 ==========
   isOpen: false,
   currentFile: null,
   status: 'idle',
@@ -82,7 +73,13 @@ export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
   isConflicted: false,
   pendingGotoLine: null,
 
-  // 打开文件
+  // ── 缓冲区初始状态 ──
+  buffers: new Map(),
+  bufferAccessOrder: [],
+  maxBuffers: MAX_BUFFERS,
+
+  // ========== 文件操作 ==========
+
   openFile: async (path: string, name: string) => {
     log.debug('打开文件', { path, name });
     const { currentFile } = get();
@@ -91,7 +88,7 @@ export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
     if (currentFile?.path === path) return;
 
     // 保存当前文件到缓冲区
-    saveCurrentToBuffer();
+    get()._saveCurrentToBuffer();
 
     set({ isOpen: true, status: 'loading', error: null, isConflicted: false });
 
@@ -137,31 +134,25 @@ export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
     }
   },
 
-  // 打开文件并跳转到指定行
   openFileAtLine: async (path: string, name: string, lineNumber: number) => {
     const { currentFile } = get();
 
     if (currentFile?.path === path) {
-      // 文件已打开，直接设置跳转行号
       set({ pendingGotoLine: lineNumber });
     } else {
-      // 设置跳转行号，然后打开文件
       set({ pendingGotoLine: lineNumber });
       await get().openFile(path, name);
     }
   },
 
-  // 设置待跳转行号
   setPendingGotoLine: (line: number | null) => {
     set({ pendingGotoLine: line });
   },
 
-  // 关闭文件
   closeFile: async () => {
     const { currentFile } = get();
     if (currentFile?.isModified) {
       // 未保存确认由 UI 层（EditorHeader.tsx）的 showCloseConfirm 对话框处理
-      // Store 层仅负责执行关闭，不处理 UI 交互
     }
     set({
       isOpen: false,
@@ -169,8 +160,6 @@ export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
       status: 'idle',
       error: null,
     });
-    // 发送事件通知外部组件（事件驱动解耦）
-    // 替代直接调用 viewStore.setShowEditor(false)
     try {
       await emit('editor:closed', { path: currentFile?.path });
     } catch (e) {
@@ -178,7 +167,6 @@ export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
     }
   },
 
-  // 更新内容
   setContent: (content: string) => {
     const { currentFile } = get();
     if (!currentFile) return;
@@ -192,10 +180,9 @@ export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
     set({ currentFile: updated });
 
     // 同步更新缓冲区
-    useEditorBufferStore.getState().updateContent(currentFile.path, content);
+    get().updateBufferContent(currentFile.path, content);
   },
 
-  // 保存文件
   saveFile: async () => {
     const { currentFile } = get();
     if (!currentFile) return;
@@ -203,10 +190,8 @@ export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
     set({ status: 'saving', error: null });
 
     try {
-      // 先写入文件
       await tauri.createFile(currentFile.path, currentFile.content);
 
-      // 更新状态
       const saved = {
         ...currentFile,
         originalContent: currentFile.content,
@@ -220,7 +205,7 @@ export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
       });
 
       // 同步更新缓冲区
-      useEditorBufferStore.getState().saveBuffer(currentFile.path, {
+      get().saveBuffer(currentFile.path, {
         name: saved.name,
         language: saved.language,
         content: saved.content,
@@ -237,22 +222,18 @@ export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
     }
   },
 
-  // 设置错误
   setError: (error: string | null) => {
     set({ error });
   },
 
-  // 切换编辑器开关
   setOpen: (open: boolean) => {
     set({ isOpen: open });
   },
 
-  // 设置文件冲突状态
   setConflicted: (conflicted: boolean) => {
     set({ isConflicted: conflicted });
   },
 
-  // 从磁盘重新加载文件内容
   reloadFromDisk: async () => {
     const { currentFile } = get();
     if (!currentFile) return;
@@ -273,18 +254,16 @@ export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
     }
   },
 
-  // 切换到已缓冲的文件（Tab 切换时使用，优先从缓冲区恢复，避免磁盘读取）
   switchToFile: async (path: string, name: string) => {
     const { currentFile } = get();
 
-    // 相同文件不重复切换
     if (currentFile?.path === path) return;
 
     // 保存当前文件到缓冲区
-    saveCurrentToBuffer();
+    get()._saveCurrentToBuffer();
 
     // 检查缓冲区
-    const buffer = useEditorBufferStore.getState().loadBuffer(path);
+    const buffer = get().loadBuffer(path);
     if (buffer) {
       log.debug('从缓冲区恢复文件', { path });
       set({
@@ -304,8 +283,102 @@ export const useFileEditorStore = create<FileEditorStore>((set, get) => ({
       return;
     }
 
-    // 缓冲区未命中，回退到正常 openFile（从磁盘读取）
+    // 缓冲区未命中，回退到正常 openFile
     await get().openFile(path, name);
+  },
+
+  // ========== 缓冲区操作（从 editorBufferStore 合并） ==========
+
+  saveBuffer: (filePath: string, entry: BufferEntry) => {
+    set((state) => {
+      const buffers = new Map(state.buffers);
+      const bufferAccessOrder = state.bufferAccessOrder.filter(p => p !== filePath);
+
+      // LRU 淘汰
+      while (buffers.size >= state.maxBuffers && !buffers.has(filePath)) {
+        const oldest = bufferAccessOrder.shift();
+        if (oldest) {
+          buffers.delete(oldest);
+          log.debug('LRU 淘汰缓冲区', { path: oldest });
+        }
+      }
+
+      buffers.set(filePath, entry);
+      bufferAccessOrder.push(filePath);
+
+      return { buffers, bufferAccessOrder };
+    });
+  },
+
+  loadBuffer: (filePath: string) => {
+    const { buffers, bufferAccessOrder } = get();
+    const entry = buffers.get(filePath);
+    if (!entry) return null;
+
+    // 更新访问顺序
+    const newOrder = bufferAccessOrder.filter(p => p !== filePath);
+    newOrder.push(filePath);
+    set({ bufferAccessOrder: newOrder });
+
+    return entry;
+  },
+
+  hasBuffer: (filePath: string) => {
+    return get().buffers.has(filePath);
+  },
+
+  removeBuffer: (filePath: string) => {
+    set((state) => {
+      const buffers = new Map(state.buffers);
+      buffers.delete(filePath);
+      const bufferAccessOrder = state.bufferAccessOrder.filter(p => p !== filePath);
+      return { buffers, bufferAccessOrder };
+    });
+  },
+
+  updateBufferContent: (filePath: string, content: string) => {
+    set((state) => {
+      const buffers = new Map(state.buffers);
+      const entry = buffers.get(filePath);
+      if (entry) {
+        buffers.set(filePath, {
+          ...entry,
+          content,
+          isModified: content !== entry.originalContent,
+        });
+      }
+      return { buffers };
+    });
+  },
+
+  saveBufferEditorState: (filePath: string, editorState: BufferEntry['editorState']) => {
+    set((state) => {
+      const buffers = new Map(state.buffers);
+      const entry = buffers.get(filePath);
+      if (entry) {
+        buffers.set(filePath, { ...entry, editorState });
+      }
+      return { buffers };
+    });
+  },
+
+  clearAllBuffers: () => {
+    set({ buffers: new Map(), bufferAccessOrder: [] });
+  },
+
+  // ── 内部辅助 ──
+
+  /** 将当前文件状态保存到缓冲区（内部方法） */
+  _saveCurrentToBuffer: () => {
+    const { currentFile } = get();
+    if (!currentFile) return;
+    get().saveBuffer(currentFile.path, {
+      name: currentFile.name,
+      language: currentFile.language,
+      content: currentFile.content,
+      originalContent: currentFile.originalContent,
+      isModified: currentFile.isModified,
+    });
   },
 }));
 
@@ -337,7 +410,6 @@ export function initEditorFileChangeListener(): () => void {
 
     if (!isAffected) return;
 
-    // 读取磁盘内容并与 originalContent 比较
     try {
       const diskContent = await tauri.getFileContent(currentFile.path) as string;
       if (diskContent !== currentFile.originalContent) {
@@ -345,7 +417,6 @@ export function initEditorFileChangeListener(): () => void {
         log.info('文件被外部修改', { path: currentFile.path });
       }
     } catch {
-      // 文件可能已被删除，也标记为冲突
       useFileEditorStore.getState().setConflicted(true);
       log.warn('无法读取外部修改的文件', { path: currentFile.path });
     }

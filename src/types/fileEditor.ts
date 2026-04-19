@@ -2,6 +2,8 @@
  * 文件编辑器相关类型定义
  */
 
+import type { EditorState } from '@codemirror/state';
+
 /** 编辑器状态 */
 export type EditorStatus = 'idle' | 'loading' | 'saving' | 'error';
 
@@ -21,6 +23,22 @@ export interface OpenFile {
   language: string;
 }
 
+/** 缓冲区条目（从 editorBufferStore 合并） */
+export interface BufferEntry {
+  /** 文件名 */
+  name: string;
+  /** 语言类型 */
+  language: string;
+  /** 最新内容（可能与磁盘不同步） */
+  content: string;
+  /** 原始内容（上次保存/加载时的内容） */
+  originalContent: string;
+  /** 是否有未保存修改 */
+  isModified: boolean;
+  /** CM6 EditorState（保留 undo 历史、光标、折叠等） */
+  editorState?: EditorState;
+}
+
 /** 文件编辑器状态 */
 export interface FileEditorState {
   /** 编辑器是否打开 */
@@ -35,6 +53,14 @@ export interface FileEditorState {
   isConflicted: boolean;
   /** 待跳转的行号（编辑器加载后使用） */
   pendingGotoLine: number | null;
+
+  // ── 缓冲区状态（从 editorBufferStore 合并） ──
+  /** 缓冲区 Map */
+  buffers: Map<string, BufferEntry>;
+  /** 访问顺序（LRU），最近访问的在后 */
+  bufferAccessOrder: string[];
+  /** 最大缓冲区数量 */
+  maxBuffers: number;
 }
 
 /** 文件编辑器操作 */
@@ -61,7 +87,26 @@ export interface FileEditorActions {
   switchToFile: (path: string, name: string) => Promise<void>;
   /** 设置待跳转行号 */
   setPendingGotoLine: (line: number | null) => void;
+
+  // ── 缓冲区操作（从 editorBufferStore 合并） ──
+  /** 保存缓冲区 */
+  saveBuffer: (filePath: string, entry: BufferEntry) => void;
+  /** 加载缓冲区 */
+  loadBuffer: (filePath: string) => BufferEntry | null;
+  /** 检查缓冲区是否存在 */
+  hasBuffer: (filePath: string) => boolean;
+  /** 移除缓冲区 */
+  removeBuffer: (filePath: string) => void;
+  /** 更新缓冲区内容（不更新 editorState） */
+  updateBufferContent: (filePath: string, content: string) => void;
+  /** 保存 CM6 EditorState 到缓冲区 */
+  saveBufferEditorState: (filePath: string, state: EditorState) => void;
+  /** 清空所有缓冲区 */
+  clearAllBuffers: () => void;
 }
 
 /** 文件编辑器 Store */
-export type FileEditorStore = FileEditorState & FileEditorActions;
+export type FileEditorStore = FileEditorState & FileEditorActions & {
+  /** @internal 将当前文件保存到缓冲区 */
+  _saveCurrentToBuffer: () => void;
+};

@@ -11,7 +11,6 @@ export { useFileEditorStore } from './fileEditorStore';
 export { useViewStore } from './viewStore';
 export { useGitStore } from './gitStore/index';
 export { useTabStore } from './tabStore';
-export { useEditorBufferStore } from './editorBufferStore';
 export { useEditorSettingsStore } from './editorSettingsStore';
 export { useTranslateStore } from './translateStore';
 export {
@@ -29,7 +28,6 @@ export {
 export { useToastStore, type Toast, type ToastType } from './toastStore';
 export { useSchedulerStore } from './schedulerStore';
 export { useTerminalStore } from './terminalStore';
-export { useChatInputStore } from './chatInputStore';
 export { useRequirementStore } from './requirementStore';
 export { useSessionStore, getSessionEffectiveWorkspace } from './sessionStore';
 export { usePluginStore } from './pluginStore';

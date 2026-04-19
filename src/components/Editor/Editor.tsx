@@ -20,9 +20,8 @@ import { searchKeymap, highlightSelectionMatches, gotoLine } from '@codemirror/s
 import { lintGutter } from '@codemirror/lint';
 import { tags } from '@lezer/highlight';
 import { createLogger } from '../../utils/logger';
-import { useEditorBufferStore } from '../../stores/editorBufferStore';
-import { useEditorSettingsStore } from '../../stores/editorSettingsStore';
 import { useFileEditorStore } from '../../stores/fileEditorStore';
+import { useEditorSettingsStore } from '../../stores/editorSettingsStore';
 import { indentGuides, indentGuideTheme } from './indentGuides';
 import { trailingWhitespaceHighlight } from './trailingWhitespace';
 import { rainbowBrackets } from './rainbowBrackets';
@@ -184,7 +183,7 @@ export function CodeMirrorEditor({
     const createEditor = async () => {
       // 检查缓冲区中是否有缓存的 EditorState
       const cachedState = filePath
-        ? useEditorBufferStore.getState().loadBuffer(filePath)?.editorState
+        ? useFileEditorStore.getState().loadBuffer(filePath)?.editorState
         : null;
 
       if (cachedState && !cancelled && containerRef.current) {
@@ -313,7 +312,7 @@ export function CodeMirrorEditor({
         // 保存 EditorState（保留 undo 历史、光标、折叠等）
         const currentPath = filePathRef.current;
         if (currentPath) {
-          useEditorBufferStore.getState().saveEditorState(currentPath, viewRef.current.state);
+          useFileEditorStore.getState().saveBufferEditorState(currentPath, viewRef.current.state);
         }
         viewRef.current.destroy();
         viewRef.current = null;
