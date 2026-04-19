@@ -2,7 +2,7 @@
  * 配置相关类型定义
  */
 
-import type { SpeechConfig, TTSConfig, WakeWordConfig, VoiceNotificationConfig } from './speech'
+import type { SpeechConfig, TTSConfig, WakeWordConfig, VoiceNotificationConfig, VoiceCommandEntry } from './speech'
 import type { AssistantConfig } from '../assistant/types'
 
 /**  引擎 ID */
@@ -149,6 +149,8 @@ export interface Config {
   wakeWord?: WakeWordConfig;
   /** 语音提醒配置 */
   voiceNotification?: VoiceNotificationConfig;
+  /** 语音命令配置（自定义关键词） */
+  voiceCommands?: VoiceCommandEntry[];
   /** AI 助手配置 */
   assistant?: AssistantConfig;
 }

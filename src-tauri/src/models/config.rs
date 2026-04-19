@@ -567,6 +567,21 @@ impl Default for VoiceNotificationConfig {
     }
 }
 
+/// 语音命令条目
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VoiceCommandEntry {
+    /// 命令类型 (send/clear/undo/interrupt)
+    #[serde(rename = "type")]
+    pub command_type: String,
+
+    /// 显示名称
+    pub label: String,
+
+    /// 触发关键词列表
+    pub keywords: Vec<String>,
+}
+
 fn default_speech_enabled() -> bool { true }
 fn default_speech_language() -> String { "zh-CN".to_string() }
 
@@ -822,6 +837,10 @@ pub struct Config {
     #[serde(default)]
     pub voice_notification: Option<VoiceNotificationConfig>,
 
+    /// 语音命令配置（自定义关键词）
+    #[serde(default)]
+    pub voice_commands: Option<Vec<VoiceCommandEntry>>,
+
     /// AI 助手配置
     #[serde(default)]
     pub assistant: AssistantConfig,
@@ -854,6 +873,7 @@ impl Default for Config {
             tts: TTSConfig::default(),
             wake_word: None,
             voice_notification: None,
+            voice_commands: None,
             assistant: AssistantConfig::default(),
             claude_cmd: None,
         }

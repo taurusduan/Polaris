@@ -6,13 +6,14 @@
 import { useTranslation } from 'react-i18next';
 import { useState, useCallback, type KeyboardEvent } from 'react';
 import type { Config } from '../../../types';
-import type { SpeechLanguage, TTSVoice, WakeWordConfig, VoiceNotificationConfig } from '../../../types/speech';
+import type { SpeechLanguage, TTSVoice, WakeWordConfig, VoiceNotificationConfig, VoiceCommandEntry, VoiceCommand } from '../../../types/speech';
 import {
   SPEECH_LANGUAGE_OPTIONS,
   DEFAULT_SPEECH_CONFIG,
   DEFAULT_TTS_CONFIG,
   DEFAULT_WAKE_WORD_CONFIG,
   DEFAULT_VOICE_NOTIFICATION_CONFIG,
+  DEFAULT_VOICE_COMMAND_CONFIG,
   TTS_VOICE_OPTIONS,
   TTS_RATE_OPTIONS,
 } from '../../../types/speech';
@@ -33,10 +34,14 @@ export function SpeechTab({ config, onConfigChange, loading }: SpeechTabProps) {
   const [isTestingVoice, setIsTestingVoice] = useState(false);
   const [newWakeWord, setNewWakeWord] = useState('');
   const [newWakeResponse, setNewWakeResponse] = useState('');
+  const [newKeywordByCommand, setNewKeywordByCommand] = useState<Record<VoiceCommand, string>>({
+    send: '', clear: '', undo: '', interrupt: '',
+  });
 
   // 获取语音配置（带默认值）
   const speechConfig = config.speech ?? DEFAULT_SPEECH_CONFIG;
   const ttsConfig = config.tts ?? DEFAULT_TTS_CONFIG;
+  const voiceCommands = config.voiceCommands ?? DEFAULT_VOICE_COMMAND_CONFIG;
   const wakeWordConfig = config.wakeWord ?? DEFAULT_WAKE_WORD_CONFIG;
   const notifConfig = config.voiceNotification ?? DEFAULT_VOICE_NOTIFICATION_CONFIG;
 
@@ -105,6 +110,45 @@ export function SpeechTab({ config, onConfigChange, loading }: SpeechTabProps) {
       addWakeResponseText();
     }
   }, [addWakeResponseText]);
+
+  // ===== 语音命令关键词管理 =====
+
+  const updateVoiceCommands = (newCommands: VoiceCommandEntry[]) => {
+    onConfigChange({ ...config, voiceCommands: newCommands });
+  };
+
+  const addCommandKeyword = useCallback((commandType: VoiceCommand) => {
+    const keyword = newKeywordByCommand[commandType]?.trim();
+    if (!keyword) return;
+    const entry = voiceCommands.find(e => e.type === commandType);
+    if (!entry) return;
+    if (entry.keywords.includes(keyword)) return;
+    updateVoiceCommands(
+      voiceCommands.map(e =>
+        e.type === commandType ? { ...e, keywords: [...e.keywords, keyword] } : e
+      )
+    );
+    setNewKeywordByCommand(prev => ({ ...prev, [commandType]: '' }));
+  }, [newKeywordByCommand, voiceCommands]);
+
+  const removeCommandKeyword = useCallback((commandType: VoiceCommand, keyword: string) => {
+    updateVoiceCommands(
+      voiceCommands.map(e =>
+        e.type === commandType ? { ...e, keywords: e.keywords.filter(k => k !== keyword) } : e
+      )
+    );
+  }, [voiceCommands]);
+
+  const handleCommandKeywordKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>, commandType: VoiceCommand) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCommandKeyword(commandType);
+    }
+  }, [addCommandKeyword]);
+
+  const resetCommandsToDefault = useCallback(() => {
+    updateVoiceCommands([...DEFAULT_VOICE_COMMAND_CONFIG]);
+  }, []);
 
   const updateTTSConfig = (updates: Partial<typeof ttsConfig>) => {
     const newConfig = {
@@ -284,23 +328,64 @@ export function SpeechTab({ config, onConfigChange, loading }: SpeechTabProps) {
           <h3 className="text-sm font-medium text-text-primary mb-3">
             {t('speech.commands.title', '语音命令')}
           </h3>
-          <div className="space-y-2 text-xs text-text-secondary">
-            <div className="flex items-center gap-2">
-              <code className="px-2 py-1 bg-background rounded text-text-primary">发送</code>
-              <span>{t('speech.commands.send', '发送消息')}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="px-2 py-1 bg-background rounded text-text-primary">清空</code>
-              <span>{t('speech.commands.clear', '清空输入框')}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="px-2 py-1 bg-background rounded text-text-primary">撤回</code>
-              <span>{t('speech.commands.undo', '撤回最后输入')}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="px-2 py-1 bg-background rounded text-text-primary">中断</code>
-              <span>{t('speech.commands.interrupt', '中断对话')}</span>
-            </div>
+          <div className="space-y-3">
+            {voiceCommands.map(entry => (
+              <div key={entry.type} className="p-3 bg-background rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-medium text-text-primary">{entry.label}</span>
+                  <span className="text-xs text-text-tertiary">({entry.type})</span>
+                </div>
+                {/* 关键词标签 */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {entry.keywords.map(keyword => (
+                    <span
+                      key={keyword}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded text-xs"
+                    >
+                      {keyword}
+                      <button
+                        onClick={() => removeCommandKeyword(entry.type, keyword)}
+                        className="text-primary/60 hover:text-primary"
+                        title={t('speech.commands.removeKeyword', '删除')}
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  ))}
+                  {entry.keywords.length === 0 && (
+                    <span className="text-xs text-warning">
+                      {t('speech.commands.noKeywords', '无关键词，请至少添加一个')}
+                    </span>
+                  )}
+                </div>
+                {/* 添加关键词输入 */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newKeywordByCommand[entry.type] ?? ''}
+                    onChange={(e) => setNewKeywordByCommand(prev => ({ ...prev, [entry.type]: e.target.value }))}
+                    onKeyDown={(e) => handleCommandKeywordKeyDown(e, entry.type)}
+                    placeholder={t('speech.commands.addKeywordPlaceholder', '输入关键词，按回车添加')}
+                    disabled={loading}
+                    className="flex-1 px-2 py-1 bg-surface border border-border rounded text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    onClick={() => addCommandKeyword(entry.type)}
+                    disabled={loading || !(newKeywordByCommand[entry.type] ?? '').trim()}
+                    className="px-2 py-1 bg-primary text-white rounded text-xs hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {t('speech.commands.addKeyword', '添加')}
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={resetCommandsToDefault}
+              disabled={loading}
+              className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+            >
+              {t('speech.commands.resetToDefault', '恢复默认命令')}
+            </button>
           </div>
         </div>
       </div>

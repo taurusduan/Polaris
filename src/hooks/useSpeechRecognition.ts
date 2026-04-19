@@ -14,6 +14,7 @@ import type {
   SpeechRecognitionError,
   SpeechLanguage,
   VoiceCommand,
+  VoiceCommandConfig,
   WakeWordConfig,
 } from '../types/speech';
 import { checkVoiceCommand, matchWakeWord } from '../types/speech';
@@ -30,6 +31,8 @@ export interface UseSpeechRecognitionOptions {
   onError?: (error: SpeechRecognitionError) => void;
   /** 语音命令回调 */
   onCommand?: (command: VoiceCommand) => void;
+  /** 语音命令配置（自定义关键词） */
+  voiceCommands?: VoiceCommandConfig;
   /** 唤醒词配置（启用时生效） */
   wakeWordConfig?: WakeWordConfig;
   /** 获取当前唤醒激活状态 */
@@ -65,6 +68,7 @@ export function useSpeechRecognition(
     onResult,
     onError,
     onCommand,
+    voiceCommands,
     wakeWordConfig,
     getWakeActive,
     setWakeActive,
@@ -81,6 +85,7 @@ export function useSpeechRecognition(
   const onResultRef = useRef(onResult);
   const onErrorRef = useRef(onError);
   const onCommandRef = useRef(onCommand);
+  const voiceCommandsRef = useRef(voiceCommands);
   const wakeWordConfigRef = useRef(wakeWordConfig);
   const getWakeActiveRef = useRef(getWakeActive);
   const setWakeActiveRef = useRef(setWakeActive);
@@ -96,10 +101,11 @@ export function useSpeechRecognition(
     onResultRef.current = onResult;
     onErrorRef.current = onError;
     onCommandRef.current = onCommand;
+    voiceCommandsRef.current = voiceCommands;
     wakeWordConfigRef.current = wakeWordConfig;
     getWakeActiveRef.current = getWakeActive;
     setWakeActiveRef.current = setWakeActive;
-  }, [onResult, onError, onCommand, wakeWordConfig, getWakeActive, setWakeActive]);
+  }, [onResult, onError, onCommand, voiceCommands, wakeWordConfig, getWakeActive, setWakeActive]);
 
   // 初始化服务
   useEffect(() => {
@@ -143,7 +149,7 @@ export function useSpeechRecognition(
 
         if (isFinal) {
           // 1. 检查是否是语音命令（仅最终结果）
-          const command = checkVoiceCommand(transcript);
+          const command = checkVoiceCommand(transcript, voiceCommandsRef.current);
           if (command) {
             log.info('检测到语音命令:', { command });
             onCommandRef.current?.(command);

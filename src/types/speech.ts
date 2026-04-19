@@ -62,27 +62,66 @@ export const DEFAULT_SPEECH_CONFIG: SpeechConfig = {
 /** 语音命令类型 */
 export type VoiceCommand = 'send' | 'clear' | 'interrupt' | 'undo';
 
-/** 语音命令映射（全匹配） */
+/** 单个命令的配置 */
+export interface VoiceCommandEntry {
+  /** 命令类型 */
+  type: VoiceCommand;
+  /** 显示名称 */
+  label: string;
+  /** 触发关键词列表（支持多个同义词） */
+  keywords: string[];
+}
+
+/** 语音命令映射配置 */
+export type VoiceCommandConfig = VoiceCommandEntry[];
+
+/** 默认语音命令配置 */
+export const DEFAULT_VOICE_COMMAND_CONFIG: VoiceCommandConfig = [
+  { type: 'send',      label: '发送消息',     keywords: ['发送'] },
+  { type: 'clear',     label: '清空输入框',   keywords: ['清空'] },
+  { type: 'undo',      label: '撤回最后输入', keywords: ['撤回'] },
+  { type: 'interrupt', label: '中断对话',     keywords: ['中断'] },
+];
+
+/** 去除语音文本中的标点和空白（用于命令匹配） */
+function cleanForCommandMatch(text: string): string {
+  return text.replace(/[。！？，、\s]/g, '');
+}
+
+/**
+ * 检查文本是否匹配某个语音命令
+ *
+ * 匹配规则：文本去标点后，与命令关键词（也去标点）精确匹配
+ *
+ * @param text 识别文本
+ * @param config 命令配置（不传则使用默认配置，保持向后兼容）
+ */
+export function checkVoiceCommand(text: string, config?: VoiceCommandConfig): VoiceCommand | null {
+  const commands = config ?? DEFAULT_VOICE_COMMAND_CONFIG;
+  const cleaned = cleanForCommandMatch(text);
+  if (!cleaned) return null;
+
+  for (const entry of commands) {
+    for (const keyword of entry.keywords) {
+      if (cleaned === cleanForCommandMatch(keyword)) {
+        return entry.type;
+      }
+    }
+  }
+  return null;
+}
+
+/** @deprecated 保留旧常量供引用兼容，新代码请使用 DEFAULT_VOICE_COMMAND_CONFIG */
 export const VOICE_COMMANDS: Record<string, VoiceCommand> = {
-  // 发送
   '发送': 'send',
   '发送。': 'send',
-  // 清空
   '清空': 'clear',
   '清空。': 'clear',
-  // 中断
   '中断': 'interrupt',
   '中断。': 'interrupt',
-  // 撤回
   '撤回': 'undo',
   '撤回。': 'undo',
 };
-
-/** 检查文本是否是语音命令 */
-export function checkVoiceCommand(text: string): VoiceCommand | null {
-  const trimmed = text.trim();
-  return VOICE_COMMANDS[trimmed] || null;
-}
 
 // ========================================
 // 唤醒词类型定义

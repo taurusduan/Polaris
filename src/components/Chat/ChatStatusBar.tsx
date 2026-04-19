@@ -138,6 +138,8 @@ export function ChatStatusBar({ children }: ChatStatusBarProps) {
 
   // 唤醒词配置
   const wakeWordConfig = config?.wakeWord as WakeWordConfig | undefined;
+  // 语音命令配置
+  const voiceCommands = config?.voiceCommands;
 
   // 语音识别 Hook
   const {
@@ -154,6 +156,7 @@ export function ChatStatusBar({ children }: ChatStatusBarProps) {
     onCommand: (command: VoiceCommand) => {
       setSpeechCommand(command);
     },
+    voiceCommands,
     wakeWordConfig: wakeWordConfig?.enabled ? wakeWordConfig : undefined,
     getWakeActive: () => useSessionStore.getState().speechWakeActive,
     setWakeActive: (active: boolean) => useSessionStore.getState().setSpeechWakeActive(active),
