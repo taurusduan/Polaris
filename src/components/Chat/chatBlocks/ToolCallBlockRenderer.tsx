@@ -6,10 +6,11 @@ import { memo, useState, useMemo, useCallback } from 'react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
-import { Check, XCircle, ChevronDown, ChevronRight, Code, FileDiff } from 'lucide-react';
+import { Check, XCircle, ChevronDown, ChevronRight, Code, FileDiff, Copy } from 'lucide-react';
 import type { ToolCallBlock } from '../../../types';
 import { getToolConfig, extractToolKeyInfo, getToolShortName } from '../../../utils/toolConfig';
-import { extractFullFilePath } from '../../../utils/toolInputExtractor';
+import { extractFullFilePath, extractFullCommand } from '../../../utils/toolInputExtractor';
+import { copyToClipboard } from '../../../utils/clipboard';
 import { useFileEditorStore } from '../../../stores/fileEditorStore';
 import { useWorkspaceStore } from '../../../stores/workspaceStore';
 import {
@@ -32,6 +33,8 @@ export const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block
   const [isExpanded, setIsExpanded] = useState(false);
   const [showFullOutput, setShowFullOutput] = useState(false);
   const [showToolDetails, setShowToolDetails] = useState(false);
+  const [copiedCommand, setCopiedCommand] = useState(false);
+  const [copiedOutput, setCopiedOutput] = useState(false);
 
   // 获取工具配置
   const toolConfig = useMemo(() => getToolConfig(block.name), [block.name]);
@@ -189,6 +192,33 @@ export const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block
     return block.output;
   }, [block.name, block.output]);
 
+  // 是否为 Bash/Command 类工具
+  const isBashTool = useMemo(() => {
+    const n = block.name.toLowerCase();
+    return n.includes('bash') || n.includes('command') || n.includes('execute');
+  }, [block.name]);
+
+  // 提取完整命令（用于复制，不截断）
+  const fullCommand = useMemo(() => extractFullCommand(block.input), [block.input]);
+
+  // 复制命令回调
+  const handleCopyCommand = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!fullCommand) return;
+    await copyToClipboard(fullCommand);
+    setCopiedCommand(true);
+    setTimeout(() => setCopiedCommand(false), 2000);
+  }, [fullCommand]);
+
+  // 复制输出回调（始终复制完整输出）
+  const handleCopyOutput = useCallback(async () => {
+    const text = block.output ? stripAnsiCodes(block.output) : '';
+    if (!text) return;
+    await copyToClipboard(text);
+    setCopiedOutput(true);
+    setTimeout(() => setCopiedOutput(false), 2000);
+  }, [block.output]);
+
   return (
     <div
       className={clsx(
@@ -201,7 +231,7 @@ export const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block
       {/* 统一头部 - 折叠和展开共用 */}
       <div
         className={clsx(
-          'flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-background-hover transition-colors',
+          'group flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-background-hover transition-colors',
           'border-l-2',
           toolConfig.borderColor
         )}
@@ -332,6 +362,29 @@ export const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
                 {todoData ? t('tool.taskList') : t('tool.inputParams')}
+                {isBashTool && fullCommand && (
+                  <button
+                    onClick={handleCopyCommand}
+                    className={clsx(
+                      'ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded text-xs transition-colors',
+                      copiedCommand
+                        ? 'text-success bg-success/10'
+                        : 'text-primary hover:text-primary-hover'
+                    )}
+                  >
+                    {copiedCommand ? (
+                      <>
+                        <Check className="w-3 h-3" />
+                        {t('tool.copied')}
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        {t('tool.copyCommand')}
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
               {todoData ? (
                 <TodoWriteInputRenderer data={todoData} />
@@ -368,14 +421,39 @@ export const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 {t('tool.outputResult')}
-                {outputNeedsExpand && !useCustomRenderer && (
-                  <button
-                    onClick={() => setShowFullOutput(!showFullOutput)}
-                    className="ml-auto text-primary hover:text-primary-hover text-xs"
-                  >
-                    {showFullOutput ? t('tool.collapse') : t('tool.expandAll')}
-                  </button>
-                )}
+                <div className="ml-auto flex items-center gap-1.5">
+                  {displayOutput && (
+                    <button
+                      onClick={handleCopyOutput}
+                      className={clsx(
+                        'flex items-center gap-1 px-1.5 py-0.5 rounded text-xs transition-colors',
+                        copiedOutput
+                          ? 'text-success bg-success/10'
+                          : 'text-primary hover:text-primary-hover'
+                      )}
+                    >
+                      {copiedOutput ? (
+                        <>
+                          <Check className="w-3 h-3" />
+                          {t('tool.copied')}
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          {t('tool.copyOutput')}
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {outputNeedsExpand && !useCustomRenderer && (
+                    <button
+                      onClick={() => setShowFullOutput(!showFullOutput)}
+                      className="text-primary hover:text-primary-hover text-xs"
+                    >
+                      {showFullOutput ? t('tool.collapse') : t('tool.expandAll')}
+                    </button>
+                  )}
+                </div>
               </div>
               {useCustomRenderer && grepData ? (
                 <GrepOutputRenderer data={grepData} />

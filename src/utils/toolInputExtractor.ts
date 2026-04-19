@@ -109,6 +109,32 @@ export function extractCommand(
 }
 
 /**
+ * 从工具输入中提取完整命令（不截断）
+ *
+ * 用于复制到剪贴板等需要完整内容的场景
+ *
+ * @param input - 工具输入参数对象
+ * @returns 完整命令字符串，如果未找到则返回空字符串
+ *
+ * @example
+ * extractFullCommand({ command: 'npm run build -- --production' })
+ * // => 'npm run build -- --production'
+ */
+export function extractFullCommand(
+  input: Record<string, unknown> | undefined
+): string {
+  if (!input) return '';
+  for (const key of COMMAND_KEYS) {
+    const value = input[key];
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') {
+      return value[0];
+    }
+  }
+  return '';
+}
+
+/**
  * 从工具输入中提取搜索关键词
  *
  * @param input - 工具输入参数对象

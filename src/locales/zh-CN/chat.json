@@ -104,7 +104,10 @@
     "copyPath": "复制路径",
     "toolDetails": "工具详情",
     "moreMatches": "...还有 {{count}} 个匹配项",
-    "viewInGitPanel": "在 Git 面板查看"
+    "viewInGitPanel": "在 Git 面板查看",
+    "copyCommand": "复制命令",
+    "copyOutput": "复制输出",
+    "copied": "已复制"
   },
   "thinking": {
     "title": "思考"

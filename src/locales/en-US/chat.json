@@ -104,7 +104,10 @@
     "copyPath": "Copy Path",
     "toolDetails": "Tool Details",
     "moreMatches": "...{{count}} more matches",
-    "viewInGitPanel": "View in Git Panel"
+    "viewInGitPanel": "View in Git Panel",
+    "copyCommand": "Copy command",
+    "copyOutput": "Copy output",
+    "copied": "Copied"
   },
   "thinking": {
     "title": "Thinking"

@@ -9,27 +9,12 @@ import { useTranslation } from 'react-i18next';
 import { type ToolChatMessage } from '../../types';
 import { formatDuration } from '../../utils/toolSummary';
 import { getToolStatusIcon, getToolStatusColor } from '../../utils/toolStatusHelpers';
+import { copyToClipboard } from '../../utils/clipboard';
 import { IconChevronRight, IconCopy } from '../Common/Icons';
 import { clsx } from 'clsx';
 
 interface ToolBubbleProps {
   message: ToolChatMessage;
-}
-
-/** 复制到剪贴板 */
-async function copyToClipboard(text: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-  }
 }
 
 /** 格式化输入输出显示 */
